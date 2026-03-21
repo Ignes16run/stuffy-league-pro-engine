@@ -16,16 +16,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function PlayoffBracket() {
-  const { teams, games, playoffGames, setPlayoffGames, completeSeason, handlePick } = useLeague();
+  const { teams, games, playoffGames, setPlayoffGames, completeSeason, handlePick, isLoaded, syncPlayoffGames } = useLeague();
   const standings = useMemo(() => calculateStandings(teams, games), [teams, games]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [activeRound, setActiveRound] = useState(0); // For highlight during sim
 
   useEffect(() => {
-    if (standings.length >= 4 && playoffGames.length === 0) {
+    if (isLoaded && standings.length >= 4 && playoffGames.length === 0) {
       refreshSeeding();
     }
-  }, [standings.length, playoffGames.length]);
+  }, [isLoaded, standings.length, playoffGames.length]);
 
   const refreshSeeding = () => {
     const size = standings.length >= 8 ? 8 : 4;
@@ -56,6 +56,7 @@ export default function PlayoffBracket() {
     }
 
     setPlayoffGames(initialGames);
+    syncPlayoffGames(initialGames);
   };
 
   const simulatePlayoffs = async () => {
@@ -64,6 +65,7 @@ export default function PlayoffBracket() {
     
     // We'll update the context state iteratively
     const maxR = Math.max(...playoffGames.map(g => g.round), 1);
+    let finalBracket: PlayoffGame[] = [];
 
     for (let r = 1; r <= maxR; r++) {
       setActiveRound(r);
@@ -108,6 +110,7 @@ export default function PlayoffBracket() {
               }
             }
           }
+          finalBracket = bracket;
           resolve(); // Resolve promise after setter returns
           return bracket;
         });
@@ -118,6 +121,11 @@ export default function PlayoffBracket() {
       }
     }
     
+    // Batch sync results to Supabase
+    if (finalBracket.length > 0) {
+      await syncPlayoffGames(finalBracket);
+    }
+
     setActiveRound(0);
     setIsSimulating(false);
   };
