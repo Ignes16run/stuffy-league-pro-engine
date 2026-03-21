@@ -302,20 +302,53 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
 
       {!isEditing && (
         <div className="mt-6 p-4 rounded-2xl bg-stone-50/50 border border-stone-50 flex items-center justify-between">
-          <div className="text-center flex-1">
-            <p className="text-[8px] font-black text-stone-400 uppercase mb-1">TDs</p>
-            <p className="text-sm font-black text-stone-900">{player.stats.touchdowns}</p>
-          </div>
-          <div className="w-px h-6 bg-stone-100" />
-          <div className="text-center flex-1">
-            <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Yds</p>
-            <p className="text-sm font-black text-stone-900">{player.stats.yards}</p>
-          </div>
-          <div className="w-px h-6 bg-stone-100" />
-          <div className="text-center flex-1">
-            <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Tkl</p>
-            <p className="text-sm font-black text-stone-900">{player.stats.tackles}</p>
-          </div>
+          {['QB', 'RB', 'WR', 'TE'].includes(player.position) ? (
+            <>
+              <div className="text-center flex-1">
+                <p className="text-[8px] font-black text-stone-400 uppercase mb-1">TDs</p>
+                <p className="text-sm font-black text-stone-900">{player.stats.touchdowns}</p>
+              </div>
+              <div className="w-px h-6 bg-stone-100" />
+              <div className="text-center flex-1">
+                <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Yds</p>
+                <p className="text-sm font-black text-stone-900">{player.stats.yards}</p>
+              </div>
+              <div className="w-px h-6 bg-stone-100" />
+              <div className="text-center flex-1">
+                <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Pts</p>
+                <p className="text-sm font-black text-stone-900">{player.stats.points}</p>
+              </div>
+            </>
+          ) : ['DL', 'LB', 'DB'].includes(player.position) ? (
+            <>
+              <div className="text-center flex-1">
+                <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Tkl</p>
+                <p className="text-sm font-black text-stone-900">{player.stats.tackles}</p>
+              </div>
+              <div className="w-px h-6 bg-stone-100" />
+              <div className="text-center flex-1">
+                <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Int</p>
+                <p className="text-sm font-black text-stone-900">{player.stats.interceptions}</p>
+              </div>
+              <div className="w-px h-6 bg-stone-100" />
+              <div className="text-center flex-1">
+                <p className="text-[8px] font-black text-stone-400 uppercase mb-1">GP</p>
+                <p className="text-sm font-black text-stone-900">{player.stats.gamesPlayed}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-center flex-1">
+                <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Pts</p>
+                <p className="text-sm font-black text-stone-900">{player.stats.points}</p>
+              </div>
+              <div className="w-px h-6 bg-stone-100" />
+              <div className="text-center flex-1">
+                <p className="text-[8px] font-black text-stone-400 uppercase mb-1">GP</p>
+                <p className="text-sm font-black text-stone-900">{player.stats.gamesPlayed}</p>
+              </div>
+            </>
+          )}
         </div>
       )}
     </motion.div>

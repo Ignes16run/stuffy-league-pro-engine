@@ -175,37 +175,78 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       const teamPlayers = nextPlayers.filter(p => p.teamId === teamId);
       if (teamPlayers.length === 0) return;
 
-      teamPlayers.forEach(p => { p.stats.gamesPlayed = (p.stats.gamesPlayed || 0) + 1; });
+      // 0. Cleanup Step: Ensure players don't have irrelevant stats from legacy logic
+      teamPlayers.forEach(p => {
+        p.stats.gamesPlayed = (p.stats.gamesPlayed || 0) + 1;
+        
+        const isOffense = ['QB', 'RB', 'WR', 'TE', 'OL', 'K'].includes(p.position);
+        const isDefense = ['DL', 'LB', 'DB'].includes(p.position);
+        
+        if (isOffense && p.position !== 'QB') { // Keep QB tackles at 0 but don't force if they had them? No, force 0.
+          p.stats.tackles = 0;
+          p.stats.interceptions = 0;
+        }
+        if (isDefense) {
+          p.stats.yards = 0;
+          p.stats.touchdowns = 0;
+          p.stats.points = 0;
+        }
+      });
 
       const qb = teamPlayers.find(p => p.position === 'QB');
       const skillPlayers = teamPlayers.filter(p => ['RB', 'WR', 'TE'].includes(p.position));
       const k = teamPlayers.find(p => p.position === 'K');
+      
+      const dLines = teamPlayers.filter(p => p.position === 'DL');
+      const lBackers = teamPlayers.filter(p => p.position === 'LB');
+      const dBacks = teamPlayers.filter(p => p.position === 'DB');
 
+      // 1. Offense: Touchdowns & Points
       const tds = Math.floor(score / 7);
-      for (let i = 0; i < tds; i++) {
-        const target = skillPlayers[Math.floor(Math.random() * skillPlayers.length)];
-        if (target) {
-          target.stats.touchdowns = (target.stats.touchdowns || 0) + 1;
-          target.stats.points = (target.stats.points || 0) + 6;
+      if (tds > 0) {
+        for (let i = 0; i < tds; i++) {
+          const target = skillPlayers[Math.floor(Math.random() * skillPlayers.length)];
+          if (target) {
+            target.stats.touchdowns = (target.stats.touchdowns || 0) + 1;
+            target.stats.points = (target.stats.points || 0) + 6;
+          }
+        }
+        
+        if (qb) {
+          qb.stats.touchdowns = (qb.stats.touchdowns || 0) + tds;
         }
       }
       
-      const teamYards = score * 15 + Math.floor(Math.random() * 100) + 50;
-      if (qb) qb.stats.yards = (qb.stats.yards || 0) + Math.floor(teamYards * 0.8);
+      // 2. Yards Calculation (Position-Specific)
+      const teamYards = Math.min(score * 15 + Math.floor(Math.random() * 80) + 40, 650);
+      
+      if (qb) {
+        const qbGameYards = Math.min(Math.floor(teamYards * 0.85), 450);
+        qb.stats.yards = (qb.stats.yards || 0) + qbGameYards;
+      }
       
       let remainingYards = teamYards;
       skillPlayers.forEach((p, idx) => {
         const share = idx === skillPlayers.length - 1 ? remainingYards : Math.floor(Math.random() * (remainingYards / (skillPlayers.length - idx)));
-        p.stats.yards = (p.stats.yards || 0) + share;
+        const clampedShare = Math.min(share, 250); 
+        p.stats.yards = (p.stats.yards || 0) + clampedShare;
         remainingYards -= share;
       });
 
-      const defense = teamPlayers.filter(p => ['DL', 'LB', 'DB'].includes(p.position));
-      defense.forEach(p => {
-        p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 8) + 1;
-        if (Math.random() < 0.1) p.stats.interceptions = (p.stats.interceptions || 0) + 1;
+      // 3. Defense: Position-specific behavior
+      dLines.forEach(p => {
+        p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 4) + 1;
+      });
+      lBackers.forEach(p => {
+        p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 10) + 3;
+        if (Math.random() < 0.05) p.stats.interceptions = (p.stats.interceptions || 0) + 1;
+      });
+      dBacks.forEach(p => {
+        p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 6) + 2;
+        if (Math.random() < 0.12) p.stats.interceptions = (p.stats.interceptions || 0) + 1;
       });
 
+      // 4. Kicker: Points
       if (k) {
         const fgs = Math.floor((score % 7) / 3);
         k.stats.points = (k.stats.points || 0) + (fgs * 3) + tds; 
