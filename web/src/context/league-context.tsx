@@ -274,8 +274,35 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const handlePick = (gameId: string, winnerId: string | 'tie') => {
     const isTie = winnerId === 'tie';
     if (gameId.startsWith('p-')) {
-      // Playoff logic (simplified)
-      setPlayoffGames(prev => prev.map(g => g.id === gameId ? { ...g, winnerId: g.winnerId === winnerId ? undefined : winnerId } : g));
+      setPlayoffGames(prev => {
+        const game = prev.find(g => g.id === gameId);
+        if (!game) return prev;
+        
+        const isDeselecting = game.winnerId === winnerId;
+        const finalWinnerId = isDeselecting ? undefined : (winnerId as string);
+        
+        // Update current game
+        const next = prev.map(g => g.id === gameId ? { ...g, winnerId: finalWinnerId } : g);
+        
+        // Propagate to next round
+        const [, roundStr, matchupIdxStr] = gameId.split('-');
+        const round = parseInt(roundStr);
+        const matchupIdx = parseInt(matchupIdxStr);
+        const nextRoundNum = round + 1;
+        const nextMatchupIdx = Math.floor(matchupIdx / 2);
+        const nextGameId = `p-${nextRoundNum}-${nextMatchupIdx}`;
+        const isTeam1 = matchupIdx % 2 === 0;
+
+        return next.map(g => {
+          if (g.id === nextGameId) {
+            return {
+              ...g,
+              [isTeam1 ? 'team1Id' : 'team2Id']: finalWinnerId
+            };
+          }
+          return g;
+        });
+      });
       return;
     }
 

@@ -1,4 +1,5 @@
 "use client";
+// Last Updated: 2026-03-21T17:35:00-04:00
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -119,7 +120,7 @@ export default function PlayoffBracket() {
   const rounds = Array.from(new Set(playoffGames.map(g => g.round))).sort();
 
   return (
-    <div className="space-y-12 max-w-6xl mx-auto pb-12">
+    <div className="space-y-8 max-w-6xl mx-auto pb-12">
       <Card className="rounded-[2.5rem] border border-stone-100 shadow-xl overflow-hidden p-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div>
@@ -143,15 +144,15 @@ export default function PlayoffBracket() {
       </Card>
 
       <div className="overflow-x-auto pb-8">
-        <div className="flex justify-between gap-10 min-w-max px-2">
+        <div className="flex justify-between gap-6 min-w-max px-2">
           {rounds.map(round => (
-            <div key={round} className="w-72 space-y-6">
+            <div key={round} className="w-64 space-y-4">
                <div className="text-center">
                   <span className="text-[10px] font-black text-stone-400 uppercase tracking-[0.3em]">
                     {round === 1 ? 'Quarter-Finals' : round === 2 ? 'Semi-Finals' : 'Championship'}
                   </span>
                </div>
-               <div className="flex flex-col h-full justify-around gap-12 pt-4">
+               <div className="flex flex-col h-full justify-around gap-4 pt-4">
                   {playoffGames.filter(g => g.round === round).map(game => (
                     <PlayoffMatchup key={game.id} game={game} />
                   ))}
@@ -161,15 +162,15 @@ export default function PlayoffBracket() {
 
           {/* Champion Display */}
           {playoffGames.find(g => g.round === Math.max(...rounds))?.winnerId && (
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center justify-center text-center p-12 bg-white rounded-[3rem] border-2 border-dashed border-stone-100 min-w-[320px]">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center justify-center text-center p-8 bg-white rounded-[3rem] border-2 border-dashed border-stone-100 min-w-[280px]">
                <div className="relative mb-6">
-                  <div className="w-24 h-24 bg-yellow-400 rounded-full flex items-center justify-center shadow-2xl shadow-yellow-400/50">
-                     <Trophy className="w-12 h-12 text-white" />
+                  <div className="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center shadow-2xl shadow-yellow-400/50">
+                     <Trophy className="w-10 h-10 text-white" />
                   </div>
                   <motion.div animate={{ scale: [1, 1.3, 1], opacity: [0.1, 0.4, 0.1] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute inset-0 bg-yellow-400 rounded-full -z-10 blur-2xl" />
                </div>
                <p className="text-[10px] uppercase font-black tracking-[0.4em] text-yellow-600 mb-2">Champion</p>
-               <h2 className="text-3xl font-black text-stone-900 mb-6">
+               <h2 className="text-2xl font-black text-stone-900 mb-6">
                   {teams.find(t => t.id === playoffGames.find(g => g.round === Math.max(...rounds))?.winnerId)?.name || 'Winner'}
                </h2>
                <Button 
@@ -179,7 +180,7 @@ export default function PlayoffBracket() {
                  }}
                  className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/20"
                >
-                 Complete Season & Archive
+                 Complete Season
                </Button>
             </motion.div>
           )}
@@ -203,26 +204,26 @@ function PlayoffMatchup({ game }: { game: PlayoffGame }) {
              key={idx} 
              onClick={() => team && handlePick(game.id, team.id)} 
              className={cn(
-               "w-full flex items-center justify-between p-4 transition-all border-l-4",
+               "w-full flex items-center justify-between p-3 transition-all border-l-4",
                game.winnerId === team?.id ? "border-emerald-500 bg-emerald-50/20" : "border-transparent hover:bg-stone-50"
              )}
            >
              <div className="flex items-center gap-3">
                <div 
-                 className="w-10 h-10 rounded-xl flex items-center justify-center border-2 shadow-sm text-white overflow-hidden"
+                 className="w-8 h-8 rounded-lg flex items-center justify-center border-2 shadow-sm text-white overflow-hidden"
                  style={{ backgroundColor: team?.primaryColor || '#f9fafb', borderColor: team?.secondaryColor || '#f3f4f6' }}
                >
                  {team?.logoUrl ? (
                    <img src={team.logoUrl} className="w-full h-full object-cover" alt={team.name} />
                  ) : team && TeamIcon ? (
-                   <TeamIcon className="w-5 h-5" />
+                   <TeamIcon className="w-4 h-4" />
                  ) : (
-                   <span className="text-stone-300 font-bold">?</span>
+                   <span className="text-stone-300 font-bold text-xs">?</span>
                  )}
                </div>
                <div className="text-left">
-                  <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">Seed {idx === 0 ? game.seed1 : game.seed2}</p>
-                  <span className={cn("font-black text-sm", team ? "text-stone-900" : "text-stone-300 italic")}>{team?.name || 'TBD'}</span>
+                  <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">Seed {idx === 0 ? game.seed1 : game.seed2}</p>
+                  <span className={cn("font-black text-xs", team ? "text-stone-900" : "text-stone-300 italic")}>{team?.name || 'TBD'}</span>
                </div>
              </div>
              {game.winnerId && team && game.winnerId === team.id && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
