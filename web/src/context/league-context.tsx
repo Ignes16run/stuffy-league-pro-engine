@@ -1,4 +1,5 @@
-// Last Updated: 2026-03-21T15:25:00-04:00
+"use client";
+// Last Updated: 2026-03-21T15:40:00-04:00
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';

@@ -1,6 +1,7 @@
-// Last Updated: 2026-03-21T13:45:00-04:00
+// Last Updated: 2026-03-21T15:42:00-04:00
 import { Player, PlayerPosition, PlayerAbility } from './types';
-import { v4 as uuidv4 } from 'uuid';
+
+// Use native crypto.randomUUID() for ID generation to avoid external dependencies
 
 const FIRST_NAMES = [
   "Buster", "Bubbles", "Cuddles", "Duffy", "Fluffy", "Gizmo", "Hugs", "Jiggles",
@@ -55,7 +56,7 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
   const baseRating = 70 + Math.floor(Math.random() * 20); // 70-90 initial
   
   return {
-    id: uuidv4(),
+    id: crypto.randomUUID(),
     teamId,
     name: `${firstName} ${lastName}`,
     position,
