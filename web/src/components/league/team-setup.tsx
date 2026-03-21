@@ -128,7 +128,7 @@ export default function TeamSetup() {
         {isBulkNamesOpen && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-100 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4"
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
@@ -145,6 +145,59 @@ export default function TeamSetup() {
               <div className="flex gap-3 mt-6">
                 <Button variant="ghost" onClick={() => setIsBulkNamesOpen(false)} className="flex-1 h-12 rounded-xl">Cancel</Button>
                 <Button onClick={handleBulkAdd} className="flex-1 h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest text-[10px]">Deploy Roster</Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {isBulkStatsOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-100 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl border border-stone-100 max-h-[80vh] overflow-hidden flex flex-col"
+            >
+              <div className="p-8 pb-4">
+                <h3 className="text-xl font-black text-stone-900 uppercase tracking-widest mb-2">Bulk Stat Modifier</h3>
+                <p className="text-sm text-stone-500 font-medium">Fine-tune your entire league's power balance in real-time.</p>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto px-8 py-4 space-y-4">
+                {teams.map(team => (
+                  <div key={team.id} className="grid grid-cols-4 gap-4 items-center bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                    <span className="font-black text-stone-900 text-xs truncate">{team.name}</span>
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-black uppercase text-stone-400">OFF</p>
+                      <input 
+                        type="number" value={team.offenseRating} 
+                        onChange={(e) => updateTeam(team.id, { offenseRating: parseInt(e.target.value) || 0 })}
+                        className="w-full bg-transparent font-bold text-stone-600 text-sm outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-black uppercase text-stone-400">DEF</p>
+                      <input 
+                        type="number" value={team.defenseRating} 
+                        onChange={(e) => updateTeam(team.id, { defenseRating: parseInt(e.target.value) || 0 })}
+                        className="w-full bg-transparent font-bold text-stone-600 text-sm outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-black uppercase text-stone-400">SPC</p>
+                      <input 
+                        type="number" value={team.specialTeamsRating} 
+                        onChange={(e) => updateTeam(team.id, { specialTeamsRating: parseInt(e.target.value) || 0 })}
+                        className="w-full bg-transparent font-bold text-stone-600 text-sm outline-none"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-8 pt-4">
+                <Button onClick={() => setIsBulkStatsOpen(false)} className="w-full h-14 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px]">Save & Finalize</Button>
               </div>
             </motion.div>
           </motion.div>
