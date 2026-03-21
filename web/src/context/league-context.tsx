@@ -330,10 +330,43 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setActiveTab('history');
   };
 
+  const resetPredictions = () => {
+    setGames(games.map(g => ({ ...g, winnerId: undefined, isTie: false, homeScore: undefined, awayScore: undefined })));
+    setPlayoffGames([]);
+  };
+
+  const resetLeague = () => {
+    setTeams(DEFAULT_LEAGUE_TEAMS);
+    setGames([]);
+    setPlayoffGames([]);
+    setPlayers([]);
+    setHistory([]);
+    setActiveTab('setup');
+  };
+
+  const upgradeStat = (teamId: string, stat: 'offenseRating' | 'defenseRating' | 'specialTeamsRating') => {
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return;
+    const cost = 50;
+    const currentVal = team[stat] || 75;
+    if ((team.stuffyPoints || 0) < cost || currentVal >= 99) return;
+    updateTeam(teamId, { 
+       [stat]: currentVal + 1,
+       stuffyPoints: (team.stuffyPoints || 0) - cost
+    });
+  };
+
+  const updateOverallRating = (teamId: string) => {
+    const teamPlayers = players.filter(p => p.teamId === teamId);
+    if (teamPlayers.length === 0) return;
+    const avgRating = teamPlayers.reduce((acc, p) => acc + p.rating, 0) / teamPlayers.length;
+    updateTeam(teamId, { overallRating: Math.round(avgRating) });
+  };
+
   const value = {
     teams, setTeams, games, setGames, playoffGames, setPlayoffGames, history, numWeeks, setNumWeeks,
     players, setPlayers, updatePlayer, addTeam, updateTeam, removeTeam, simulateSeason, handlePick,
-    resetLeague, resetPredictions, completeSeason, upgradeStat: () => {}, updateOverallRating: () => {},
+    resetLeague, resetPredictions, completeSeason, upgradeStat, updateOverallRating,
     activeTab, setActiveTab: setActiveTab as any, isSimulating, allocatePlayerStats, user
   };
 
