@@ -67,12 +67,12 @@ function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: strin
                <div key={team.id} className="p-6 flex items-center justify-between group hover:bg-stone-50/50 transition-colors">
                   <div className="flex items-center gap-4">
                      <span className="text-xs font-black text-stone-300 w-4">{idx + 1}</span>
-                     <div 
-                        className="w-12 h-12 rounded-xl flex items-center justify-center border-2 shadow-sm text-white"
-                        style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
-                      >
-                         {team.logoUrl ? <img src={team.logoUrl} className="w-full h-full object-cover" /> : React.createElement(STUFFY_ICONS[team.icon], { className: "w-6 h-6" })}
-                      </div>
+                       <div 
+                          className="w-12 h-12 rounded-xl flex items-center justify-center border-2 shadow-sm text-white"
+                          style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
+                        >
+                           {team.logoUrl ? <img src={team.logoUrl} className="w-full h-full object-cover" /> : React.createElement(STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS], { className: "w-6 h-6" })}
+                        </div>
                       <div className="text-left">
                          <h4 className="font-black text-stone-900 text-sm leading-tight truncate uppercase tracking-tighter">{team.name}</h4>
                          <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Current Class</p>
@@ -92,7 +92,7 @@ function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: strin
 function SeasonEntry({ entry }: { entry: any }) {
   const { teams } = useLeague();
   const champion = teams.find(t => t.id === entry.championId);
-  const IconComp = champion ? STUFFY_ICONS[champion.icon] : null;
+  const IconComp = champion ? STUFFY_ICONS[champion.icon as keyof typeof STUFFY_ICONS] : null;
 
   return (
     <Card className="rounded-[2rem] border border-stone-100 p-8 space-y-6 hover:shadow-xl hover:-translate-y-1 transition-all">
