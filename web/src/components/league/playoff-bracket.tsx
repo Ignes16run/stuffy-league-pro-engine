@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function PlayoffBracket() {
-  const { teams, games, playoffGames, setPlayoffGames, completeSeason, handlePick } = useLeague();
+  const { teams, games, playoffGames, setPlayoffGames, completeSeason } = useLeague();
   const standings = useMemo(() => calculateStandings(teams, games), [teams, games]);
   const [isSimulating, setIsSimulating] = useState(false);
 
@@ -54,33 +54,47 @@ export default function PlayoffBracket() {
 
   const simulatePlayoffs = async () => {
     setIsSimulating(true);
-    const rounds = Math.max(...playoffGames.map(g => g.round));
+    const currentBracket = [...playoffGames];
+    const rounds = Math.max(...currentBracket.map(g => g.round), 0);
     
     for (let r = 1; r <= rounds; r++) {
-      const roundGames = playoffGames.filter(g => g.round === r);
-      for (const game of roundGames) {
-        let currentGame = game;
-        // Re-read latest state to get updated team IDs from previous round
-        // In this modular world, we'll access it through state.
-        if (!currentGame.team1Id || !currentGame.team2Id) {
-           // We might need to wait for state to update or use a more robust simulation approach
-           // For now, assume it's correctly propagated or re-fetch.
-        }
+      const roundGames = currentBracket.filter(g => g.round === r);
+      let roundFinished = false;
 
-        if (currentGame.team1Id && currentGame.team2Id && !currentGame.winnerId) {
-          const team1 = teams.find(t => t.id === currentGame.team1Id);
-          const team2 = teams.find(t => t.id === currentGame.team2Id);
+      for (const game of roundGames) {
+        if (game.team1Id && game.team2Id && !game.winnerId) {
+          const team1 = teams.find(t => t.id === game.team1Id);
+          const team2 = teams.find(t => t.id === game.team2Id);
           
           if (team1 && team2) {
-             const t1Power = (team1.offenseRating || 75) + (team1.defenseRating || 75);
-             const t2Power = (team2.offenseRating || 75) + (team2.defenseRating || 75);
-             const seedBoost = (currentGame.seed1 || 0) < (currentGame.seed2 || 0) ? 10 : 0;
-             const winnerId = Math.random() * (t1Power + t2Power + seedBoost) < (t1Power + seedBoost) ? currentGame.team1Id! : currentGame.team2Id!;
-             
-             handlePick(currentGame.id, winnerId, false);
-             await new Promise(resolve => setTimeout(resolve, 400));
+            const t1Power = (team1.offenseRating || 75) + (team1.defenseRating || 75);
+            const t2Power = (team2.offenseRating || 75) + (team2.defenseRating || 75);
+            const seedBoost = (game.seed1 || 0) < (game.seed2 || 0) ? 10 : 0;
+            const winnerId = Math.random() * (t1Power + t2Power + seedBoost) < (t1Power + seedBoost) ? game.team1Id! : game.team2Id!;
+            
+            // Apply winner to current game
+            game.winnerId = winnerId;
+            roundFinished = true;
+
+            // Propagate to next round in our local simulation state
+            const [, , matchupIdx] = game.id.split('-');
+            const nextRoundNum = r + 1;
+            const nextMatchupIdx = Math.floor(parseInt(matchupIdx) / 2);
+            const nextGameId = `p-${nextRoundNum}-${nextMatchupIdx}`;
+            const isTeam1 = parseInt(matchupIdx) % 2 === 0;
+
+            const nextGame = currentBracket.find(pg => pg.id === nextGameId);
+            if (nextGame) {
+              if (isTeam1) nextGame.team1Id = winnerId;
+              else nextGame.team2Id = winnerId;
+            }
           }
         }
+      }
+
+      if (roundFinished) {
+        setPlayoffGames([...currentBracket]);
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
     }
     setIsSimulating(false);
