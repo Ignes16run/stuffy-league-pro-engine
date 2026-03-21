@@ -12,16 +12,16 @@ import { generateTeamRoster } from '@/lib/league/players';
 
 interface LeagueContextType {
   teams: Team[];
-  setTeams: (teams: Team[]) => void;
+  setTeams: (teams: Team[] | ((prev: Team[]) => Team[])) => void;
   games: Game[];
-  setGames: (games: Game[]) => void;
+  setGames: (games: Game[] | ((prev: Game[]) => Game[])) => void;
   playoffGames: PlayoffGame[];
-  setPlayoffGames: (games: PlayoffGame[]) => void;
+  setPlayoffGames: (games: PlayoffGame[] | ((prev: PlayoffGame[]) => PlayoffGame[])) => void;
   history: SeasonHistory[];
   numWeeks: number;
-  setNumWeeks: (weeks: number) => void;
+  setNumWeeks: (weeks: number | ((prev: number) => number)) => void;
   players: Player[];
-  setPlayers: (players: Player[]) => void;
+  setPlayers: (players: Player[] | ((prev: Player[]) => Player[])) => void;
   updatePlayer: (id: string, player: Partial<Player>) => void;
   
   // Actions

@@ -71,7 +71,7 @@ export default function PlayoffBracket() {
 
       // Use a functional update to get the latest state each time
       await new Promise<void>(resolve => {
-        setPlayoffGames(prev => {
+        setPlayoffGames((prev: PlayoffGame[]) => {
           const bracket = prev.map(g => ({ ...g }));
           const roundGames = bracket.filter(g => g.round === r);
           
