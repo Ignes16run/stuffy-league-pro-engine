@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-21T15:40:00-04:00
+// Last Updated: 2026-03-21T16:20:00-04:00
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
@@ -36,10 +36,10 @@ interface LeagueContextType {
   upgradeStat: (teamId: string, stat: 'offenseRating' | 'defenseRating' | 'specialTeamsRating') => void;
   updateOverallRating: (teamId: string) => void;
   
-  // UI Helpers
   activeTab: string;
   setActiveTab: (tab: 'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history' | 'players') => void;
   isSimulating: boolean;
+  allocatePlayerStats: (gameId: string, team1Id: string, team2Id: string, team1Score: number, team2Score: number) => void;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -222,6 +222,25 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           };
         }
       }));
+
+      const game = games.find(g => g.id === gameId);
+      if (game) {
+        // Capture the scores that will be set
+        const isDeselecting = isTie ? game.isTie : game.winnerId === winnerId;
+        if (!isDeselecting) {
+           let hScore, aScore;
+           if (isTie) {
+             hScore = aScore = Math.floor(Math.random() * 21) + 7;
+           } else {
+             const wScore = Math.floor(Math.random() * 21) + 14;
+             const lScore = Math.floor(Math.random() * (wScore - 7)) + 3;
+             const isHomeWinner = winnerId === game.homeTeamId;
+             hScore = isHomeWinner ? wScore : lScore;
+             aScore = isHomeWinner ? lScore : wScore;
+           }
+           allocatePlayerStats(gameId, game.homeTeamId, game.awayTeamId, hScore, aScore);
+        }
+      }
     }
     
     if (!isTie && shouldCheer) {
@@ -252,25 +271,35 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         const homeWinProb = (homeRating + homeAdvantage) / totalRating;
         
         const roll = Math.random();
+        let gameResult;
         if (roll < 0.05) {
           const score = Math.floor(Math.random() * 21) + 7;
-          newGames[gameIdx] = { ...game, winnerId: undefined, isTie: true, homeScore: score, awayScore: score };
+          gameResult = { winnerId: undefined, isTie: true, homeScore: score, awayScore: score };
         } else {
           const winnerId = roll < homeWinProb ? game.homeTeamId : game.awayTeamId;
           const winnerRating = winnerId === game.homeTeamId ? homeRating : awayRating;
           
-          // Scores based on ratings
           const winnerScore = Math.floor(Math.random() * 21) + 14 + (winnerRating / 10);
-          const loserScore = Math.floor(Math.random() * (winnerScore - 3)) + 3;
+          const loserScore = Math.max(0, Math.floor(Math.random() * (winnerScore - 3)) + 3);
           
-          newGames[gameIdx] = { 
-            ...game, 
+          gameResult = { 
             winnerId, 
             isTie: false, 
             homeScore: Math.floor(winnerId === game.homeTeamId ? winnerScore : loserScore),
             awayScore: Math.floor(winnerId === game.awayTeamId ? winnerScore : loserScore)
           };
         }
+
+        newGames[gameIdx] = { ...game, ...gameResult };
+        
+        // Allocate player stats immediately for this game
+        allocatePlayerStats(
+          game.id, 
+          game.homeTeamId, 
+          game.awayTeamId, 
+          newGames[gameIdx].homeScore!, 
+          newGames[gameIdx].awayScore!
+        );
       }
 
       if (i % 5 === 0) {
@@ -349,6 +378,66 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setActiveTab('setup');
   };
 
+  const allocatePlayerStats = (gameId: string, team1Id: string, team2Id: string, team1Score: number, team2Score: number) => {
+    setPlayers(prevPlayers => {
+      const nextPlayers = prevPlayers.map(p => ({ ...p, stats: { ...p.stats } }));
+      
+      const updateTeamStats = (teamId: string, score: number, opponentScore: number) => {
+        const teamPlayers = nextPlayers.filter(p => p.teamId === teamId);
+        if (teamPlayers.length === 0) return;
+
+        // 1. Basic game participation
+        teamPlayers.forEach(p => {
+          p.stats.gamesPlayed = (p.stats.gamesPlayed || 0) + 1;
+        });
+
+        // 2. Offense allocation
+        const qb = teamPlayers.find(p => p.position === 'QB');
+        const skillPlayers = teamPlayers.filter(p => ['RB', 'WR', 'TE'].includes(p.position));
+        const k = teamPlayers.find(p => p.position === 'K');
+
+        // Touchdowns (approx 1 per 7 points)
+        const tds = Math.floor(score / 7);
+        for (let i = 0; i < tds; i++) {
+          const target = skillPlayers[Math.floor(Math.random() * skillPlayers.length)];
+          if (target) {
+            target.stats.touchdowns = (target.stats.touchdowns || 0) + 1;
+            target.stats.points = (target.stats.points || 0) + 6;
+          }
+        }
+        
+        // Yards (approx 10 per point)
+        const teamYards = score * 10 + Math.floor(Math.random() * 40);
+        if (qb) qb.stats.yards = (qb.stats.yards || 0) + Math.floor(teamYards * 0.8);
+        
+        let remainingYards = teamYards;
+        skillPlayers.forEach((p, idx) => {
+          const share = idx === skillPlayers.length - 1 ? remainingYards : Math.floor(Math.random() * (remainingYards / (skillPlayers.length - idx)));
+          p.stats.yards = (p.stats.yards || 0) + share;
+          remainingYards -= share;
+        });
+
+        // 3. Defense allocation
+        const defense = teamPlayers.filter(p => ['DL', 'LB', 'DB'].includes(p.position));
+        defense.forEach(p => {
+          p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 6);
+          if (Math.random() < 0.1) p.stats.interceptions = (p.stats.interceptions || 0) + 1;
+        });
+
+        // 4. Kicker
+        if (k) {
+          const fgs = Math.floor((score % 7) / 3);
+          k.stats.points = (k.stats.points || 0) + (fgs * 3) + tds; // FGs + XPs
+        }
+      };
+
+      updateTeamStats(team1Id, team1Score, team2Score);
+      updateTeamStats(team2Id, team2Score, team1Score);
+
+      return nextPlayers;
+    });
+  };
+
   const upgradeStat = (teamId: string, stat: 'offenseRating' | 'defenseRating' | 'specialTeamsRating') => {
     const team = teams.find(t => t.id === teamId);
     if (!team) return;
@@ -389,7 +478,8 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     updateOverallRating,
     activeTab,
     setActiveTab,
-    isSimulating
+    isSimulating,
+    allocatePlayerStats
   };
 
   return <LeagueContext.Provider value={value}>{children}</LeagueContext.Provider>;

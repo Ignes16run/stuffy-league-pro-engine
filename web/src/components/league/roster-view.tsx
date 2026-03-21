@@ -134,8 +134,19 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
   onCancel: () => void, 
   onUpdate: (updates: Partial<Player>) => void 
 }) {
-  const [editName, setEditName] = useState(player.name);
-  const [editRating, setEditRating] = useState(player.rating);
+  const [editData, setEditData] = useState({
+    name: player.name,
+    rating: player.rating,
+    profilePicture: player.profilePicture || "",
+    abilities: [...player.abilities]
+  });
+
+  const handleAbilityChange = (idx: number, val: string) => {
+    const newVal = Math.min(99, Math.max(0, parseInt(val) || 0));
+    const nextAbilities = [...editData.abilities];
+    nextAbilities[idx] = { ...nextAbilities[idx], value: newVal };
+    setEditData({ ...editData, abilities: nextAbilities });
+  };
 
   return (
     <motion.div
@@ -148,21 +159,35 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
         <div className="flex items-center gap-4">
           <div className="relative">
             <div 
-              className="w-16 h-16 rounded-[1.25rem] flex items-center justify-center text-white shadow-lg border-2"
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-lg border-2"
               style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
             >
+              {isEditing ? (
+                <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
+                  <Camera className="w-6 h-6 text-white" />
+                </div>
+              ) : null}
               {player.profilePicture ? (
-                <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover rounded-[1rem]" />
+                <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover rounded-xl" />
               ) : (
                 <Users className="w-8 h-8 opacity-40" />
               )}
             </div>
-            <Badge className="absolute -bottom-2 -right-2 h-7 min-w-[28px] rounded-lg bg-stone-900 border-2 border-white px-1.5 flex items-center justify-center pointer-events-none">
-              <span className="text-[10px] font-black">{player.rating}</span>
-            </Badge>
+            {isEditing ? (
+              <Input 
+                value={editData.rating}
+                type="number"
+                onChange={(e) => setEditData({ ...editData, rating: parseInt(e.target.value) || 0 })}
+                className="absolute -bottom-2 -right-2 h-7 w-12 rounded-lg bg-stone-900 border-2 border-white px-1 text-[10px] font-black text-white text-center"
+              />
+            ) : (
+              <Badge className="absolute -bottom-2 -right-2 h-7 min-w-[28px] rounded-lg bg-stone-900 border-2 border-white px-1.5 flex items-center justify-center pointer-events-none">
+                <span className="text-[10px] font-black">{player.rating}</span>
+              </Badge>
+            )}
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 flex-1">
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest border-stone-200">
                 {player.position}
@@ -170,23 +195,31 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
               <span className="text-[9px] font-black text-stone-300 uppercase tracking-[0.2em]">{team.name}</span>
             </div>
             {isEditing ? (
-              <Input 
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="h-8 font-black text-lg p-1 rounded-lg border-stone-200"
-                autoFocus
-              />
+              <div className="space-y-2">
+                <Input 
+                  value={editData.name}
+                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  className="h-8 font-black text-lg p-1 rounded-lg border-stone-200"
+                  placeholder="Player Name"
+                />
+                <Input 
+                  value={editData.profilePicture}
+                  onChange={(e) => setEditData({ ...editData, profilePicture: e.target.value })}
+                  className="h-6 text-[10px] p-1 rounded-lg border-stone-100"
+                  placeholder="Profile Image URL"
+                />
+              </div>
             ) : (
               <h3 className="text-lg font-black text-stone-900 leading-tight">{player.name}</h3>
             )}
-            <p className="text-[10px] text-stone-400 font-medium italic">{player.archetype}</p>
+            {!isEditing && <p className="text-[10px] text-stone-400 font-medium italic">{player.archetype}</p>}
           </div>
         </div>
 
         <div className="flex flex-col gap-2">
           {isEditing ? (
             <>
-              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100" onClick={() => onUpdate({ name: editName, rating: editRating })}>
+              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100" onClick={() => onUpdate(editData)}>
                 <Save className="w-4 h-4" />
               </Button>
               <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-100" onClick={onCancel}>
@@ -202,11 +235,20 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
       </div>
 
       <div className="mt-6 pt-6 border-t border-stone-50 grid grid-cols-2 gap-4">
-        {player.abilities.map((ability: any, idx: number) => (
+        {(isEditing ? editData.abilities : player.abilities).map((ability: any, idx: number) => (
           <div key={idx} className="space-y-1">
             <div className="flex justify-between items-center px-1">
               <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest">{ability.name}</span>
-              <span className="text-[10px] font-black text-stone-900">{ability.value}</span>
+              {isEditing ? (
+                <input 
+                  type="number"
+                  value={ability.value}
+                  onChange={(e) => handleAbilityChange(idx, e.target.value)}
+                  className="w-8 text-[10px] font-black text-stone-900 text-right bg-transparent outline-none"
+                />
+              ) : (
+                <span className="text-[10px] font-black text-stone-900">{ability.value}</span>
+              )}
             </div>
             <div className="h-1.5 w-full bg-stone-50 rounded-full overflow-hidden">
               <div 
@@ -218,22 +260,24 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
         ))}
       </div>
 
-      <div className="mt-6 p-4 rounded-2xl bg-stone-50/50 border border-stone-50 flex items-center justify-between">
-        <div className="text-center flex-1">
-          <p className="text-[8px] font-black text-stone-400 uppercase mb-1">TDs</p>
-          <p className="text-sm font-black text-stone-900">{player.stats.touchdowns}</p>
+      {!isEditing && (
+        <div className="mt-6 p-4 rounded-2xl bg-stone-50/50 border border-stone-50 flex items-center justify-between">
+          <div className="text-center flex-1">
+            <p className="text-[8px] font-black text-stone-400 uppercase mb-1">TDs</p>
+            <p className="text-sm font-black text-stone-900">{player.stats.touchdowns}</p>
+          </div>
+          <div className="w-px h-6 bg-stone-100" />
+          <div className="text-center flex-1">
+            <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Yds</p>
+            <p className="text-sm font-black text-stone-900">{player.stats.yards}</p>
+          </div>
+          <div className="w-px h-6 bg-stone-100" />
+          <div className="text-center flex-1">
+            <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Tkl</p>
+            <p className="text-sm font-black text-stone-900">{player.stats.tackles}</p>
+          </div>
         </div>
-        <div className="w-px h-6 bg-stone-100" />
-        <div className="text-center flex-1">
-          <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Yds</p>
-          <p className="text-sm font-black text-stone-900">{player.stats.yards}</p>
-        </div>
-        <div className="w-px h-6 bg-stone-100" />
-        <div className="text-center flex-1">
-          <p className="text-[8px] font-black text-stone-400 uppercase mb-1">Tkl</p>
-          <p className="text-sm font-black text-stone-900">{player.stats.tackles}</p>
-        </div>
-      </div>
+      )}
     </motion.div>
   );
 }
