@@ -4,26 +4,23 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Users, Trophy, Edit3, Search, ChevronDown, 
-  ArrowUpRight, Star, Shield, Zap, Target,
+  Users, Trophy, Edit3, Search, 
+  Star, Shield, Zap, Target,
   Camera, Save, X
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
-import { STUFFY_ICONS } from '@/lib/league/constants';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-  Card, CardContent, CardDescription, CardHeader, CardTitle 
+  Card, CardContent, CardHeader, CardTitle 
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Player, Team, PlayerStats } from '@/lib/league/types';
 import { uploadFile } from '@/lib/supabase-client';
 
 export default function RosterView() {
-  const { teams, players, setPlayers, updatePlayer } = useLeague();
+  const { teams, players, updatePlayer } = useLeague();
   const [search, setSearch] = useState("");
   const [selectedTeam, setSelectedTeam] = useState<string | "all">("all");
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
@@ -179,14 +176,19 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
                 <Users className="w-8 h-8 opacity-40" />
               )}
             </div>
-            {isEditing ? (
-              <Input 
-                value={editData.rating}
-                type="number"
-                onChange={(e) => setEditData({ ...editData, rating: parseInt(e.target.value) || 0 })}
-                className="absolute -bottom-2 -right-2 h-7 w-12 rounded-lg bg-stone-900 border-2 border-white px-1 text-[10px] font-black text-white text-center"
-              />
-            ) : (
+              {isEditing ? (
+                <>
+                  <label htmlFor={`rating-${player.id}`} className="sr-only">Player Rating</label>
+                  <Input 
+                    id={`rating-${player.id}`}
+                    name="rating"
+                    value={editData.rating}
+                    type="number"
+                    onChange={(e) => setEditData({ ...editData, rating: parseInt(e.target.value) || 0 })}
+                    className="absolute -bottom-2 -right-2 h-7 w-12 rounded-lg bg-stone-900 border-2 border-white px-1 text-[10px] font-black text-white text-center"
+                  />
+                </>
+              ) : (
               <Badge className="absolute -bottom-2 -right-2 h-7 min-w-[28px] rounded-lg bg-stone-900 border-2 border-white px-1.5 flex items-center justify-center pointer-events-none">
                 <span className="text-[10px] font-black">{player.rating}</span>
               </Badge>
@@ -202,14 +204,20 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
             </div>
             {isEditing ? (
               <div className="space-y-2">
+                <label htmlFor={`name-${player.id}`} className="sr-only">Player Name</label>
                 <Input 
+                  id={`name-${player.id}`}
+                  name="playerName"
                   value={editData.name}
                   onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                   className="h-8 font-black text-lg p-1 rounded-lg border-stone-200"
                   placeholder="Player Name"
                 />
                 <div className="flex gap-2">
+                  <label htmlFor={`photo-${player.id}`} className="sr-only">Profile Image URL</label>
                   <Input 
+                    id={`photo-${player.id}`}
+                    name="profilePicture"
                     value={editData.profilePicture}
                     onChange={(e) => setEditData({ ...editData, profilePicture: e.target.value })}
                     className="h-6 text-[10px] p-1 rounded-lg border-stone-100 flex-1"
@@ -218,6 +226,8 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
                   <label className="cursor-pointer h-6 px-2 bg-stone-100 rounded-lg flex items-center justify-center hover:bg-stone-200 transition-colors">
                     <Camera className="w-3 h-3 text-stone-500" />
                     <input 
+                      id={`file-${player.id}`}
+                      name="photoFile"
                       type="file" 
                       className="hidden" 
                       accept="image/*"
@@ -260,17 +270,22 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
       </div>
 
       <div className="mt-6 pt-6 border-t border-stone-50 grid grid-cols-2 gap-4">
-        {(isEditing ? editData.abilities : player.abilities).map((ability: any, idx: number) => (
+        {(isEditing ? editData.abilities : player.abilities).map((ability, idx) => (
           <div key={idx} className="space-y-1">
             <div className="flex justify-between items-center px-1">
               <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest">{ability.name}</span>
               {isEditing ? (
-                <input 
-                  type="number"
-                  value={ability.value}
-                  onChange={(e) => handleAbilityChange(idx, e.target.value)}
-                  className="w-8 text-[10px] font-black text-stone-900 text-right bg-transparent outline-none"
-                />
+                <>
+                  <label htmlFor={`ability-${player.id}-${idx}`} className="sr-only">{ability.name} Value</label>
+                  <input 
+                    id={`ability-${player.id}-${idx}`}
+                    name={`ability_${ability.name.toLowerCase().replace(' ', '_')}`}
+                    type="number"
+                    value={ability.value}
+                    onChange={(e) => handleAbilityChange(idx, e.target.value)}
+                    className="w-8 text-[10px] font-black text-stone-900 text-right bg-transparent outline-none"
+                  />
+                </>
               ) : (
                 <span className="text-[10px] font-black text-stone-900">{ability.value}</span>
               )}
@@ -328,8 +343,8 @@ function LeaderboardCard({ title, players, teams, statKey }: {
       </CardHeader>
       <CardContent className="p-0">
         <div className="divide-y divide-stone-50">
-          {players.map((player: any, idx: number) => {
-            const team = teams.find((t: any) => t.id === player.teamId);
+          {players.map((player, idx) => {
+            const team = teams.find(t => t.id === player.teamId);
             if (!team) return null;
             return (
               <div key={player.id} className="p-4 flex items-center justify-between hover:bg-stone-50/50 transition-colors group">
@@ -347,7 +362,7 @@ function LeaderboardCard({ title, players, teams, statKey }: {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-black text-stone-900">{player.stats[statKey]}</p>
+                  <p className="text-lg font-black text-stone-900">{player.stats[statKey] as number}</p>
                   <p className="text-[8px] font-black text-stone-400 uppercase">{statKey}</p>
                 </div>
               </div>

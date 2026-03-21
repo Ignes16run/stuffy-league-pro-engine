@@ -44,6 +44,7 @@ export function generateTeamRoster(teamId: string): Player[] {
   roster.push(createPlayer(teamId, 'LB'));
   roster.push(createPlayer(teamId, 'DB'));
   roster.push(createPlayer(teamId, 'DB'));
+  roster.push(createPlayer(teamId, 'K'));
 
   return roster;
 }

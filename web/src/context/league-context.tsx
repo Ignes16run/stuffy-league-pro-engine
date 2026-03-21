@@ -1,7 +1,7 @@
 "use client";
-// Last Updated: 2026-03-21T16:30:00-04:00
+// Last Updated: 2026-03-21T18:08:00-04:00
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { generateRoundRobinSchedule, calculateStandings } from '@/lib/league/utils';
@@ -29,7 +29,7 @@ interface LeagueContextType {
   updateTeam: (id: string, team: Partial<Team>) => void;
   removeTeam: (id: string) => void;
   simulateSeason: () => Promise<void>;
-  handlePick: (gameId: string, winnerId: string | 'tie', shouldCheer?: boolean) => void;
+  handlePick: (gameId: string, winnerId: string | 'tie') => void;
   resetLeague: () => void;
   resetPredictions: () => void;
   completeSeason: (championId: string) => void;
@@ -40,7 +40,7 @@ interface LeagueContextType {
   setActiveTab: (tab: 'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history' | 'players') => void;
   isSimulating: boolean;
   allocatePlayerStats: (gameId: string, team1Id: string, team2Id: string, team1Score: number, team2Score: number) => void;
-  user: any;
+  user: { id: string } | null;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -67,62 +67,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   }, [teams, games.length]);
 
   // Sync from DB
-  useEffect(() => {
-    if (user) {
-      const loadData = async () => {
-        const { data: dbTeams } = await supabase.from('teams').select('*').eq('user_id', user.id);
-        const { data: dbPlayers } = await supabase.from('players').select('*').eq('user_id', user.id);
-        const { data: dbGames } = await supabase.from('games').select('*').eq('user_id', user.id);
-        const { data: dbHistory } = await supabase.from('season_history').select('*').eq('user_id', user.id);
-
-        if (dbTeams && dbTeams.length > 0) setTeams(dbTeams.map(t => ({
-           id: t.id, name: t.name, icon: t.icon as any, primaryColor: t.primary_color, secondaryColor: t.secondary_color,
-           offenseRating: t.offense_rating, defenseRating: t.defense_rating, specialTeamsRating: t.special_teams_rating,
-           stuffyPoints: t.stuffy_points, allTimeWins: t.all_time_wins, championships: t.championships,
-           logoUrl: t.logo_url
-        })));
-        
-        if (dbPlayers && dbPlayers.length > 0) {
-          setPlayers(dbPlayers.map(p => ({
-            id: p.id, teamId: p.team_id, name: p.name, position: p.position,
-            rating: p.rating, profilePicture: p.profile_picture, profile: p.profile,
-            archetype: p.archetype, abilities: p.abilities, stats: p.stats
-          })));
-        }
-        
-        if (dbGames && dbGames.length > 0) {
-          const mappedGames = dbGames.map(g => ({
-            id: g.id, week: g.week, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, 
-            winnerId: g.winner_id, isTie: g.is_tie, homeScore: g.home_score, awayScore: g.away_score
-          })).sort((a, b) => a.week - b.week);
-          setGames(mappedGames);
-          setNumWeeks(Math.max(...mappedGames.map(g => g.week), 0));
-        }
-      };
-      loadData();
-    }
-  }, [user]);
-
-  // Ensure all teams have players
-  useEffect(() => {
-    if (teams.length > 0) {
-      const teamsWithMissingPlayers = teams.filter(t => !players.some(p => p.teamId === t.id));
-      if (teamsWithMissingPlayers.length > 0) {
-        const newPlayersStack: Player[] = [];
-        teamsWithMissingPlayers.forEach(team => {
-          const roster = generateTeamRoster(team.id);
-          newPlayersStack.push(...roster);
-          if (user) {
-            roster.forEach(p => syncPlayer(p).catch(() => {}));
-          }
-        });
-        setPlayers(prev => [...prev, ...newPlayersStack]);
-      }
-    }
-  }, [teams, players.length, user]);
-
-  // Sync helpers
-  const syncTeam = async (team: Team) => {
+  const syncTeam = useCallback(async (team: Team) => {
     if (!user) return;
     await supabase.from('teams').upsert({
       id: team.id, user_id: user.id, name: team.name, icon: team.icon, 
@@ -131,9 +76,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       special_teams_rating: team.specialTeamsRating, stuffy_points: team.stuffyPoints, 
       all_time_wins: team.allTimeWins, championships: team.championships, logo_url: team.logoUrl
     });
-  };
+  }, [user]);
 
-  const syncPlayer = async (player: Player) => {
+  const syncPlayer = useCallback(async (player: Player) => {
     if (!user) return;
     await supabase.from('players').upsert({
       id: player.id, user_id: user.id, team_id: player.teamId,
@@ -141,16 +86,67 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       profile_picture: player.profilePicture, profile: player.profile,
       archetype: player.archetype, abilities: player.abilities, stats: player.stats
     });
-  };
+  }, [user]);
 
-  const syncGame = async (game: Game) => {
+  const syncGame = useCallback(async (game: Game) => {
     if (!user) return;
     await supabase.from('games').upsert({
       id: game.id, user_id: user.id, week: game.week,
       home_team_id: game.homeTeamId, away_team_id: game.awayTeamId,
       winner_id: game.winnerId, is_tie: game.isTie, home_score: game.homeScore, away_score: game.awayScore
     });
-  };
+  }, [user]);
+
+  const loadData = useCallback(async () => {
+    if (!user) return;
+    const { data: dbTeams } = await supabase.from('teams').select('*').eq('user_id', user.id);
+    const { data: dbPlayers } = await supabase.from('players').select('*').eq('user_id', user.id);
+    const { data: dbGames } = await supabase.from('games').select('*').eq('user_id', user.id);
+    
+    if (dbTeams && dbTeams.length > 0) setTeams(dbTeams.map(t => ({
+       id: t.id, name: t.name, icon: t.icon, primaryColor: t.primary_color, secondaryColor: t.secondary_color,
+       offenseRating: t.offense_rating, defenseRating: t.defense_rating, specialTeamsRating: t.special_teams_rating,
+       stuffyPoints: t.stuffy_points, allTimeWins: t.all_time_wins, championships: t.championships,
+       logoUrl: t.logo_url
+    })));
+    
+    if (dbPlayers && dbPlayers.length > 0) {
+      setPlayers(dbPlayers.map(p => ({
+        id: p.id, teamId: p.team_id, name: p.name, position: p.position,
+        rating: p.rating, profilePicture: p.profile_picture, profile: p.profile,
+        archetype: p.archetype, abilities: p.abilities, stats: p.stats as any
+      })));
+    }
+    
+    if (dbGames && dbGames.length > 0) {
+      const mappedGames = dbGames.map(g => ({
+        id: g.id, week: g.week, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, 
+        winnerId: g.winner_id, isTie: g.is_tie, homeScore: g.home_score, awayScore: g.away_score
+      })).sort((a, b) => a.week - b.week);
+      setGames(mappedGames);
+      setNumWeeks(Math.max(...mappedGames.map(g => g.week), 0));
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) loadData();
+  }, [user, loadData]);
+
+  useEffect(() => {
+    if (teams.length > 0) {
+      const teamsWithMissingPlayers = teams.filter(t => !players.some(p => p.teamId === t.id));
+      if (teamsWithMissingPlayers.length > 0) {
+        const newPlayersStack: Player[] = [];
+        teamsWithMissingPlayers.forEach(team => {
+          const roster = generateTeamRoster(team.id);
+          newPlayersStack.push(...roster);
+          syncPlayer(roster[0]).catch(() => {}); // Just a ping to ensure context is aware
+          roster.forEach(p => syncPlayer(p).catch(() => {}));
+        });
+        setPlayers(prev => [...prev, ...newPlayersStack]);
+      }
+    }
+  }, [teams, players.length, syncPlayer]);
 
   const addTeam = (team: Team) => {
     setTeams([...teams, team]);
@@ -172,64 +168,67 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     if (user) supabase.from('teams').delete().eq('id', id).eq('user_id', user.id).then();
   };
 
-  const allocatePlayerStats = (gameId: string, team1Id: string, team2Id: string, team1Score: number, team2Score: number) => {
-    setPlayers(prevPlayers => {
-      const nextPlayers = prevPlayers.map(p => ({ ...p, stats: { ...p.stats } }));
+  const getUpdatedPlayersFromGame = (currentPlayers: Player[], gameId: string, team1Id: string, team2Id: string, team1Score: number, team2Score: number): Player[] => {
+    const nextPlayers = currentPlayers.map(p => ({ ...p, stats: { ...p.stats } }));
+    
+    const updateTeamStats = (teamId: string, score: number) => {
+      const teamPlayers = nextPlayers.filter(p => p.teamId === teamId);
+      if (teamPlayers.length === 0) return;
+
+      teamPlayers.forEach(p => { p.stats.gamesPlayed = (p.stats.gamesPlayed || 0) + 1; });
+
+      const qb = teamPlayers.find(p => p.position === 'QB');
+      const skillPlayers = teamPlayers.filter(p => ['RB', 'WR', 'TE'].includes(p.position));
+      const k = teamPlayers.find(p => p.position === 'K');
+
+      const tds = Math.floor(score / 7);
+      for (let i = 0; i < tds; i++) {
+        const target = skillPlayers[Math.floor(Math.random() * skillPlayers.length)];
+        if (target) {
+          target.stats.touchdowns = (target.stats.touchdowns || 0) + 1;
+          target.stats.points = (target.stats.points || 0) + 6;
+        }
+      }
       
-      const updateTeamStats = (teamId: string, score: number) => {
-        const teamPlayers = nextPlayers.filter(p => p.teamId === teamId);
-        if (teamPlayers.length === 0) return;
+      const teamYards = score * 15 + Math.floor(Math.random() * 100) + 50;
+      if (qb) qb.stats.yards = (qb.stats.yards || 0) + Math.floor(teamYards * 0.8);
+      
+      let remainingYards = teamYards;
+      skillPlayers.forEach((p, idx) => {
+        const share = idx === skillPlayers.length - 1 ? remainingYards : Math.floor(Math.random() * (remainingYards / (skillPlayers.length - idx)));
+        p.stats.yards = (p.stats.yards || 0) + share;
+        remainingYards -= share;
+      });
 
-        teamPlayers.forEach(p => { p.stats.gamesPlayed = (p.stats.gamesPlayed || 0) + 1; });
+      const defense = teamPlayers.filter(p => ['DL', 'LB', 'DB'].includes(p.position));
+      defense.forEach(p => {
+        p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 8) + 1;
+        if (Math.random() < 0.1) p.stats.interceptions = (p.stats.interceptions || 0) + 1;
+      });
 
-        const qb = teamPlayers.find(p => p.position === 'QB');
-        const skillPlayers = teamPlayers.filter(p => ['RB', 'WR', 'TE'].includes(p.position));
-        const k = teamPlayers.find(p => p.position === 'K');
+      if (k) {
+        const fgs = Math.floor((score % 7) / 3);
+        k.stats.points = (k.stats.points || 0) + (fgs * 3) + tds; 
+      }
+    };
 
-        const tds = Math.floor(score / 7);
-        for (let i = 0; i < tds; i++) {
-          const target = skillPlayers[Math.floor(Math.random() * skillPlayers.length)];
-          if (target) {
-            target.stats.touchdowns = (target.stats.touchdowns || 0) + 1;
-            target.stats.points = (target.stats.points || 0) + 6;
-          }
-        }
-        
-        const teamYards = score * 10 + Math.floor(Math.random() * 40);
-        if (qb) qb.stats.yards = (qb.stats.yards || 0) + Math.floor(teamYards * 0.8);
-        
-        let remainingYards = teamYards;
-        skillPlayers.forEach((p, idx) => {
-          const share = idx === skillPlayers.length - 1 ? remainingYards : Math.floor(Math.random() * (remainingYards / (skillPlayers.length - idx)));
-          p.stats.yards = (p.stats.yards || 0) + share;
-          remainingYards -= share;
-        });
+    updateTeamStats(team1Id, team1Score);
+    updateTeamStats(team2Id, team2Score);
 
-        const defense = teamPlayers.filter(p => ['DL', 'LB', 'DB'].includes(p.position));
-        defense.forEach(p => {
-          p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 6);
-          if (Math.random() < 0.1) p.stats.interceptions = (p.stats.interceptions || 0) + 1;
-        });
+    return nextPlayers;
+  };
 
-        if (k) {
-          const fgs = Math.floor((score % 7) / 3);
-          k.stats.points = (k.stats.points || 0) + (fgs * 3) + tds; 
-        }
-
-        // Sync affected players to DB
-        if (user) {
-          teamPlayers.forEach(p => syncPlayer(p));
-        }
-      };
-
-      updateTeamStats(team1Id, team1Score);
-      updateTeamStats(team2Id, team2Score);
-
-      return nextPlayers;
+  const allocatePlayerStats = (gameId: string, team1Id: string, team2Id: string, team1Score: number, team2Score: number) => {
+    setPlayers(prev => {
+      const next = getUpdatedPlayersFromGame(prev, gameId, team1Id, team2Id, team1Score, team2Score);
+      if (user) {
+        next.filter(p => p.teamId === team1Id || p.teamId === team2Id).forEach(p => syncPlayer(p));
+      }
+      return next;
     });
   };
 
-  const handlePick = (gameId: string, winnerId: string | 'tie', shouldCheer = true) => {
+  const handlePick = (gameId: string, winnerId: string | 'tie') => {
     const isTie = winnerId === 'tie';
     if (gameId.startsWith('p-')) {
       // Playoff logic (simplified)
@@ -267,7 +266,17 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (!isDeselecting && nextGameData.homeScore !== undefined && nextGameData.awayScore !== undefined) {
-      allocatePlayerStats(gameId, game.homeTeamId, game.awayTeamId, nextGameData.homeScore, nextGameData.awayScore);
+      setPlayers(prev => {
+        const next = getUpdatedPlayersFromGame(
+          prev, gameId, game.homeTeamId, game.awayTeamId, 
+          nextGameData.homeScore!, nextGameData.awayScore!
+        );
+        // Sync affected teams' players after update
+        if (user) {
+          next.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId).forEach(p => syncPlayer(p));
+        }
+        return next;
+      });
     }
   };
 
@@ -275,6 +284,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setIsSimulating(true);
     const unplayedGames = games.filter(g => !g.winnerId && !g.isTie);
     const newGames = [...games];
+    let nextPlayers = [...players];
     
     for (let i = 0; i < unplayedGames.length; i++) {
       const gameIdx = newGames.findIndex(g => g.id === unplayedGames[i].id);
@@ -307,15 +317,28 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         const updated = { ...game, ...res };
         newGames[gameIdx] = updated;
         syncGame(updated);
-        allocatePlayerStats(game.id, game.homeTeamId, game.awayTeamId, updated.homeScore!, updated.awayScore!);
+        
+        nextPlayers = getUpdatedPlayersFromGame(
+          nextPlayers, game.id, game.homeTeamId, game.awayTeamId, 
+          updated.homeScore!, updated.awayScore!
+        );
       }
 
       if (i % 5 === 0) {
         setGames([...newGames]);
+        setPlayers([...nextPlayers]);
         await new Promise(r => setTimeout(r, 50));
       }
     }
+
     setGames([...newGames]);
+    setPlayers([...nextPlayers]);
+    
+    // Final sync of all players who accrued stats
+    if (user) {
+      nextPlayers.forEach(p => syncPlayer(p));
+    }
+    
     setIsSimulating(false);
   };
 
@@ -387,7 +410,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     teams, setTeams, games, setGames, playoffGames, setPlayoffGames, history, numWeeks, setNumWeeks,
     players, setPlayers, updatePlayer, addTeam, updateTeam, removeTeam, simulateSeason, handlePick,
     resetLeague, resetPredictions, completeSeason, upgradeStat, updateOverallRating,
-    activeTab, setActiveTab: setActiveTab as any, isSimulating, allocatePlayerStats, user
+    activeTab, setActiveTab: setActiveTab as (tab: string) => void, isSimulating, allocatePlayerStats, user
   };
 
   return <LeagueContext.Provider value={value}>{children}</LeagueContext.Provider>;
