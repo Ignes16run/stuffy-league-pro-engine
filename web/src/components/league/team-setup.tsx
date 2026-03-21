@@ -12,9 +12,10 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { uploadFile } from '@/lib/supabase-client';
 
 export default function TeamSetup() {
-  const { teams, addTeam, updateTeam, removeTeam } = useLeague();
+  const { teams, addTeam, updateTeam, removeTeam, user } = useLeague();
   
   const [newTeam, setNewTeam] = useState<Partial<Team>>({
     name: '',
@@ -113,12 +114,13 @@ export default function TeamSetup() {
     setIsBulkNamesOpen(false);
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setNewTeam({ ...newTeam, logoUrl: reader.result as string });
-      reader.readAsDataURL(file);
+    if (file && user) {
+      const url = await uploadFile(file, user.id, 'teams');
+      if (url) {
+        setNewTeam({ ...newTeam, logoUrl: url });
+      }
     }
   };
 

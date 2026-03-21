@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Player, Team, PlayerStats } from '@/lib/league/types';
+import { uploadFile } from '@/lib/supabase-client';
 
 export default function RosterView() {
   const { teams, players, setPlayers, updatePlayer } = useLeague();
@@ -134,6 +135,7 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
   onCancel: () => void, 
   onUpdate: (updates: Partial<Player>) => void 
 }) {
+  const { user } = useLeague();
   const [editData, setEditData] = useState({
     name: player.name,
     rating: player.rating,
@@ -215,14 +217,13 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
                       type="file" 
                       className="hidden" 
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setEditData({ ...editData, profilePicture: reader.result as string });
-                          };
-                          reader.readAsDataURL(file);
+                        if (file && user) {
+                          const url = await uploadFile(file, user.id, 'players');
+                          if (url) {
+                            setEditData({ ...editData, profilePicture: url });
+                          }
                         }
                       }}
                     />
