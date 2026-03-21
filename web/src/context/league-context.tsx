@@ -1,4 +1,4 @@
-// Last Updated: 2026-03-21T15:10:00-04:00
+// Last Updated: 2026-03-21T15:25:00-04:00
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
@@ -61,6 +61,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       const schedule = generateRoundRobinSchedule(teams);
       setGames(schedule);
       setNumWeeks(Math.max(...schedule.map(g => g.week)));
+    }
   }, [teams, games.length]);
 
   // Ensure all teams have players
@@ -345,6 +346,21 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setGames([]);
     setPlayoffGames([]);
     setActiveTab('setup');
+  };
+
+  const upgradeStat = (teamId: string, stat: 'offenseRating' | 'defenseRating' | 'specialTeamsRating') => {
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return;
+    
+    const cost = 50;
+    const currentVal = team[stat] || 75;
+    
+    if ((team.stuffyPoints || 0) < cost || currentVal >= 99) return;
+    
+    updateTeam(teamId, { 
+       [stat]: currentVal + 1,
+       stuffyPoints: (team.stuffyPoints || 0) - cost
+    });
   };
 
   const value = {
