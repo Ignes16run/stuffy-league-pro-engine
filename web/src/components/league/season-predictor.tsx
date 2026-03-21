@@ -140,9 +140,14 @@ export default function SeasonPredictor() {
       <div className="grid grid-cols-1 gap-4">
         <AnimatePresence mode="popLayout">
           {weekGames.map(game => {
-            const home = teams.find(t => t.id === game.homeTeamId)!;
-            const away = teams.find(t => t.id === game.awayTeamId)!;
+            const home = teams.find(t => t.id === game.homeTeamId);
+            const away = teams.find(t => t.id === game.awayTeamId);
             
+            if (!home || !away) return null;
+            
+            const HomeIcon = STUFFY_ICONS[home.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
+            const AwayIcon = STUFFY_ICONS[away.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
+
             return (
               <motion.div 
                 layout
@@ -166,7 +171,7 @@ export default function SeasonPredictor() {
                       {away.logoUrl ? (
                          <img src={away.logoUrl} alt={away.name} className="w-full h-full object-cover" />
                       ) : (
-                         React.createElement(STUFFY_ICONS[away.icon as keyof typeof STUFFY_ICONS], { className: "w-6 h-6" })
+                         <AwayIcon className="w-6 h-6" />
                       )}
                     </div>
                     <div className="text-left">
@@ -216,13 +221,13 @@ export default function SeasonPredictor() {
                       {home.logoUrl ? (
                         <img src={home.logoUrl} alt={home.name} className="w-full h-full object-cover" />
                       ) : (
-                        React.createElement(STUFFY_ICONS[home.icon as keyof typeof STUFFY_ICONS], { className: "w-6 h-6" })
+                        <HomeIcon className="w-6 h-6" />
                       )}
                     </div>
                   </div>
                 </button>
               </motion.div>
-            )
+            );
           })}
         </AnimatePresence>
 
@@ -234,16 +239,19 @@ export default function SeasonPredictor() {
                <div className="h-px flex-1 bg-stone-100" />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-               {teamsOnBye.map(team => (
-                 <div key={team.id} className="bg-white/50 rounded-2xl p-3 border border-stone-100 flex items-center gap-3">
-                   <div className="w-10 h-10 rounded-xl flex items-center justify-center opacity-60" style={{ backgroundColor: team.primaryColor }}>
-                      {React.createElement(STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS], { className: "w-5 h-5 text-white" })}
+               {teamsOnBye.map(team => {
+                 const ByeIcon = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
+                 return (
+                   <div key={team.id} className="bg-white/50 rounded-2xl p-3 border border-stone-100 flex items-center gap-3">
+                     <div className="w-10 h-10 rounded-xl flex items-center justify-center opacity-60" style={{ backgroundColor: team.primaryColor }}>
+                        <ByeIcon className="w-5 h-5 text-white" />
+                     </div>
+                     <div className="min-w-0">
+                        <span className="font-black text-stone-900 text-xs leading-tight block truncate">{team.name}</span>
+                     </div>
                    </div>
-                   <div className="min-w-0">
-                      <span className="font-black text-stone-900 text-xs leading-tight block truncate">{team.name}</span>
-                   </div>
-                 </div>
-               ))}
+                 );
+               })}
             </div>
           </motion.div>
         )}
