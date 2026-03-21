@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-21T17:35:00-04:00
+// Last Updated: 2026-03-21T17:40:00-04:00
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -32,7 +32,7 @@ export default function PlayoffBracket() {
 
     matchups.forEach(([seed1, seed2], i) => {
       initialGames.push({
-        id: `p-1-${i}`,
+        id: `round-1-match-${i}`,
         round: 1,
         matchupIndex: i,
         team1Id: standings[seed1 - 1].teamId,
@@ -43,11 +43,11 @@ export default function PlayoffBracket() {
     });
 
     for (let i = 0; i < size / 4; i++) {
-      initialGames.push({ id: `p-2-${i}`, round: 2, matchupIndex: i });
+      initialGames.push({ id: `round-2-match-${i}`, round: 2, matchupIndex: i });
     }
 
     if (size === 8) {
-      initialGames.push({ id: `p-3-0`, round: 3, matchupIndex: 0 });
+      initialGames.push({ id: `round-3-match-0`, round: 3, matchupIndex: 0 });
     }
 
     setPlayoffGames(initialGames);
@@ -55,7 +55,7 @@ export default function PlayoffBracket() {
 
   const simulatePlayoffs = async () => {
     setIsSimulating(true);
-    const currentBracket = [...playoffGames];
+    const currentBracket = [...playoffGames.map(g => ({ ...g }))];
     const rounds = Math.max(...currentBracket.map(g => g.round), 0);
     
     for (let r = 1; r <= rounds; r++) {
@@ -77,17 +77,22 @@ export default function PlayoffBracket() {
             game.winnerId = winnerId;
             roundFinished = true;
 
-            // Propagate to next round in our local simulation state
-            const [, , matchupIdx] = game.id.split('-');
+            // Propagate to next round
+            const matchupIdx = game.matchupIndex;
             const nextRoundNum = r + 1;
-            const nextMatchupIdx = Math.floor(parseInt(matchupIdx) / 2);
-            const nextGameId = `p-${nextRoundNum}-${nextMatchupIdx}`;
-            const isTeam1 = parseInt(matchupIdx) % 2 === 0;
+            const nextMatchupIdx = Math.floor(matchupIdx / 2);
+            const nextGameId = `round-${nextRoundNum}-match-${nextMatchupIdx}`;
+            const isTeam1 = matchupIdx % 2 === 0;
 
             const nextGame = currentBracket.find(pg => pg.id === nextGameId);
             if (nextGame) {
-              if (isTeam1) nextGame.team1Id = winnerId;
-              else nextGame.team2Id = winnerId;
+              if (isTeam1) {
+                nextGame.team1Id = winnerId;
+                nextGame.seed1 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
+              } else {
+                nextGame.team2Id = winnerId;
+                nextGame.seed2 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
+              }
             }
           }
         }
@@ -143,7 +148,7 @@ export default function PlayoffBracket() {
         </div>
       </Card>
 
-      <div className="overflow-x-auto pb-8">
+      <div className="overflow-x-auto pb-8 scrollbar-hide">
         <div className="flex justify-between gap-6 min-w-max px-2">
           {rounds.map(round => (
             <div key={round} className="w-64 space-y-4">
@@ -222,7 +227,9 @@ function PlayoffMatchup({ game }: { game: PlayoffGame }) {
                  )}
                </div>
                <div className="text-left">
-                  <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">Seed {idx === 0 ? game.seed1 : game.seed2}</p>
+                  <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">
+                    Seed {(idx === 0 ? game.seed1 : game.seed2) || 'TBD'}
+                  </p>
                   <span className={cn("font-black text-xs", team ? "text-stone-900" : "text-stone-300 italic")}>{team?.name || 'TBD'}</span>
                </div>
              </div>

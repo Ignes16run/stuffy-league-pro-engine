@@ -273,7 +273,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const handlePick = (gameId: string, winnerId: string | 'tie') => {
     const isTie = winnerId === 'tie';
-    if (gameId.startsWith('p-')) {
+    if (gameId.startsWith('round-')) {
       setPlayoffGames(prev => {
         const game = prev.find(g => g.id === gameId);
         if (!game) return prev;
@@ -284,20 +284,24 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         // Update current game
         const next = prev.map(g => g.id === gameId ? { ...g, winnerId: finalWinnerId } : g);
         
+        // Determine the winner's current seed for propagation
+        const winnerSeed = winnerId === game.team1Id ? game.seed1 : game.seed2;
+
         // Propagate to next round
-        const [, roundStr, matchupIdxStr] = gameId.split('-');
-        const round = parseInt(roundStr);
-        const matchupIdx = parseInt(matchupIdxStr);
+        const parts = gameId.split('-');
+        const round = parseInt(parts[1]);
+        const matchupIdx = parseInt(parts[3]);
         const nextRoundNum = round + 1;
         const nextMatchupIdx = Math.floor(matchupIdx / 2);
-        const nextGameId = `p-${nextRoundNum}-${nextMatchupIdx}`;
+        const nextGameId = `round-${nextRoundNum}-match-${nextMatchupIdx}`;
         const isTeam1 = matchupIdx % 2 === 0;
 
         return next.map(g => {
           if (g.id === nextGameId) {
             return {
               ...g,
-              [isTeam1 ? 'team1Id' : 'team2Id']: finalWinnerId
+              [isTeam1 ? 'team1Id' : 'team2Id']: finalWinnerId,
+              [isTeam1 ? 'seed1' : 'seed2']: finalWinnerId ? winnerSeed : undefined
             };
           }
           return g;
