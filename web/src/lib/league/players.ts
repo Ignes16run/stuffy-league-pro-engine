@@ -56,7 +56,7 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
   const baseRating = 70 + Math.floor(Math.random() * 20); // 70-90 initial
   
   return {
-    id: crypto.randomUUID(),
+    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `p-${Math.random().toString(36).substring(2, 11)}`,
     teamId,
     name: `${firstName} ${lastName}`,
     position,

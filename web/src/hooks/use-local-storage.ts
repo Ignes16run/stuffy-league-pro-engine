@@ -9,13 +9,14 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
 
   // useEffect to load from local storage after mount
   useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
       const item = window.localStorage.getItem(key);
       if (item) {
         setStoredValue(JSON.parse(item));
       }
     } catch (error) {
-      console.log(error);
+      console.log('LocalStorage read failure:', error);
     }
   }, [key]);
 
