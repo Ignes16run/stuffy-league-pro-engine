@@ -151,7 +151,7 @@ export default function TeamSetup() {
         )}
       </AnimatePresence>
       
-      <Card className="rounded-[2rem] border border-stone-100 shadow-xl shadow-stone-200/50">
+      <Card className="rounded-4xl border border-stone-100 shadow-xl shadow-stone-200/50">
         <CardHeader className="flex flex-row items-center justify-between pb-8">
           <div>
             <CardTitle className="text-2xl font-black text-stone-900 flex items-center gap-3">
@@ -245,7 +245,7 @@ export default function TeamSetup() {
             <div className="space-y-6 flex flex-col items-center">
                <label className="text-xs font-black uppercase text-stone-400 w-full">Logo Preview</label>
                <div 
-                 className="w-48 h-48 rounded-[2rem] border-2 border-dashed border-stone-200 flex flex-col items-center justify-center relative overflow-hidden bg-stone-50"
+                 className="w-48 h-48 rounded-4xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center relative overflow-hidden bg-stone-50"
                  style={{ backgroundColor: newTeam.logoUrl ? 'white' : 'transparent' }}
                >
                  {newTeam.logoUrl ? (
@@ -265,7 +265,7 @@ export default function TeamSetup() {
           </div>
 
           <Button 
-            className="w-full mt-10 h-16 rounded-[1.5rem] uppercase font-black tracking-[0.2em] shadow-lg text-white"
+            className="w-full mt-10 h-16 rounded-3xl uppercase font-black tracking-[0.2em] shadow-lg text-white"
             onClick={handleAddOrUpdate}
             style={{ backgroundColor: editingTeamId ? '#6366f1' : '#10b981' }}
           >
@@ -279,7 +279,7 @@ export default function TeamSetup() {
             const IconComp = STUFFY_ICONS[team.icon];
             return (
               <motion.div layout key={team.id} className="relative group">
-                <Card className="rounded-[1.5rem] overflow-hidden border border-stone-100 hover:shadow-xl hover:-translate-y-1 transition-all">
+                <Card className="rounded-3xl overflow-hidden border border-stone-100 hover:shadow-xl hover:-translate-y-1 transition-all">
                    <div className="h-1 w-full flex">
                       <div className="flex-1 h-full" style={{ backgroundColor: team.primaryColor }} />
                       <div className="flex-1 h-full" style={{ backgroundColor: team.secondaryColor }} />
