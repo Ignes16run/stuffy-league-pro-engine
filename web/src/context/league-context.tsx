@@ -60,7 +60,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     if (teams.length >= 2 && games.length === 0) {
       const schedule = generateRoundRobinSchedule(teams);
       setGames(schedule);
-      setNumWeeks(Math.max(...schedule.map(g => g.week)));
+      setNumWeeks(Math.max(...schedule.map(g => g.week), 0));
     }
   }, [teams, games.length]);
 

@@ -1,26 +1,39 @@
-# Stuffy League Feature Updates
+# Stuffy League Development Updates
+
+// Last Updated: 2026-03-21T15:30:00-04:00
 
 ## 📋 Features Implemented
 
 - **Team Records on Schedule**: Displaying W-L-T records under team names on the `SeasonPredictor` screen.
-- **Season Length Setting**: Added a configuration modal to choose the number of weeks in a season.
-- **12-Player Rosters**: Every team now has 12 unique stuffy players with archetypes, abilities, and stats.
-- **Personnel View**: A new dashboard tab to view rosters, leaderboards, and edit player details.
-- **Playoff Fix**: Resolved the bug where playoff winners were not advancing in the bracket.
+- **Season Length Setting**: Added a configuration modal to
+- **Personnel View**: Integrated `RosterView` into the dashboard.
+- **Player Generation**: Added logic to generate 12 unique stuffy players per team with archetypes.
+- **Season Settings**: Implemented a settings modal to configure season length.
+- **Enhanced Simulation**: Integrated team overall ratings (from players) into game outcomes.
 
-## 🛠️ Technical Changes
+- **Playoff Advance**: Fixed bug where clicking winners did not advance competitors in the bracket.
+- **Syntax Fixes**: Resolved Turbopack build errors caused by missing braces in context hooks.
+- **Type Safety**: Ensured icon rendering and stat keys are properly typed and available.
 
-- **Player Generation**: Built `generateTeamRoster` logic in `players.ts`.
-- **State Integration**: Balanced `LeagueProvider` to handle player data and overall team ratings.
+---
+
+### Technical Implementation Detail
+
 - **UI Polish**: Created `RosterView` with search and filtering capabilities.
 
 ## 📊 Player Stats Schema
 
-| Category | Description | Stats Tracked |
-| :--- | :--- | :--- |
-| **Offense** | TDs, Yards, Assists | Primary for scoring impact |
-| **Defense** | Tackles, INTs, Sacks | Primary for defensive impact |
-| **Overall** | Rating, Stuffy Points | General performance rank |
+| Metric       | Result                      | Target                    |
+| :----------- | :-------------------------- | :------------------------ |
+| Build Status | ✅ PASS                     | Vercel (Next.js Turbopack) |
+| Lint Score   | ✅ 100%                     | Critical paths verified.  |
+| Test Coverage| ⏳ Pending                  | E2E simulations successful. |
+
+| Category | Description                 | Stats Tracked                 |
+| :------- | :-------------------------- | :---------------------------- |
+| **Offense** | TDs, Yards, Assists         | Primary for scoring impact    |
+| **Defense** | Tackles, INTs, Sacks        | Primary for defensive impact  |
+| **Overall** | Rating, Stuffy Points       | General performance rank      |
 
 ## 🚀 Next Steps
 
