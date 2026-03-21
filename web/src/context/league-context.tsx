@@ -1,12 +1,13 @@
-"use client";
+// Last Updated: 2026-03-21T15:10:00-04:00
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Team, Game, PlayoffGame, SeasonHistory } from '@/lib/league/types';
+import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { generateRoundRobinSchedule, calculateStandings } from '@/lib/league/utils';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { supabase } from '@/lib/supabase-client';
 import { useAuth } from './auth-context';
+import { generateTeamRoster } from '@/lib/league/players';
 
 interface LeagueContextType {
   teams: Team[];
@@ -18,6 +19,9 @@ interface LeagueContextType {
   history: SeasonHistory[];
   numWeeks: number;
   setNumWeeks: (weeks: number) => void;
+  players: Player[];
+  setPlayers: (players: Player[]) => void;
+  updatePlayer: (id: string, player: Partial<Player>) => void;
   
   // Actions
   addTeam: (team: Team) => void;
@@ -29,10 +33,11 @@ interface LeagueContextType {
   resetPredictions: () => void;
   completeSeason: (championId: string) => void;
   upgradeStat: (teamId: string, stat: 'offenseRating' | 'defenseRating' | 'specialTeamsRating') => void;
+  updateOverallRating: (teamId: string) => void;
   
   // UI Helpers
   activeTab: string;
-  setActiveTab: (tab: 'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history') => void;
+  setActiveTab: (tab: 'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history' | 'players') => void;
   isSimulating: boolean;
 }
 
@@ -41,12 +46,13 @@ const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
 export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [teams, setTeams] = useLocalStorage<Team[]>('stuffy_teams', DEFAULT_LEAGUE_TEAMS);
+  const [players, setPlayers] = useLocalStorage<Player[]>('stuffy_players', []);
   const [games, setGames] = useLocalStorage<Game[]>('stuffy_games', []);
   const [playoffGames, setPlayoffGames] = useLocalStorage<PlayoffGame[]>('stuffy_playoffs', []);
   const [history, setHistory] = useLocalStorage<SeasonHistory[]>('stuffy_history', []);
   const [numWeeks, setNumWeeks] = useLocalStorage<number>('stuffy_num_weeks', 0);
   
-  const [activeTab, setActiveTab] = useState<'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history'>('setup');
+  const [activeTab, setActiveTab] = useState<'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history' | 'players'>('setup');
   const [isSimulating, setIsSimulating] = useState(false);
 
   // Auto-generate schedule if empty
@@ -55,8 +61,29 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       const schedule = generateRoundRobinSchedule(teams);
       setGames(schedule);
       setNumWeeks(Math.max(...schedule.map(g => g.week)));
-    }
   }, [teams, games.length]);
+
+  // Ensure all teams have players
+  useEffect(() => {
+    if (teams.length > 0) {
+      const teamsWithMissingPlayers = teams.filter(t => !players.some(p => p.teamId === t.id));
+      if (teamsWithMissingPlayers.length > 0) {
+        const newPlayers: Player[] = [...players];
+        teamsWithMissingPlayers.forEach(t => {
+          const roster = generateTeamRoster(t.id);
+          newPlayers.push(...roster);
+        });
+        setPlayers(newPlayers);
+        
+        // Also update overall ratings if they are missing
+        teamsWithMissingPlayers.forEach(t => {
+           const teamPlayers = newPlayers.filter(p => p.teamId === t.id);
+           const avgRating = teamPlayers.reduce((acc, p) => acc + p.rating, 0) / teamPlayers.length;
+           updateTeam(t.id, { overallRating: Math.round(avgRating) });
+        });
+      }
+    }
+  }, [teams, players.length]);
 
   // Sync from DB on Login
   useEffect(() => {
@@ -108,6 +135,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   // Actions
   const addTeam = (team: Team) => {
     setTeams([...teams, team]);
+    const roster = generateTeamRoster(team.id);
+    setPlayers([...players, ...roster]);
+    const avgRating = roster.reduce((acc, p) => acc + p.rating, 0) / roster.length;
+    updateTeam(team.id, { overallRating: Math.round(avgRating) });
     syncTeam(team);
   };
 
@@ -128,32 +159,42 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     const isPlayoffGame = gameId.startsWith('p-');
 
     if (isPlayoffGame) {
-      setPlayoffGames(prev => prev.map(g => {
-        if (g.id !== gameId) return g;
-        
-        // If already the winner, clicking again deselects
-        if (g.winnerId === winnerId && !isTie) {
-          return { ...g, winnerId: undefined };
-        }
-        
-        const updatedGame = { ...g, winnerId: isTie ? undefined : winnerId };
-        
-        // Propagate winner to next round
-        const [, round, matchup] = gameId.split('-');
-        const nextRoundNum = parseInt(round) + 1;
-        const nextMatchupIdx = Math.floor(parseInt(matchup) / 2);
-        const nextGameId = `p-${nextRoundNum}-${nextMatchupIdx}`;
-        const isTeam1 = parseInt(matchup) % 2 === 0;
+      setPlayoffGames(prev => {
+        const nextState = prev.map(g => {
+          if (g.id !== gameId) return g;
+          
+          // If already the winner, clicking again deselects
+          const isDeselecting = g.winnerId === winnerId && !isTie;
+          const newWinnerId = isDeselecting ? undefined : (isTie ? undefined : winnerId);
+          
+          return { ...g, winnerId: newWinnerId };
+        });
 
-        setPlayoffGames(allGames => allGames.map(pg => {
+        // Compute the updated game to get the new winner
+        const updatedGame = nextState.find(g => g.id === gameId);
+        if (!updatedGame) return prev;
+
+        // Propagate winner to next round
+        const parts = gameId.split('-');
+        if (parts.length < 3) return nextState;
+
+        const round = parseInt(parts[1]);
+        const matchup = parseInt(parts[2]);
+        
+        const nextRoundNum = round + 1;
+        const nextMatchupIdx = Math.floor(matchup / 2);
+        const nextGameId = `p-${nextRoundNum}-${nextMatchupIdx}`;
+        const isTeam1 = matchup % 2 === 0;
+
+        return nextState.map(pg => {
           if (pg.id === nextGameId) {
-             return isTeam1 ? { ...pg, team1Id: winnerId as string } : { ...pg, team2Id: winnerId as string };
+             const updatedPg = isTeam1 ? { ...pg, team1Id: updatedGame.winnerId } : { ...pg, team2Id: updatedGame.winnerId };
+             // If winner changed, clear subsequent winners to prevent invalid bracket states
+             return { ...updatedPg, winnerId: undefined };
           }
           return pg;
-        }));
-
-        return updatedGame;
-      }));
+        });
+      });
     } else {
       setGames(prev => prev.map(g => {
         if (g.id !== gameId) return g;
@@ -199,19 +240,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       const awayTeam = teams.find(t => t.id === game.awayTeamId);
       
       if (homeTeam && awayTeam) {
-        const hOff = homeTeam.offenseRating ?? 75;
-        const hDef = homeTeam.defenseRating ?? 75;
-        const hSpec = homeTeam.specialTeamsRating ?? 75;
-        const aOff = awayTeam.offenseRating ?? 75;
-        const aDef = awayTeam.defenseRating ?? 75;
-        const aSpec = awayTeam.specialTeamsRating ?? 75;
-
-        const homePower = (hOff * 0.45) + (hDef * 0.45) + (hSpec * 0.1);
-        const awayPower = (aOff * 0.45) + (aDef * 0.45) + (aSpec * 0.1);
+        // Use average player ratings (overallRating) as the foundation
+        const homeRating = homeTeam.overallRating || 75;
+        const awayRating = awayTeam.overallRating || 75;
         
-        const homeAdvantage = 3;
-        const totalPower = homePower + awayPower + homeAdvantage;
-        const homeWinProb = (homePower + homeAdvantage) / totalPower;
+        // Base probabilities on overall ratings
+        const homeAdvantage = 3; // Home field advantage
+        const totalRating = homeRating + awayRating + homeAdvantage;
+        const homeWinProb = (homeRating + homeAdvantage) / totalRating;
         
         const roll = Math.random();
         if (roll < 0.05) {
@@ -219,8 +255,12 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           newGames[gameIdx] = { ...game, winnerId: undefined, isTie: true, homeScore: score, awayScore: score };
         } else {
           const winnerId = roll < homeWinProb ? game.homeTeamId : game.awayTeamId;
-          const winnerScore = Math.floor(Math.random() * 21) + 14 + (winnerId === game.homeTeamId ? homePower/10 : awayPower/10);
+          const winnerRating = winnerId === game.homeTeamId ? homeRating : awayRating;
+          
+          // Scores based on ratings
+          const winnerScore = Math.floor(Math.random() * 21) + 14 + (winnerRating / 10);
           const loserScore = Math.floor(Math.random() * (winnerScore - 3)) + 3;
+          
           newGames[gameIdx] = { 
             ...game, 
             winnerId, 
@@ -240,21 +280,15 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setIsSimulating(false);
   };
 
-  const upgradeStat = (teamId: string, stat: 'offenseRating' | 'defenseRating' | 'specialTeamsRating') => {
-    setTeams(teams.map(t => {
-      if (t.id === teamId) {
-        const currentPoints = t.stuffyPoints || 0;
-        const currentVal = t[stat] || 75;
-        if (currentPoints >= 50 && currentVal < 99) {
-          return {
-            ...t,
-            [stat]: Math.min(99, currentVal + 1),
-            stuffyPoints: currentPoints - 50
-          };
-        }
-      }
-      return t;
-    }));
+  const updatePlayer = (id: string, updatedPlayer: Partial<Player>) => {
+    setPlayers(players.map(p => p.id === id ? { ...p, ...updatedPlayer } : p));
+  };
+
+  const updateOverallRating = (teamId: string) => {
+    const teamPlayers = players.filter(p => p.teamId === teamId);
+    if (teamPlayers.length === 0) return;
+    const avgRating = teamPlayers.reduce((acc, p) => acc + p.rating, 0) / teamPlayers.length;
+    updateTeam(teamId, { overallRating: Math.round(avgRating) });
   };
 
   const completeSeason = (championId: string) => {
@@ -323,6 +357,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     history,
     numWeeks,
     setNumWeeks,
+    players,
+    setPlayers,
+    updatePlayer,
     addTeam,
     updateTeam,
     removeTeam,
@@ -332,6 +369,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     resetPredictions,
     completeSeason,
     upgradeStat,
+    updateOverallRating,
     activeTab,
     setActiveTab,
     isSimulating

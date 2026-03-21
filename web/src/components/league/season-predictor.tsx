@@ -3,15 +3,30 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  RefreshCw, ChevronRight, ChevronLeft, Play, Users
+  RefreshCw, 
+  ChevronRight, 
+  ChevronLeft, 
+  Play, 
+  Users, 
+  Settings 
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { STUFFY_ICONS } from '@/lib/league/constants';
+import { calculateStandings } from '@/lib/league/utils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function SeasonPredictor() {
-  const { teams, games, setGames, simulateSeason, handlePick, isSimulating } = useLeague();
+  const { teams, games, simulateSeason, handlePick, isSimulating, numWeeks, setNumWeeks } = useLeague();
   const [activeWeek, setActiveWeek] = useState(1);
 
   const maxWeek = useMemo(() => Math.max(...games.map(g => g.week), 0), [games]);
@@ -24,11 +39,16 @@ export default function SeasonPredictor() {
 
   // Live standings for our predictor view
   const currentStandings = useMemo(() => {
-    // We import calculateStandings from utils in context, but we can't easily re-import it here 
-    // without types. We'll assume the context might provide it or just keep it simple.
-    // For now, let's keep it simple or just assume we don't display the preview here if it's too heavy.
-    return []; // Placeholder to keep component clean
+    return calculateStandings(teams, games);
   }, [teams, games]);
+
+  const teamRecords = useMemo(() => {
+    const records: Record<string, string> = {};
+    currentStandings.forEach(s => {
+      records[s.teamId] = `${s.wins}-${s.losses}-${s.ties}`;
+    });
+    return records;
+  }, [currentStandings]);
 
   if (teams.length < 2) {
     return (
@@ -65,6 +85,38 @@ export default function SeasonPredictor() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl" disabled={isSimulating}>
+                <Settings className="w-5 h-5 text-stone-400" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] rounded-[2.5rem] p-8">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-black text-stone-900">League Settings</DialogTitle>
+              </DialogHeader>
+              <div className="py-6 space-y-6">
+                <div className="space-y-3">
+                  <Label htmlFor="numWeeks" className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
+                    Season Length (Weeks)
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    <Input
+                      id="numWeeks"
+                      type="number"
+                      min={1}
+                      max={32}
+                      value={numWeeks}
+                      onChange={(e) => setNumWeeks(parseInt(e.target.value) || 0)}
+                      className="rounded-2xl border-2 border-stone-100 font-bold h-12"
+                    />
+                    <p className="text-xs text-stone-400 italic">Default: {teams.length - 1} weeks</p>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Button
             onClick={simulateSeason}
             disabled={isSimulating || games.every(g => g.winnerId || g.isTie)}
@@ -120,6 +172,7 @@ export default function SeasonPredictor() {
                     <div className="text-left">
                       <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Away</p>
                       <span className="font-black text-stone-900 text-sm leading-tight block">{away.name}</span>
+                      <span className="text-[10px] text-stone-400 font-bold">{teamRecords[away.id]}</span>
                     </div>
                   </div>
                   {game.awayScore !== undefined && (
@@ -154,6 +207,7 @@ export default function SeasonPredictor() {
                     <div className="text-right">
                       <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Home</p>
                       <span className="font-black text-stone-900 text-sm leading-tight block">{home.name}</span>
+                      <span className="text-[10px] text-stone-400 font-bold">{teamRecords[home.id]}</span>
                     </div>
                     <div 
                       className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md border-2"

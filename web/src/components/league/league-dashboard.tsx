@@ -1,4 +1,5 @@
 "use client";
+// Last Updated: 2026-03-21T14:43:00-04:00
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,13 +17,15 @@ import Standings from './standings';
 import PlayoffBracket from './playoff-bracket';
 import TrainingCamp from './training-camp';
 import LeagueHistory from './league-history';
+import RosterView from './roster-view';
 
 export default function LeagueDashboard() {
   const { activeTab, setActiveTab, resetLeague, resetPredictions } = useLeague();
   const { user } = useAuth();
 
   const tabs = [
-    { id: 'setup', label: 'Roster', icon: Users },
+    { id: 'setup', label: 'Teams', icon: LayoutGrid },
+    { id: 'players', label: 'Personnel', icon: Users },
     { id: 'season', label: 'Season', icon: PlayCircle },
     { id: 'standings', label: 'Rankings', icon: BarChart3 },
     { id: 'playoffs', label: 'Playoffs', icon: Trophy },
@@ -108,6 +111,7 @@ export default function LeagueDashboard() {
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
               {activeTab === 'setup' && <TeamSetup />}
+              {activeTab === 'players' && <RosterView />}
               {activeTab === 'season' && <SeasonPredictor />}
               {activeTab === 'standings' && <Standings />}
               {activeTab === 'playoffs' && <PlayoffBracket />}

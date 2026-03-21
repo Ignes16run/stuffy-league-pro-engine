@@ -1,3 +1,4 @@
+// Last Updated: 2026-03-21T14:48:00-04:00
 export type StuffyIcon = 'TeddyBear' | 'Bunny' | 'Elephant' | 'Cat' | 'Dog' | 'Panda' | 'Lion' | 'Monkey';
 
 export interface Team {
@@ -11,6 +12,7 @@ export interface Team {
   offenseRating?: number;
   defenseRating?: number;
   specialTeamsRating?: number;
+  overallRating?: number;
   stuffyPoints?: number;
   allTimeWins?: number;
   championships?: number;
@@ -56,8 +58,42 @@ export interface SeasonHistory {
 
 export interface LeagueState {
   teams: Team[];
+  players: Player[];
   games: Game[];
   playoffGames: PlayoffGame[];
   currentWeek: number;
   history: SeasonHistory[];
+}
+
+export type PlayerPosition = 'QB' | 'RB' | 'WR' | 'TE' | 'OL' | 'DL' | 'LB' | 'DB' | 'K' | 'P';
+
+export interface PlayerStats {
+  gamesPlayed: number;
+  touchdowns: number;
+  yards: number;
+  tackles: number;
+  interceptions: number;
+  points: number;
+  assists?: number;
+  sacks?: number;
+  stuffyPointsEarned?: number;
+}
+
+export interface PlayerAbility {
+  name: string;
+  value: number;
+  description: string;
+}
+
+export interface Player {
+  id: string;
+  teamId: string;
+  name: string;
+  profilePicture?: string;
+  profile?: string; // Character profile/bio
+  archetype?: string; 
+  position: PlayerPosition;
+  rating: number; // 0-100 overall
+  abilities: PlayerAbility[];
+  stats: PlayerStats;
 }
