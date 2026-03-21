@@ -86,11 +86,11 @@ export default function SeasonPredictor() {
 
         <div className="flex items-center gap-2">
           <Dialog>
-            <DialogTrigger asChild>
+            <DialogTrigger render={
               <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl" disabled={isSimulating}>
                 <Settings className="w-5 h-5 text-stone-400" />
               </Button>
-            </DialogTrigger>
+            } />
             <DialogContent className="sm:max-w-[425px] rounded-[2.5rem] p-8">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black text-stone-900">League Settings</DialogTitle>
