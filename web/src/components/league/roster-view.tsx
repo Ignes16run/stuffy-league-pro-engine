@@ -202,12 +202,32 @@ function PlayerCard({ player, team, isEditing, onEdit, onCancel, onUpdate }: {
                   className="h-8 font-black text-lg p-1 rounded-lg border-stone-200"
                   placeholder="Player Name"
                 />
-                <Input 
-                  value={editData.profilePicture}
-                  onChange={(e) => setEditData({ ...editData, profilePicture: e.target.value })}
-                  className="h-6 text-[10px] p-1 rounded-lg border-stone-100"
-                  placeholder="Profile Image URL"
-                />
+                <div className="flex gap-2">
+                  <Input 
+                    value={editData.profilePicture}
+                    onChange={(e) => setEditData({ ...editData, profilePicture: e.target.value })}
+                    className="h-6 text-[10px] p-1 rounded-lg border-stone-100 flex-1"
+                    placeholder="Profile Image URL"
+                  />
+                  <label className="cursor-pointer h-6 px-2 bg-stone-100 rounded-lg flex items-center justify-center hover:bg-stone-200 transition-colors">
+                    <Camera className="w-3 h-3 text-stone-500" />
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setEditData({ ...editData, profilePicture: reader.result as string });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
             ) : (
               <h3 className="text-lg font-black text-stone-900 leading-tight">{player.name}</h3>
