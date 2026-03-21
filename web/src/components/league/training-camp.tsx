@@ -60,7 +60,7 @@ export default function TrainingCamp() {
 
 function TeamCampCard({ team, onUpgrade }: { team: any, onUpgrade: any }) {
   const points = team.stuffyPoints || 0;
-  const IconComp = STUFFY_ICONS[team.icon];
+  const IconComp = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS];
 
   return (
     <Card className="rounded-[2rem] border border-stone-100 shadow-sm overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all">

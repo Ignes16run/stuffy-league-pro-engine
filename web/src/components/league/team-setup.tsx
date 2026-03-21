@@ -98,7 +98,7 @@ export default function TeamSetup() {
       addTeam({
         id: generateId(),
         name: name.trim(),
-        icon: ICON_OPTIONS[Math.floor(Math.random() * ICON_OPTIONS.length)],
+        icon: ICON_OPTIONS[Math.floor(Math.random() * ICON_OPTIONS.length)] as StuffyIcon,
         primaryColor: DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)],
         secondaryColor: DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)],
         offenseRating: 75,
@@ -195,7 +195,7 @@ export default function TeamSetup() {
                 <label className="text-xs font-black uppercase text-stone-400">Select Icon</label>
                 <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                   {ICON_OPTIONS.map(icon => {
-                    const IconComp = STUFFY_ICONS[icon];
+                    const IconComp = STUFFY_ICONS[icon as keyof typeof STUFFY_ICONS];
                     return (
                       <button
                         key={icon}
@@ -276,7 +276,7 @@ export default function TeamSetup() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
           {teams.map(team => {
-            const IconComp = STUFFY_ICONS[team.icon];
+            const IconComp = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS];
             return (
               <motion.div layout key={team.id} className="relative group">
                 <Card className="rounded-3xl overflow-hidden border border-stone-100 hover:shadow-xl hover:-translate-y-1 transition-all">

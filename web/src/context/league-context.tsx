@@ -49,6 +49,15 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history'>('setup');
   const [isSimulating, setIsSimulating] = useState(false);
 
+  // Auto-generate schedule if empty
+  useEffect(() => {
+    if (teams.length >= 2 && games.length === 0) {
+      const schedule = generateRoundRobinSchedule(teams);
+      setGames(schedule);
+      setNumWeeks(Math.max(...schedule.map(g => g.week)));
+    }
+  }, [teams, games.length]);
+
   // Sync from DB on Login
   useEffect(() => {
     if (user) {
@@ -59,13 +68,17 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
         if (dbTeams && dbTeams.length > 0) setTeams(dbTeams.map(t => ({
            id: t.id, name: t.name, icon: t.icon as any, primaryColor: t.primary_color, secondaryColor: t.secondary_color,
-           offenseRating: t.offense_rating, defense_rating: t.defense_rating, specialTeamsRating: t.special_teams_rating,
-           stuffyPoints: t.stuffy_points, allTimeWins: t.all_time_wins, championships: t.championships
+           offenseRating: t.offense_rating, defenseRating: t.defense_rating, specialTeamsRating: t.special_teams_rating,
+           stuffyPoints: t.stuffy_points, allTimeWins: t.all_time_wins, championships: t.championships,
+           logoUrl: t.logo_url
         })));
-        if (dbGames && dbGames.length > 0) setGames(dbGames.map(g => ({
-           id: g.id, week: g.week, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, 
-           winnerId: g.winner_id, isTie: g.is_tie, homeScore: g.home_score, awayScore: g.away_score
-        })));
+        
+        if (dbGames && dbGames.length > 0) {
+          setGames(dbGames.map(g => ({
+            id: g.id, week: g.week, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, 
+            winnerId: g.winner_id, isTie: g.is_tie, homeScore: g.home_score, awayScore: g.away_score
+          })));
+        }
       };
       loadData();
     }

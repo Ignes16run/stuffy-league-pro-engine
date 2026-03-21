@@ -67,7 +67,7 @@ export default function Standings() {
                           {team.logoUrl ? (
                             <img src={team.logoUrl} className="w-full h-full object-cover" />
                           ) : (
-                            React.createElement(STUFFY_ICONS[team.icon], { className: "w-5 h-5 text-white" })
+                            React.createElement(STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS], { className: "w-5 h-5 text-white" })
                           )}
                         </div>
                         <span className="text-stone-900">{team.name}</span>

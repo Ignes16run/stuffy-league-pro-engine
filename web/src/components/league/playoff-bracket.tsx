@@ -197,7 +197,7 @@ function PlayoffMatchup({ game }: { game: PlayoffGame }) {
                 style={{ backgroundColor: team?.primaryColor || '#f9fafb', borderColor: team?.secondaryColor || '#f3f4f6' }}
               >
                  {team?.logoUrl ? <img src={team.logoUrl} className="w-full h-full object-cover" alt={team.name} /> : (team ? <span className="opacity-0">?</span> : <span className="text-stone-300 font-bold">?</span>)}
-                 {team && !team.logoUrl && React.createElement(STUFFY_ICONS[team.icon], { className: "w-5 h-5" })}
+                 {team && !team.logoUrl && React.createElement(STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS], { className: "w-5 h-5" })}
               </div>
               <div className="text-left">
                  <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">Seed {idx === 0 ? game.seed1 : game.seed2}</p>
