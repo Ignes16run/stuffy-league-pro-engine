@@ -1,7 +1,7 @@
 "use client";
-// Last Updated: 2026-03-21T18:05:00-04:00
+// Last Updated: 2026-03-21T18:15:00-04:00
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { generateRoundRobinSchedule, calculateStandings } from '@/lib/league/utils';
@@ -48,6 +48,7 @@ const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
 
 export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const seedingRef = useRef(false);
   
   // State variables
   const [teams, setTeams] = useState<Team[]>(DEFAULT_LEAGUE_TEAMS);
@@ -61,54 +62,62 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Sync helpers
-  const syncTeam = useCallback(async (team: Team) => {
+  const syncTeams = useCallback(async (teamsArr: Team[]) => {
     if (!user) return;
-    await supabase.from('teams').upsert({
-      id: team.id, user_id: user.id, name: team.name, icon: team.icon, 
-      primary_color: team.primaryColor, secondary_color: team.secondaryColor,
-      offense_rating: team.offenseRating, defense_rating: team.defenseRating, 
-      special_teams_rating: team.specialTeamsRating, stuffy_points: team.stuffyPoints, 
-      all_time_wins: team.allTimeWins, championships: team.championships, logo_url: team.logoUrl
-    });
+    const data = teamsArr.map(t => ({
+      id: t.id, user_id: user.id, name: t.name, icon: t.icon, 
+      primary_color: t.primaryColor, secondary_color: t.secondaryColor,
+      offense_rating: t.offenseRating, defense_rating: t.defenseRating, 
+      special_teams_rating: t.special_teams_rating || t.specialTeamsRating, 
+      stuffy_points: t.stuffyPoints, all_time_wins: t.allTimeWins, 
+      championships: t.championships, logo_url: t.logoUrl
+    }));
+    await supabase.from('teams').upsert(data);
   }, [user]);
 
-  const syncPlayer = useCallback(async (player: Player) => {
+  const syncPlayers = useCallback(async (playersArr: Player[]) => {
     if (!user) return;
-    await supabase.from('players').upsert({
-      id: player.id, user_id: user.id, team_id: player.teamId,
-      name: player.name, position: player.position, rating: player.rating,
-      profile_picture: player.profilePicture, profile: player.profile,
-      archetype: player.archetype, abilities: player.abilities, stats: player.stats
-    });
-  }, [user]);
-
-  const syncGame = useCallback(async (game: Game) => {
-    if (!user) return;
-    await supabase.from('games').upsert({
-      id: game.id, user_id: user.id, week: game.week,
-      home_team_id: game.homeTeamId, away_team_id: game.awayTeamId,
-      winner_id: game.winnerId, is_tie: game.isTie, home_score: game.homeScore, away_score: game.awayScore
-    });
-  }, [user]);
-
-  const syncPlayoffGame = useCallback(async (game: PlayoffGame) => {
-    if (!user) return;
-    await supabase.from('playoff_games').upsert({
-      id: game.id, user_id: user.id, round: game.round, matchup_index: game.matchupIndex,
-      team1_id: game.team1Id, team2_id: game.team2Id, winner_id: game.winnerId,
-      seed1: game.seed1, seed2: game.seed2
-    });
-  }, [user]);
-
-  const syncPlayoffGamesBatch = useCallback(async (gamesArr: PlayoffGame[]) => {
-    if (!user) return;
-    for (const g of gamesArr) {
-      await syncPlayoffGame(g);
+    const chunks = [];
+    for (let i = 0; i < playersArr.length; i += 100) {
+      chunks.push(playersArr.slice(i, i + 100));
     }
-  }, [user, syncPlayoffGame]);
+    for (const chunk of chunks) {
+      const data = chunk.map(p => ({
+        id: p.id, user_id: user.id, team_id: p.teamId,
+        name: p.name, position: p.position, rating: p.rating,
+        profile_picture: p.profilePicture, profile: p.profile,
+        archetype: p.archetype, abilities: p.abilities, stats: p.stats
+      }));
+      await supabase.from('players').upsert(data);
+    }
+  }, [user]);
+
+  const syncGames = useCallback(async (gamesArr: Game[]) => {
+    if (!user) return;
+    const data = gamesArr.map(g => ({
+      id: g.id, user_id: user.id, week: g.week,
+      home_team_id: g.homeTeamId, away_team_id: g.away_team_id,
+      winner_id: g.winnerId, is_tie: g.isTie, home_score: g.homeScore, away_score: g.awayScore
+    }));
+    await supabase.from('games').upsert(data);
+  }, [user]);
+
+  const syncPlayoffGames = useCallback(async (gamesArr: PlayoffGame[]) => {
+    if (!user) return;
+    const data = gamesArr.map(g => ({
+      id: g.id, user_id: user.id, round: g.round, matchup_index: g.matchupIndex,
+      team1_id: g.team1Id, team2_id: g.team2Id, winner_id: g.winnerId,
+      seed1: g.seed1, seed2: g.seed2
+    }));
+    await supabase.from('playoff_games').upsert(data);
+  }, [user]);
 
   const loadData = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setIsLoaded(true);
+      return;
+    }
+    
     try {
       const [
         { data: dbTeams }, 
@@ -124,34 +133,62 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         supabase.from('season_history').select('*').eq('user_id', user.id).order('year', { ascending: true })
       ]);
       
-      if (dbTeams && dbTeams.length > 0) setTeams(dbTeams.map(t => ({
-         id: t.id, name: t.name, icon: t.icon, primaryColor: t.primary_color, secondaryColor: t.secondary_color,
-         offenseRating: t.offense_rating, defenseRating: t.defense_rating, specialTeamsRating: t.special_teams_rating,
-         stuffyPoints: t.stuffy_points, all_time_wins: t.all_time_wins, championships: t.championships,
-         logoUrl: t.logo_url
-      })));
+      let finalTeams = DEFAULT_LEAGUE_TEAMS;
+      let finalPlayers: Player[] = [];
+      let finalGames: Game[] = [];
+
+      // Teams Hydration
+      if (dbTeams && dbTeams.length > 0) {
+        finalTeams = dbTeams.map(t => ({
+          id: t.id, name: t.name, icon: t.icon, primaryColor: t.primary_color, secondaryColor: t.secondary_color,
+          offenseRating: t.offense_rating, defenseRating: t.defense_rating, specialTeamsRating: t.special_teams_rating,
+          stuffyPoints: t.stuffy_points, allTimeWins: t.all_time_wins, championships: t.championships,
+          logoUrl: t.logo_url
+        }));
+        setTeams(finalTeams);
+      } else {
+        // First time user: Seed teams to DB
+        await syncTeams(DEFAULT_LEAGUE_TEAMS);
+      }
       
+      // Players Hydration
       if (dbPlayers && dbPlayers.length > 0) {
-        setPlayers(dbPlayers.map(p => ({
+        finalPlayers = dbPlayers.map(p => ({
           id: p.id, teamId: p.team_id, name: p.name, position: p.position,
           rating: p.rating, profilePicture: p.profile_picture, profile: p.profile,
           archetype: p.archetype, abilities: p.abilities, stats: p.stats as any
-        })));
+        }));
+        setPlayers(finalPlayers);
+      } else {
+        // Generate and seed rosters
+        const newPlayers: Player[] = [];
+        finalTeams.forEach(team => {
+          newPlayers.push(...generateTeamRoster(team.id));
+        });
+        setPlayers(newPlayers);
+        await syncPlayers(newPlayers);
       }
       
+      // Games Hydration
       if (dbGames && dbGames.length > 0) {
-        const mappedGames = dbGames.map(g => ({
+        finalGames = dbGames.map(g => ({
           id: g.id, week: g.week, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, 
           winnerId: g.winner_id, isTie: g.is_tie, homeScore: g.home_score, awayScore: g.away_score
         })).sort((a, b) => a.week - b.week);
-        setGames(mappedGames);
-        setNumWeeks(Math.max(...mappedGames.map(g => g.week), 0));
+        setGames(finalGames);
+        setNumWeeks(Math.max(...finalGames.map(g => g.week), 0));
+      } else {
+        // Generate schedule
+        const schedule = generateRoundRobinSchedule(finalTeams);
+        setGames(schedule);
+        setNumWeeks(Math.max(...schedule.map(g => g.week), 0));
+        await syncGames(schedule);
       }
 
       if (dbPlayoffs && dbPlayoffs.length > 0) {
         setPlayoffGames(dbPlayoffs.map(g => ({
           id: g.id, round: g.round, matchupIndex: g.matchup_index,
-          team1Id: g.team_1_id || g.team1_id, team2Id: g.team_2_id || g.team2_id, winnerId: g.winner_id,
+          team1Id: g.team1_id, team2Id: g.team2_id, winnerId: g.winner_id,
           seed1: g.seed1, seed2: g.seed2
         })));
       }
@@ -161,62 +198,37 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           year: h.year, championId: h.champion_id, finalStandings: h.final_standings as any
         })));
       }
+    } catch (e) {
+      console.error("League Hydration Error:", e);
     } finally {
       setIsLoaded(true);
     }
-  }, [user]);
+  }, [user, syncTeams, syncPlayers, syncGames]);
 
   useEffect(() => {
-    if (user) loadData();
-    else setIsLoaded(true);
-  }, [user, loadData]);
+    loadData();
+  }, [loadData]);
 
-  // Auto-generate schedule if missing
-  useEffect(() => {
-    if (isLoaded && teams.length >= 2 && games.length === 0) {
-      const schedule = generateRoundRobinSchedule(teams);
-      setGames(schedule);
-      setNumWeeks(Math.max(...schedule.map(g => g.week), 0));
-      if (user) schedule.forEach(g => syncGame(g));
-    }
-  }, [isLoaded, teams, games.length, user, syncGame]);
-
-  // Missing players check
-  useEffect(() => {
-    if (isLoaded && teams.length > 0) {
-      const teamsWithMissingPlayers = teams.filter(t => !players.some(p => p.teamId === t.id));
-      if (teamsWithMissingPlayers.length > 0) {
-        const newPlayersStack: Player[] = [];
-        teamsWithMissingPlayers.forEach(team => {
-          const roster = generateTeamRoster(team.id);
-          newPlayersStack.push(...roster);
-          roster.forEach(p => syncPlayer(p).catch(() => {}));
-        });
-        setPlayers(prev => [...prev, ...newPlayersStack]);
-      }
-    }
-  }, [isLoaded, teams, players.length, syncPlayer]);
-
-  const addTeam = (team: Team) => {
+  const addTeam = async (team: Team) => {
     setTeams(prev => [...prev, team]);
     const roster = generateTeamRoster(team.id);
     setPlayers(prev => [...prev, ...roster]);
-    syncTeam(team);
-    roster.forEach(p => syncPlayer(p));
+    await syncTeams([team]);
+    await syncPlayers(roster);
   };
 
-  const updateTeam = (id: string, updatedTeam: Partial<Team>) => {
+  const updateTeam = async (id: string, updatedTeam: Partial<Team>) => {
     setTeams(prev => {
       const next = prev.map(t => t.id === id ? { ...t, ...updatedTeam } : t);
       const updated = next.find(t => t.id === id);
-      if (updated) syncTeam(updated);
+      if (updated && user) syncTeams([updated]);
       return next;
     });
   };
 
-  const removeTeam = (id: string) => {
+  const removeTeam = async (id: string) => {
     setTeams(prev => prev.filter(t => t.id !== id));
-    if (user) supabase.from('teams').delete().eq('id', id).eq('user_id', user.id).then();
+    if (user) await supabase.from('teams').delete().eq('id', id).eq('user_id', user.id);
   };
 
   const getUpdatedPlayersFromGame = (currentPlayers: Player[], gameId: string, team1Id: string, team2Id: string, team1Score: number, team2Score: number): Player[] => {
@@ -224,19 +236,19 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     const updateTeamStats = (teamId: string, score: number) => {
       const tPlayers = nextPlayers.filter(p => p.teamId === teamId);
       if (tPlayers.length === 0) return;
+      
       tPlayers.forEach(p => {
         p.stats.gamesPlayed = (p.stats.gamesPlayed || 0) + 1;
-        const off = ['QB', 'RB', 'WR', 'TE', 'OL', 'K'].includes(p.position);
+        // Position-based reset for realism
+        const off = ['QB', 'RB', 'WR', 'TE'].includes(p.position);
         const def = ['DL', 'LB', 'DB'].includes(p.position);
         if (off) { p.stats.tackles = 0; p.stats.interceptions = 0; p.stats.sacks = 0; }
         if (def) { p.stats.yards = 0; p.stats.touchdowns = 0; p.stats.points = 0; }
       });
+
       const qb = tPlayers.find(p => p.position === 'QB');
       const skill = tPlayers.filter(p => ['RB', 'WR', 'TE'].includes(p.position));
       const k = tPlayers.find(p => p.position === 'K');
-      const dL = tPlayers.filter(p => p.position === 'DL');
-      const lB = tPlayers.filter(p => p.position === 'LB');
-      const dB = tPlayers.filter(p => p.position === 'DB');
 
       const tds = Math.floor(score / 7);
       if (tds > 0) {
@@ -246,33 +258,43 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         }
         if (qb) qb.stats.touchdowns = (qb.stats.touchdowns || 0) + tds;
       }
-      const tyrd = Math.min(score * 15 + Math.floor(Math.random() * 80) + 40, 650);
-      if (qb) qb.stats.yards = (qb.stats.yards || 0) + Math.min(Math.floor(tyrd * 0.85), 450);
-      let ryrd = tyrd;
+      
+      const yards = Math.min(score * 15 + Math.floor(Math.random() * 80), 600);
+      if (qb) qb.stats.yards = (qb.stats.yards || 0) + Math.floor(yards * 0.9);
+      
+      let remainingYards = yards;
       skill.forEach((p, idx) => {
-        const share = idx === skill.length - 1 ? ryrd : Math.floor(Math.random() * (ryrd / (skill.length - idx)));
-        p.stats.yards = (p.stats.yards || 0) + Math.min(share, 250);
-        ryrd -= share;
+        const share = idx === skill.length - 1 ? remainingYards : Math.floor(Math.random() * (remainingYards / (skill.length - idx)));
+        p.stats.yards = (p.stats.yards || 0) + share;
+        remainingYards -= share;
       });
-      dL.forEach(p => { p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 4) + 1; if (Math.random() < 0.15) p.stats.sacks = (p.stats.sacks || 0) + 1; });
-      lB.forEach(p => { p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 10) + 3; if (Math.random() < 0.08) p.stats.sacks = (p.stats.sacks || 0) + 1; });
-      dB.forEach(p => { p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 6) + 2; if (Math.random() < 0.12) p.stats.interceptions = (p.stats.interceptions || 0) + 1; });
+
+      tPlayers.filter(p => ['DL', 'LB', 'DB'].includes(p.position)).forEach(p => {
+        p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 8) + 2;
+        if (Math.random() < 0.1) p.stats.sacks = (p.stats.sacks || 0) + 1;
+        if (p.position === 'DB' && Math.random() < 0.05) p.stats.interceptions = (p.stats.interceptions || 0) + 1;
+      });
+
       if (k) k.stats.points = (k.stats.points || 0) + (Math.floor((score % 7)/3) * 3) + tds;
     };
+
     updateTeamStats(team1Id, team1Score);
     updateTeamStats(team2Id, team2Score);
     return nextPlayers;
   };
 
-  const handlePick = (gameId: string, winnerId: string | 'tie') => {
+  const handlePick = async (gameId: string, winnerId: string | 'tie') => {
     const isTie = winnerId === 'tie';
     if (gameId.startsWith('round-')) {
+      // Playoff Game Pick
       setPlayoffGames(prev => {
         const game = prev.find(g => g.id === gameId);
         if (!game) return prev;
+        
         const isDeselecting = game.winnerId === winnerId;
         const newVal = isDeselecting ? undefined : (winnerId as string);
         const updated = prev.map(g => g.id === gameId ? { ...g, winnerId: newVal } : g);
+        
         const wSeed = winnerId === game.team1Id ? game.seed1 : game.seed2;
         const nextR = game.round + 1;
         const nextIdx = Math.floor(game.matchupIndex / 2);
@@ -289,11 +311,8 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           return g;
         });
 
-        const changedCurrent = result.find(g => g.id === gameId);
-        if (changedCurrent) syncPlayoffGame(changedCurrent);
-        const changedNext = result.find(g => g.round === nextR && g.matchupIndex === nextIdx);
-        if (changedNext) syncPlayoffGame(changedNext);
-
+        // Sync changes
+        syncPlayoffGames(result.filter(g => g.id === gameId || (g.round === nextR && g.matchupIndex === nextIdx)));
         return result;
       });
       return;
@@ -304,6 +323,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
     const isDeselecting = isTie ? game.isTie : game.winnerId === winnerId;
     let nextGameData: Partial<Game>;
+    
     if (isDeselecting) {
       nextGameData = { winnerId: undefined, isTie: false, homeScore: undefined, awayScore: undefined };
     } else if (isTie) {
@@ -323,19 +343,15 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setGames(prev => {
       const next = prev.map(g => g.id === gameId ? { ...g, ...nextGameData } : g);
       const updated = next.find(g => g.id === gameId);
-      if (updated) syncGame(updated);
+      if (updated) syncGames([updated]);
       return next;
     });
 
-    if (!isDeselecting && nextGameData.homeScore !== undefined && nextGameData.awayScore !== undefined) {
+    if (!isDeselecting && nextGameData.homeScore !== undefined) {
       setPlayers(prev => {
-        const next = getUpdatedPlayersFromGame(
-          prev, gameId, game.homeTeamId, game.awayTeamId, 
-          nextGameData.homeScore!, nextGameData.awayScore!
-        );
-        if (user) {
-          next.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId).forEach(p => syncPlayer(p).catch(()=>{}));
-        }
+        const next = getUpdatedPlayersFromGame(prev, gameId, game.homeTeamId, game.awayTeamId, nextGameData.homeScore!, nextGameData.awayScore!);
+        const affected = next.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId);
+        syncPlayers(affected);
         return next;
       });
     }
@@ -343,146 +359,145 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const simulateSeason = async () => {
     setIsSimulating(true);
-    const unplayedGames = games.filter(g => !g.winnerId && !g.isTie);
-    let newGames = [...games];
-    let nextPlayers = [...players];
-    
-    for (let i = 0; i < unplayedGames.length; i++) {
-        const gameIdx = newGames.findIndex(g => g.id === unplayedGames[i].id);
-        const game = newGames[gameIdx];
-        const hTeam = teams.find(t => t.id === game.homeTeamId);
-        const aTeam = teams.find(t => t.id === game.awayTeamId);
+    const unplayed = games.filter(g => !g.winnerId && !g.isTie);
+    let currentGames = [...games];
+    let currentPlayers = [...players];
+
+    for (let i = 0; i < unplayed.length; i++) {
+      const gameIdx = currentGames.findIndex(g => g.id === unplayed[i].id);
+      const game = currentGames[gameIdx];
+      
+      const homeTeam = teams.find(t => t.id === game.homeTeamId);
+      const awayTeam = teams.find(t => t.id === game.awayTeamId);
+      
+      if (homeTeam && awayTeam) {
+        const hR = homeTeam.offenseRating || 75;
+        const aR = awayTeam.offenseRating || 75;
+        const winProb = (hR + 3) / (hR + aR + 3);
+        const roll = Math.random();
         
-        if (hTeam && aTeam) {
-            const hRating = hTeam.offenseRating || 75;
-            const aRating = aTeam.offenseRating || 75;
-            const hWinProb = (hRating + 3) / (hRating + aRating + 3);
-            const roll = Math.random();
-            
-            let res;
-            if (roll < 0.05) {
-                const s = Math.floor(Math.random() * 21) + 7;
-                res = { winnerId: undefined, isTie: true, homeScore: s, awayScore: s };
-            } else {
-                const wId = roll < hWinProb ? game.homeTeamId : game.awayTeamId;
-                const wRating = wId === game.homeTeamId ? hRating : aRating;
-                const wScore = Math.floor(Math.random() * 21) + 14 + (wRating / 10);
-                const lScore = Math.max(0, Math.floor(Math.random() * (wScore - 3)) + 3);
-                res = { 
-                    winnerId: wId, isTie: false, 
-                    homeScore: Math.floor(wId === game.homeTeamId ? wScore : lScore),
-                    awayScore: Math.floor(wId === game.awayTeamId ? wScore : lScore)
-                };
-            }
-
-            const updated = { ...game, ...res };
-            newGames[gameIdx] = updated;
-            syncGame(updated);
-            
-            nextPlayers = getUpdatedPlayersFromGame(
-                nextPlayers, game.id, game.homeTeamId, game.awayTeamId, 
-                updated.homeScore!, updated.awayScore!
-            );
+        let res;
+        if (roll < 0.05) {
+          const s = Math.floor(Math.random() * 14) + 7;
+          res = { winnerId: undefined, isTie: true, homeScore: s, awayScore: s };
+        } else {
+          const winnerId = roll < winProb ? game.homeTeamId : game.awayTeamId;
+          const wR = winnerId === game.homeTeamId ? hR : aR;
+          const wS = Math.floor(Math.random() * 21) + 14 + (wR/10);
+          const lS = Math.max(0, Math.floor(Math.random() * (wS - 7) ) + 3);
+          res = {
+            winnerId, isTie: false,
+            homeScore: winnerId === game.homeTeamId ? wS : lS,
+            awayScore: winnerId === game.awayTeamId ? wS : lS
+          };
         }
 
-        if (i % 8 === 0) {
-            setGames([...newGames]);
-            setPlayers([...nextPlayers]);
-            await new Promise(r => setTimeout(r, 40));
-        }
+        const updated = { ...game, ...res };
+        currentGames[gameIdx] = updated;
+        
+        currentPlayers = getUpdatedPlayersFromGame(currentPlayers, game.id, game.homeTeamId, game.awayTeamId, updated.homeScore!, updated.awayScore!);
+      }
+
+      if (i % 5 === 0) {
+        setGames([...currentGames]);
+        setPlayers([...currentPlayers]);
+        await new Promise(r => setTimeout(r, 30));
+      }
     }
 
-    setGames([...newGames]);
-    setPlayers([...nextPlayers]);
-    if (user) nextPlayers.forEach(p => syncPlayer(p).catch(()=>{}));
+    setGames(currentGames);
+    setPlayers(currentPlayers);
+    if (user) {
+      await syncGames(currentGames);
+      await syncPlayers(currentPlayers);
+    }
     setIsSimulating(false);
   };
 
-  const completeSeason = (championId: string) => {
+  const completeSeason = async (championId: string) => {
     const stands = calculateStandings(teams, games);
-    const entry: SeasonHistory = { year: history.length + 2024, championId, finalStandings: stands };
-    setHistory(prev => [...prev, entry]);
-    if (user) supabase.from('season_history').insert({ user_id: user.id, year: entry.year, champion_id: championId, final_standings: stands }).then();
+    const year = 2024 + history.length;
+    const entry: SeasonHistory = { year, championId, finalStandings: stands };
     
-    setTeams(prev => prev.map(t => {
+    setHistory(prev => [...prev, entry]);
+    await supabase.from('season_history').insert({ user_id: user?.id, year, champion_id: championId, final_standings: stands });
+    
+    const updatedTeams = teams.map(t => {
       const wins = games.filter(g => g.winnerId === t.id).length;
       const chmp = t.id === championId;
-      const updated = { ...t, stuffyPoints: (t.stuffyPoints || 0) + (wins * 2) + (chmp ? 20 : 0), allTimeWins: (t.allTimeWins || 0) + wins, championships: (t.championships || 0) + (chmp ? 1 : 0) };
-      syncTeam(updated);
-      return updated;
-    }));
+      return { 
+        ...t, 
+        stuffyPoints: (t.stuffyPoints || 0) + (wins * 2) + (chmp ? 20 : 0),
+        allTimeWins: (t.allTimeWins || 0) + wins,
+        championships: (t.championships || 0) + (chmp ? 1 : 0)
+      };
+    });
+    
+    setTeams(updatedTeams);
+    await syncTeams(updatedTeams);
+    
+    // Reset for next year
     setGames(prev => prev.map(g => ({ ...g, winnerId: undefined, isTie: false, homeScore: undefined, awayScore: undefined })));
     setPlayoffGames([]);
     if (user) {
-        supabase.from('playoff_games').delete().eq('user_id', user.id).then();
-        games.forEach(g => syncGame({ ...g, winnerId: undefined, isTie: false, homeScore: undefined, awayScore: undefined }));
+      await supabase.from('games').update({ winner_id: null, is_tie: false, home_score: null, away_score: null }).eq('user_id', user.id);
+      await supabase.from('playoff_games').delete().eq('user_id', user.id);
     }
     setActiveTab('history');
   };
 
-  const resetPredictions = () => {
+  const resetPredictions = async () => {
     setGames(prev => prev.map(g => ({ ...g, winnerId: undefined, isTie: false, homeScore: undefined, awayScore: undefined })));
     setPlayoffGames([]);
     if (user) {
-        supabase.from('playoff_games').delete().eq('user_id', user.id).then();
-        games.forEach(g => syncGame({ ...g, winnerId: undefined, isTie: false, homeScore: undefined, awayScore: undefined }));
+        await supabase.from('games').update({ winner_id: null, is_tie: false, home_score: null, away_score: null }).eq('user_id', user.id);
+        await supabase.from('playoff_games').delete().eq('user_id', user.id);
     }
   };
 
   const resetLeague = async () => {
-    setTeams(DEFAULT_LEAGUE_TEAMS);
-    setGames([]);
-    setPlayoffGames([]);
-    setPlayers([]);
-    setHistory([]);
-    if (user) {
-        await Promise.all([
-            supabase.from('teams').delete().eq('user_id', user.id),
-            supabase.from('players').delete().eq('user_id', user.id),
-            supabase.from('games').delete().eq('user_id', user.id),
-            supabase.from('playoff_games').delete().eq('user_id', user.id),
-            supabase.from('season_history').delete().eq('user_id', user.id)
-        ]);
-        DEFAULT_LEAGUE_TEAMS.forEach(t => syncTeam(t));
-    }
-    setActiveTab('setup');
+    if (!user) return;
+    await Promise.all([
+      supabase.from('teams').delete().eq('user_id', user.id),
+      supabase.from('players').delete().eq('user_id', user.id),
+      supabase.from('games').delete().eq('user_id', user.id),
+      supabase.from('playoff_games').delete().eq('user_id', user.id),
+      supabase.from('season_history').delete().eq('user_id', user.id)
+    ]);
+    window.location.reload(); // Force full hydration from defaults
   };
 
   const upgradeStat = (tId: string, s: any) => {
-      const team = teams.find(t => t.id === tId);
-      if (team && (team.stuffyPoints || 0) >= 50 && (team[s as keyof Team] as number) < 99) {
-          updateTeam(tId, { [s]: (team[s as keyof Team] as number) + 1, stuffyPoints: (team.stuffyPoints || 0) - 50 });
-      }
-  };
-
-  const updateOverallRating = (tId: string) => {
-      const tps = players.filter(p => p.teamId === tId);
-      if (tps.length > 0) updateTeam(tId, { overallRating: Math.round(tps.reduce((a,b)=>a+b.rating,0)/tps.length) });
-  };
-
-  const allocatePlayerStats = (id: string, t1: string, t2: string, s1: number, s2: number) => {
-      setPlayers(prev => {
-          const next = getUpdatedPlayersFromGame(prev, id, t1, t2, s1, s2);
-          if (user) next.filter(p => p.teamId === t1 || p.teamId === t2).forEach(p => syncPlayer(p).catch(()=>{}));
-          return next;
-      });
+    const team = teams.find(t => t.id === tId);
+    if (team && (team.stuffyPoints || 0) >= 50) {
+      updateTeam(tId, { [s]: (team[s as keyof Team] as number) + 1, stuffyPoints: (team.stuffyPoints || 0) - 50 });
+    }
   };
 
   const value = {
     teams, setTeams, games, setGames, playoffGames, setPlayoffGames, history, numWeeks, setNumWeeks,
-    players, setPlayers, 
-    updatePlayer: (id: string, p: Partial<Player>) => {
-        setPlayers(prev => { 
-            const next = prev.map(x => x.id === id ? { ...x, ...p } : x); 
-            const upd = next.find(x => x.id === id);
-            if (upd) syncPlayer(upd);
+    players, setPlayers, updatePlayer: (id: string, p: Partial<Player>) => {
+      setPlayers(prev => {
+        const next = prev.map(pl => pl.id === id ? { ...pl, ...p } : pl);
+        const upd = next.find(pl => pl.id === id);
+        if (upd) syncPlayers([upd]);
+        return next;
+      });
+    },
+    addTeam, updateTeam, removeTeam, simulateSeason, handlePick,
+    resetLeague, resetPredictions, completeSeason, upgradeStat, 
+    updateOverallRating: (tId: string) => {
+      const p = players.filter(pl => pl.teamId === tId);
+      if (p.length > 0) updateTeam(tId, { overallRating: Math.round(p.reduce((a,b)=>a+b.rating,0)/p.length) });
+    },
+    activeTab, setActiveTab: setActiveTab as any,
+    isSimulating, isLoaded, syncPlayoffGames, allocatePlayerStats: (id: string, t1: string, t2: string, s1: number, s2: number) => {
+        setPlayers(prev => {
+            const next = getUpdatedPlayersFromGame(prev, id, t1, t2, s1, s2);
+            syncPlayers(next.filter(p => p.teamId === t1 || p.teamId === t2));
             return next;
         });
-    }, 
-    addTeam, updateTeam, removeTeam, simulateSeason, handlePick,
-    resetLeague, resetPredictions, completeSeason, upgradeStat, updateOverallRating,
-    activeTab, setActiveTab: setActiveTab as (t: string) => void, 
-    isSimulating, isLoaded, syncPlayoffGames: syncPlayoffGamesBatch, allocatePlayerStats,
+    },
     user
   };
 
