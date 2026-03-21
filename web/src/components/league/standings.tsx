@@ -44,8 +44,9 @@ export default function Standings() {
             </TableHeader>
             <TableBody>
               {standings.map((s, idx) => {
-                const team = teams.find(t => t.id === s.teamId)!;
+                const team = teams.find(t => t.id === s.teamId);
                 if (!team) return null;
+                const TeamIcon = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
                 return (
                   <TableRow key={s.teamId} className="hover:bg-stone-50/50 transition-colors border-stone-50">
                     <TableCell className="px-6 py-4">
@@ -65,9 +66,9 @@ export default function Standings() {
                           style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
                         >
                           {team.logoUrl ? (
-                            <img src={team.logoUrl} className="w-full h-full object-cover" />
+                            <img src={team.logoUrl} className="w-full h-full object-cover" alt={team.name} />
                           ) : (
-                            React.createElement(STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS], { className: "w-5 h-5 text-white" })
+                            <TeamIcon className="w-5 h-5 text-white" />
                           )}
                         </div>
                         <span className="text-stone-900">{team.name}</span>

@@ -170,7 +170,7 @@ export default function PlayoffBracket() {
                </div>
                <p className="text-[10px] uppercase font-black tracking-[0.4em] text-yellow-600 mb-2">Champion</p>
                <h2 className="text-3xl font-black text-stone-900 mb-6">
-                  {teams.find(t => t.id === playoffGames.find(g => g.round === Math.max(...rounds))?.winnerId)?.name}
+                  {teams.find(t => t.id === playoffGames.find(g => g.round === Math.max(...rounds))?.winnerId)?.name || 'Winner'}
                </h2>
                <Button 
                  onClick={() => {
@@ -196,31 +196,39 @@ function PlayoffMatchup({ game }: { game: PlayoffGame }) {
 
   return (
     <div className="bg-white rounded-[1.5rem] shadow-sm border border-stone-100 overflow-hidden w-full divide-y divide-stone-50">
-       {[t1, t2].map((team, idx) => (
-         <button 
-           key={idx} 
-           onClick={() => team && handlePick(game.id, team.id)} 
-           className={cn(
-             "w-full flex items-center justify-between p-4 transition-all border-l-4",
-             game.winnerId === team?.id ? "border-emerald-500 bg-emerald-50/20" : "border-transparent hover:bg-stone-50"
-           )}
-         >
-           <div className="flex items-center gap-3">
-           <div 
-                className="w-10 h-10 rounded-xl flex items-center justify-center border-2 shadow-sm text-white"
-                style={{ backgroundColor: team?.primaryColor || '#f9fafb', borderColor: team?.secondaryColor || '#f3f4f6' }}
-              >
-                 {team?.logoUrl ? <img src={team.logoUrl} className="w-full h-full object-cover" alt={team.name} /> : (team ? <span className="opacity-0">?</span> : <span className="text-stone-300 font-bold">?</span>)}
-                 {team && !team.logoUrl && React.createElement(STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS], { className: "w-5 h-5" })}
-              </div>
-              <div className="text-left">
-                 <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">Seed {idx === 0 ? game.seed1 : game.seed2}</p>
-                 <span className={cn("font-black text-sm", team ? "text-stone-900" : "text-stone-300 italic")}>{team?.name || 'TBD'}</span>
-              </div>
-           </div>
-           {game.winnerId === team?.id && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-         </button>
-       ))}
+       {[t1, t2].map((team, idx) => {
+         const TeamIcon = team ? (STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : null;
+         return (
+           <button 
+             key={idx} 
+             onClick={() => team && handlePick(game.id, team.id)} 
+             className={cn(
+               "w-full flex items-center justify-between p-4 transition-all border-l-4",
+               game.winnerId === team?.id ? "border-emerald-500 bg-emerald-50/20" : "border-transparent hover:bg-stone-50"
+             )}
+           >
+             <div className="flex items-center gap-3">
+               <div 
+                 className="w-10 h-10 rounded-xl flex items-center justify-center border-2 shadow-sm text-white overflow-hidden"
+                 style={{ backgroundColor: team?.primaryColor || '#f9fafb', borderColor: team?.secondaryColor || '#f3f4f6' }}
+               >
+                 {team?.logoUrl ? (
+                   <img src={team.logoUrl} className="w-full h-full object-cover" alt={team.name} />
+                 ) : team && TeamIcon ? (
+                   <TeamIcon className="w-5 h-5" />
+                 ) : (
+                   <span className="text-stone-300 font-bold">?</span>
+                 )}
+               </div>
+               <div className="text-left">
+                  <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">Seed {idx === 0 ? game.seed1 : game.seed2}</p>
+                  <span className={cn("font-black text-sm", team ? "text-stone-900" : "text-stone-300 italic")}>{team?.name || 'TBD'}</span>
+               </div>
+             </div>
+             {game.winnerId && team && game.winnerId === team.id && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+           </button>
+         );
+       })}
     </div>
   );
 }
