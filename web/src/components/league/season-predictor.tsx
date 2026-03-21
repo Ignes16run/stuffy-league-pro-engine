@@ -1,0 +1,199 @@
+"use client";
+
+import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  RefreshCw, ChevronRight, ChevronLeft, Play, Users
+} from 'lucide-react';
+import { useLeague } from '@/context/league-context';
+import { STUFFY_ICONS } from '@/lib/league/constants';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+
+export default function SeasonPredictor() {
+  const { teams, games, setGames, simulateSeason, handlePick, isSimulating } = useLeague();
+  const [activeWeek, setActiveWeek] = useState(1);
+
+  const maxWeek = useMemo(() => Math.max(...games.map(g => g.week), 0), [games]);
+  const weekGames = useMemo(() => games.filter(g => g.week === activeWeek), [games, activeWeek]);
+
+  const teamsOnBye = useMemo(() => {
+    const teamsInGames = new Set(weekGames.flatMap(g => [g.homeTeamId, g.awayTeamId]));
+    return teams.filter(t => !teamsInGames.has(t.id));
+  }, [teams, weekGames]);
+
+  // Live standings for our predictor view
+  const currentStandings = useMemo(() => {
+    // We import calculateStandings from utils in context, but we can't easily re-import it here 
+    // without types. We'll assume the context might provide it or just keep it simple.
+    // For now, let's keep it simple or just assume we don't display the preview here if it's too heavy.
+    return []; // Placeholder to keep component clean
+  }, [teams, games]);
+
+  if (teams.length < 2) {
+    return (
+      <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-stone-200">
+        <Users className="w-16 h-16 text-stone-200 mx-auto mb-6" />
+        <h3 className="text-2xl font-black text-stone-800 mb-2">The League is Empty</h3>
+        <p className="text-stone-500 max-w-xs mx-auto">Head over to Team Setup to recruit your first stuffy competitors.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-4">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-[2rem] shadow-lg shadow-stone-200/40 border border-stone-100">
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" size="icon" className="h-10 w-10 rounded-xl"
+            onClick={() => setActiveWeek(w => Math.max(1, w - 1))}
+            disabled={activeWeek === 1 || isSimulating}
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <div className="text-center min-w-[100px]">
+            <p className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] mb-0.5">Week</p>
+            <h2 className="text-2xl font-black text-stone-900 leading-none">{activeWeek}</h2>
+          </div>
+          <Button 
+            variant="outline" size="icon" className="h-10 w-10 rounded-xl"
+            onClick={() => setActiveWeek(w => Math.min(maxWeek, w + 1))}
+            disabled={activeWeek === maxWeek || isSimulating}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={simulateSeason}
+            disabled={isSimulating || games.every(g => g.winnerId || g.isTie)}
+            className="h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px] bg-stone-900 text-white"
+          >
+            {isSimulating ? (
+              <>
+                <RefreshCw className="w-3 h-3 animate-spin mr-2" />
+                Simulating...
+              </>
+            ) : (
+              <>
+                <Play className="w-3 h-3 mr-2" />
+                Simulate Season
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        <AnimatePresence mode="popLayout">
+          {weekGames.map(game => {
+            const home = teams.find(t => t.id === game.homeTeamId)!;
+            const away = teams.find(t => t.id === game.awayTeamId)!;
+            
+            return (
+              <motion.div 
+                layout
+                key={game.id} 
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white rounded-[2rem] p-4 shadow-sm border border-stone-100 flex flex-col sm:flex-row items-center gap-4 relative overflow-hidden"
+              >
+                <button 
+                  onClick={() => handlePick(game.id, away.id)}
+                  className={cn(
+                    "flex-1 flex items-center justify-between gap-4 p-4 rounded-2xl transition-all border-2 group",
+                    game.winnerId === away.id ? "border-emerald-500 bg-emerald-50/50" : "border-transparent hover:bg-stone-50"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md border-2"
+                      style={{ backgroundColor: away.primaryColor, borderColor: away.secondaryColor }}
+                    >
+                      {away.logoUrl ? (
+                         <img src={away.logoUrl} alt={away.name} className="w-full h-full object-cover" />
+                      ) : (
+                         React.createElement(STUFFY_ICONS[away.icon], { className: "w-6 h-6" })
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Away</p>
+                      <span className="font-black text-stone-900 text-sm leading-tight block">{away.name}</span>
+                    </div>
+                  </div>
+                  {game.awayScore !== undefined && (
+                    <span className="text-2xl font-black text-stone-900">{game.awayScore}</span>
+                  )}
+                </button>
+
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={() => handlePick(game.id, 'tie')}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border",
+                      game.isTie ? "bg-emerald-500 text-white border-emerald-500" : "bg-stone-50 text-stone-400 border-stone-100 hover:bg-stone-100"
+                    )}
+                  >
+                    Tie
+                  </button>
+                  <div className="text-[9px] font-black text-stone-300 italic">VS</div>
+                </div>
+
+                <button 
+                  onClick={() => handlePick(game.id, home.id)}
+                  className={cn(
+                    "flex-1 flex items-center justify-between gap-4 p-4 rounded-2xl transition-all border-2 group",
+                    game.winnerId === home.id ? "border-emerald-500 bg-emerald-50/50" : "border-transparent hover:bg-stone-50"
+                  )}
+                >
+                  {game.homeScore !== undefined && (
+                    <span className="text-2xl font-black text-stone-900">{game.homeScore}</span>
+                  )}
+                  <div className="flex items-center gap-3 text-right">
+                    <div className="text-right">
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Home</p>
+                      <span className="font-black text-stone-900 text-sm leading-tight block">{home.name}</span>
+                    </div>
+                    <div 
+                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md border-2"
+                      style={{ backgroundColor: home.primaryColor, borderColor: home.secondaryColor }}
+                    >
+                      {home.logoUrl ? (
+                        <img src={home.logoUrl} alt={home.name} className="w-full h-full object-cover" />
+                      ) : (
+                        React.createElement(STUFFY_ICONS[home.icon], { className: "w-6 h-6" })
+                      )}
+                    </div>
+                  </div>
+                </button>
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
+
+        {teamsOnBye.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6">
+            <div className="flex items-center gap-3 mb-4 px-4 text-stone-400">
+               <div className="h-px flex-1 bg-stone-100" />
+               <h4 className="text-[9px] font-black uppercase tracking-[0.4em] whitespace-nowrap">Bye Weeks</h4>
+               <div className="h-px flex-1 bg-stone-100" />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+               {teamsOnBye.map(team => (
+                 <div key={team.id} className="bg-white/50 rounded-2xl p-3 border border-stone-100 flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-xl flex items-center justify-center opacity-60" style={{ backgroundColor: team.primaryColor }}>
+                      {React.createElement(STUFFY_ICONS[team.icon], { className: "w-5 h-5 text-white" })}
+                   </div>
+                   <div className="min-w-0">
+                      <span className="font-black text-stone-900 text-xs leading-tight block truncate">{team.name}</span>
+                   </div>
+                 </div>
+               ))}
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}

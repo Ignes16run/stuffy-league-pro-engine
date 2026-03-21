@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Trophy } from "lucide-react";
+
 
 const Github = () => {
   return (
@@ -503,6 +505,13 @@ export default function Home() {
             href="/docs"
           >
             Documentation
+          </Link>
+          <Link
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 text-white transition-colors hover:bg-emerald-600 md:w-[158px]"
+            href="/league"
+          >
+            <Trophy className="w-5 h-5" />
+            League
           </Link>
         </div>
       </main>
