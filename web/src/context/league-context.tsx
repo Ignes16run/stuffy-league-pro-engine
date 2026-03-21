@@ -282,26 +282,22 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         const finalWinnerId = isDeselecting ? undefined : (winnerId as string);
         
         // Update current game
-        const next = prev.map(g => g.id === gameId ? { ...g, winnerId: finalWinnerId } : g);
+        const nextState = prev.map(g => g.id === gameId ? { ...g, winnerId: finalWinnerId } : g);
         
-        // Determine the winner's current seed for propagation
+        // Find winner seed for propagation
         const winnerSeed = winnerId === game.team1Id ? game.seed1 : game.seed2;
 
         // Propagate to next round
-        const parts = gameId.split('-');
-        const round = parseInt(parts[1]);
-        const matchupIdx = parseInt(parts[3]);
-        const nextRoundNum = round + 1;
-        const nextMatchupIdx = Math.floor(matchupIdx / 2);
-        const nextGameId = `round-${nextRoundNum}-match-${nextMatchupIdx}`;
-        const isTeam1 = matchupIdx % 2 === 0;
+        const nextRound = game.round + 1;
+        const nextMatchIdx = Math.floor(game.matchupIndex / 2);
+        const isTeam1InNext = game.matchupIndex % 2 === 0;
 
-        return next.map(g => {
-          if (g.id === nextGameId) {
+        return nextState.map(g => {
+          if (g.round === nextRound && g.matchupIndex === nextMatchIdx) {
             return {
               ...g,
-              [isTeam1 ? 'team1Id' : 'team2Id']: finalWinnerId,
-              [isTeam1 ? 'seed1' : 'seed2']: finalWinnerId ? winnerSeed : undefined
+              [isTeam1InNext ? 'team1Id' : 'team2Id']: finalWinnerId,
+              [isTeam1InNext ? 'seed1' : 'seed2']: finalWinnerId ? winnerSeed : undefined
             };
           }
           return g;

@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-21T17:40:00-04:00
+// Last Updated: 2026-03-21T17:45:00-04:00
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -43,11 +43,19 @@ export default function PlayoffBracket() {
     });
 
     for (let i = 0; i < size / 4; i++) {
-      initialGames.push({ id: `round-2-match-${i}`, round: 2, matchupIndex: i });
+      initialGames.push({ 
+        id: `round-2-match-${i}`, 
+        round: 2, 
+        matchupIndex: i 
+      });
     }
 
     if (size === 8) {
-      initialGames.push({ id: `round-3-match-0`, round: 3, matchupIndex: 0 });
+      initialGames.push({ 
+        id: `round-3-match-0`, 
+        round: 3, 
+        matchupIndex: 0 
+      });
     }
 
     setPlayoffGames(initialGames);
@@ -55,12 +63,12 @@ export default function PlayoffBracket() {
 
   const simulatePlayoffs = async () => {
     setIsSimulating(true);
-    const currentBracket = [...playoffGames.map(g => ({ ...g }))];
-    const rounds = Math.max(...currentBracket.map(g => g.round), 0);
+    const bracket = [...playoffGames.map(g => ({ ...g }))];
+    const totalRounds = Math.max(...bracket.map(g => g.round), 0);
     
-    for (let r = 1; r <= rounds; r++) {
-      const roundGames = currentBracket.filter(g => g.round === r);
-      let roundFinished = false;
+    for (let r = 1; r <= totalRounds; r++) {
+      const roundGames = bracket.filter(g => g.round === r);
+      let changed = false;
 
       for (const game of roundGames) {
         if (game.team1Id && game.team2Id && !game.winnerId) {
@@ -70,36 +78,34 @@ export default function PlayoffBracket() {
           if (team1 && team2) {
             const t1Power = (team1.offenseRating || 75) + (team1.defenseRating || 75);
             const t2Power = (team2.offenseRating || 75) + (team2.defenseRating || 75);
-            const seedBoost = (game.seed1 || 0) < (game.seed2 || 0) ? 10 : 0;
+            const seedBoost = (game.seed1 || 10) < (game.seed2 || 10) ? 10 : 0;
             const winnerId = Math.random() * (t1Power + t2Power + seedBoost) < (t1Power + seedBoost) ? game.team1Id! : game.team2Id!;
             
-            // Apply winner to current game
             game.winnerId = winnerId;
-            roundFinished = true;
+            changed = true;
 
-            // Propagate to next round
-            const matchupIdx = game.matchupIndex;
-            const nextRoundNum = r + 1;
-            const nextMatchupIdx = Math.floor(matchupIdx / 2);
-            const nextGameId = `round-${nextRoundNum}-match-${nextMatchupIdx}`;
-            const isTeam1 = matchupIdx % 2 === 0;
-
-            const nextGame = currentBracket.find(pg => pg.id === nextGameId);
+            // Propagation logic
+            const nextRound = r + 1;
+            const nextMatchIdx = Math.floor(game.matchupIndex / 2);
+            const isHomeInNext = game.matchupIndex % 2 === 0;
+            const nextGame = bracket.find(bg => bg.round === nextRound && bg.matchupIndex === nextMatchIdx);
+            
             if (nextGame) {
-              if (isTeam1) {
+              const winnerSeed = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
+              if (isHomeInNext) {
                 nextGame.team1Id = winnerId;
-                nextGame.seed1 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
+                nextGame.seed1 = winnerSeed;
               } else {
                 nextGame.team2Id = winnerId;
-                nextGame.seed2 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
+                nextGame.seed2 = winnerSeed;
               }
             }
           }
         }
       }
 
-      if (roundFinished) {
-        setPlayoffGames([...currentBracket]);
+      if (changed) {
+        setPlayoffGames([...bracket]);
         await new Promise(resolve => setTimeout(resolve, 800));
       }
     }
@@ -122,7 +128,8 @@ export default function PlayoffBracket() {
     );
   }
 
-  const rounds = Array.from(new Set(playoffGames.map(g => g.round))).sort();
+  const sortedRounds = Array.from(new Set(playoffGames.map(g => g.round))).sort((a, b) => a - b);
+  const maxRound = Math.max(...sortedRounds, 0);
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-12">
@@ -138,11 +145,11 @@ export default function PlayoffBracket() {
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" onClick={refreshSeeding} disabled={isSimulating}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Refresh Seeding
+              <RefreshCw className="mr-2 h-4 w-4" /> Reset Bracket
             </Button>
             <Button size="lg" onClick={simulatePlayoffs} disabled={isSimulating || playoffGames.every(g => g.winnerId)} className="bg-stone-900 text-white rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs">
               {isSimulating ? <RefreshCw className="animate-spin mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
-              {isSimulating ? 'Simulating...' : 'Simulate Playoffs'}
+              {isSimulating ? 'Simulate Tourney' : 'Simulate Playoffs'}
             </Button>
           </div>
         </div>
@@ -150,15 +157,15 @@ export default function PlayoffBracket() {
 
       <div className="overflow-x-auto pb-8 scrollbar-hide">
         <div className="flex justify-between gap-6 min-w-max px-2">
-          {rounds.map(round => (
-            <div key={round} className="w-64 space-y-4">
+          {sortedRounds.map(roundNum => (
+            <div key={roundNum} className="w-64 space-y-4">
                <div className="text-center">
                   <span className="text-[10px] font-black text-stone-400 uppercase tracking-[0.3em]">
-                    {round === 1 ? 'Quarter-Finals' : round === 2 ? 'Semi-Finals' : 'Championship'}
+                    {roundNum === 1 ? 'Quarter-Finals' : roundNum === 2 ? 'Semi-Finals' : 'Championship'}
                   </span>
                </div>
                <div className="flex flex-col h-full justify-around gap-4 pt-4">
-                  {playoffGames.filter(g => g.round === round).map(game => (
+                  {playoffGames.filter(g => g.round === roundNum).map(game => (
                     <PlayoffMatchup key={game.id} game={game} />
                   ))}
                </div>
@@ -166,7 +173,7 @@ export default function PlayoffBracket() {
           ))}
 
           {/* Champion Display */}
-          {playoffGames.find(g => g.round === Math.max(...rounds))?.winnerId && (
+          {playoffGames.find(g => g.round === maxRound)?.winnerId && (
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center justify-center text-center p-8 bg-white rounded-[3rem] border-2 border-dashed border-stone-100 min-w-[280px]">
                <div className="relative mb-6">
                   <div className="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center shadow-2xl shadow-yellow-400/50">
@@ -176,11 +183,11 @@ export default function PlayoffBracket() {
                </div>
                <p className="text-[10px] uppercase font-black tracking-[0.4em] text-yellow-600 mb-2">Champion</p>
                <h2 className="text-2xl font-black text-stone-900 mb-6">
-                  {teams.find(t => t.id === playoffGames.find(g => g.round === Math.max(...rounds))?.winnerId)?.name || 'Winner'}
+                  {teams.find(t => t.id === playoffGames.find(g => g.round === maxRound)?.winnerId)?.name || 'Winner'}
                </h2>
                <Button 
                  onClick={() => {
-                   const winId = playoffGames.find(g => g.round === Math.max(...rounds))?.winnerId;
+                   const winId = playoffGames.find(g => g.round === maxRound)?.winnerId;
                    if (winId) completeSeason(winId);
                  }}
                  className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/20"
@@ -204,13 +211,14 @@ function PlayoffMatchup({ game }: { game: PlayoffGame }) {
     <div className="bg-white rounded-[1.5rem] shadow-sm border border-stone-100 overflow-hidden w-full divide-y divide-stone-50">
        {[t1, t2].map((team, idx) => {
          const TeamIcon = team ? (STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : null;
+         const seedValue = idx === 0 ? game.seed1 : game.seed2;
          return (
            <button 
              key={idx} 
              onClick={() => team && handlePick(game.id, team.id)} 
              className={cn(
                "w-full flex items-center justify-between p-3 transition-all border-l-4",
-               game.winnerId === team?.id ? "border-emerald-500 bg-emerald-50/20" : "border-transparent hover:bg-stone-50"
+               game.winnerId && team && game.winnerId === team.id ? "border-emerald-500 bg-emerald-50/20" : "border-transparent hover:bg-stone-50"
              )}
            >
              <div className="flex items-center gap-3">
@@ -228,7 +236,7 @@ function PlayoffMatchup({ game }: { game: PlayoffGame }) {
                </div>
                <div className="text-left">
                   <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">
-                    Seed {(idx === 0 ? game.seed1 : game.seed2) || 'TBD'}
+                    Seed {seedValue || 'TBD'}
                   </p>
                   <span className={cn("font-black text-xs", team ? "text-stone-900" : "text-stone-300 italic")}>{team?.name || 'TBD'}</span>
                </div>
