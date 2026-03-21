@@ -96,20 +96,24 @@ export default function RosterView() {
         <TabsContent value="all" className="mt-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <AnimatePresence mode="popLayout">
-              {filteredPlayers.map(player => (
-                <PlayerCard 
-                  key={player.id} 
-                  player={player} 
-                  team={getTeam(player.teamId)}
-                  isEditing={editingPlayerId === player.id}
-                  onEdit={() => setEditingPlayerId(player.id)}
-                  onCancel={() => setEditingPlayerId(null)}
-                  onUpdate={(updates) => {
-                    updatePlayer(player.id, updates);
-                    setEditingPlayerId(null);
-                  }}
-                />
-              ))}
+              {filteredPlayers.map(player => {
+                const team = getTeam(player.teamId);
+                if (!team) return null;
+                return (
+                  <PlayerCard 
+                    key={player.id} 
+                    player={player} 
+                    team={team}
+                    isEditing={editingPlayerId === player.id}
+                    onEdit={() => setEditingPlayerId(player.id)}
+                    onCancel={() => setEditingPlayerId(null)}
+                    onUpdate={(updates) => {
+                      updatePlayer(player.id, updates);
+                      setEditingPlayerId(null);
+                    }}
+                  />
+                );
+              })}
             </AnimatePresence>
           </div>
         </TabsContent>
@@ -325,7 +329,8 @@ function LeaderboardCard({ title, players, teams, statKey }: {
       <CardContent className="p-0">
         <div className="divide-y divide-stone-50">
           {players.map((player: any, idx: number) => {
-            const team = teams.find((t: any) => t.id === player.teamId)!;
+            const team = teams.find((t: any) => t.id === player.teamId);
+            if (!team) return null;
             return (
               <div key={player.id} className="p-4 flex items-center justify-between hover:bg-stone-50/50 transition-colors group">
                 <div className="flex items-center gap-4">

@@ -78,7 +78,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         if (dbTeams && dbTeams.length > 0) setTeams(dbTeams.map(t => ({
            id: t.id, name: t.name, icon: t.icon as any, primaryColor: t.primary_color, secondaryColor: t.secondary_color,
            offenseRating: t.offense_rating, defenseRating: t.defense_rating, specialTeamsRating: t.special_teams_rating,
-           stuffyPoints: t.stuffy_points, all_time_wins: t.all_time_wins, championships: t.championships,
+           stuffyPoints: t.stuffy_points, allTimeWins: t.all_time_wins, championships: t.championships,
            logoUrl: t.logo_url
         })));
         
@@ -91,15 +91,35 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         }
         
         if (dbGames && dbGames.length > 0) {
-          setGames(dbGames.map(g => ({
+          const mappedGames = dbGames.map(g => ({
             id: g.id, week: g.week, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, 
             winnerId: g.winner_id, isTie: g.is_tie, homeScore: g.home_score, awayScore: g.away_score
-          })));
+          })).sort((a, b) => a.week - b.week);
+          setGames(mappedGames);
+          setNumWeeks(Math.max(...mappedGames.map(g => g.week), 0));
         }
       };
       loadData();
     }
   }, [user]);
+
+  // Ensure all teams have players
+  useEffect(() => {
+    if (teams.length > 0) {
+      const teamsWithMissingPlayers = teams.filter(t => !players.some(p => p.teamId === t.id));
+      if (teamsWithMissingPlayers.length > 0) {
+        const newPlayersStack: Player[] = [];
+        teamsWithMissingPlayers.forEach(team => {
+          const roster = generateTeamRoster(team.id);
+          newPlayersStack.push(...roster);
+          if (user) {
+            roster.forEach(p => syncPlayer(p).catch(() => {}));
+          }
+        });
+        setPlayers(prev => [...prev, ...newPlayersStack]);
+      }
+    }
+  }, [teams, players.length, user]);
 
   // Sync helpers
   const syncTeam = async (team: Team) => {
