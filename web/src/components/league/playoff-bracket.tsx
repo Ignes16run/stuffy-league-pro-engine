@@ -134,44 +134,44 @@ export default function PlayoffBracket() {
   const champGame = playoffGames.find(g => g.round === Math.max(...rounds, 1));
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-20">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-10">
       {/* Dynamic Header */}
-      <Card className="rounded-[3rem] border border-stone-100 shadow-2xl p-8 bg-gradient-to-br from-white to-stone-50/50">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-8">
-          <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-stone-900 rounded-[1.5rem] flex items-center justify-center shadow-lg">
-              <Trophy className="w-8 h-8 text-white" />
+      <Card className="rounded-[2.5rem] border border-stone-100 shadow-xl p-6 bg-gradient-to-br from-white to-stone-50/50">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-stone-900 rounded-2xl flex items-center justify-center shadow-lg">
+              <Trophy className="w-6 h-6 text-white" />
             </div>
             <div className="text-center sm:text-left">
-              <h2 className="text-3xl font-black text-stone-900 uppercase tracking-tighter italic">Stuffy Playoffs</h2>
-              <p className="text-stone-400 font-bold text-xs uppercase tracking-widest">Season Simulation Engine 2.1</p>
+              <h2 className="text-2xl font-black text-stone-900 uppercase tracking-tighter italic">Stuffy Playoffs</h2>
+              <p className="text-stone-400 font-bold text-[10px] uppercase tracking-widest">Simulation Engine 2.1</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={refreshSeeding} disabled={isSimulating} className="rounded-2xl hover:bg-stone-100 px-6 font-bold text-stone-500">
-              <RefreshCw className="mr-2 h-4 w-4" /> Reset
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={refreshSeeding} disabled={isSimulating} className="rounded-xl hover:bg-stone-100 px-4 h-10 font-bold text-stone-500 text-xs">
+              <RefreshCw className="mr-2 h-3.5 w-3.5" /> Reset
             </Button>
-            <Button size="lg" onClick={simulatePlayoffs} disabled={isSimulating || !!champGame?.winnerId} className="bg-stone-900 hover:bg-black text-white rounded-2xl h-14 px-10 font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-stone-900/20">
-              {isSimulating ? <RefreshCw className="animate-spin mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4 fill-white" />}
-              {isSimulating ? 'SIMULATING...' : 'LIVE SIMULATION'}
+            <Button size="lg" onClick={simulatePlayoffs} disabled={isSimulating || !!champGame?.winnerId} className="bg-stone-900 hover:bg-black text-white rounded-xl h-12 px-8 font-black uppercase tracking-widest text-[10px] shadow-xl shadow-stone-900/20">
+              {isSimulating ? <RefreshCw className="animate-spin mr-2 h-3.5 w-3.5" /> : <Play className="mr-2 h-3.5 w-3.5 fill-white" />}
+              {isSimulating ? 'SIMULATING' : 'LIVE SIMULATION'}
             </Button>
           </div>
         </div>
       </Card>
 
       {/* Bracket View */}
-      <div className="overflow-x-auto pb-12 scrollbar-hide px-4">
-        <div className="flex justify-between gap-16 min-w-max">
+      <div className="pb-8 scrollbar-hide">
+        <div className="flex justify-center gap-4 w-full">
           {rounds.map(rNum => (
-            <div key={rNum} className="w-72 space-y-8">
+            <div key={rNum} className="w-60 space-y-6">
                <div className="flex items-center justify-center gap-2">
-                  <div className={cn("h-1 w-4 rounded-full", activeRound === rNum ? "bg-stone-900 animate-pulse" : "bg-stone-200")} />
-                  <span className={cn("text-[11px] font-black uppercase tracking-[0.5em]", activeRound === rNum ? "text-stone-900" : "text-stone-300")}>
-                    {rNum === 1 ? 'Quarter-Finals' : rNum === 2 ? 'Semi-Finals' : 'Grand Final'}
+                  <div className={cn("h-1 w-3 rounded-full", activeRound === rNum ? "bg-stone-900 animate-pulse" : "bg-stone-200")} />
+                  <span className={cn("text-[9px] font-black uppercase tracking-[0.4em]", activeRound === rNum ? "text-stone-900" : "text-stone-300 whitespace-nowrap")}>
+                    {rNum === 1 ? 'Quarters' : rNum === 2 ? 'Semis' : 'Final'}
                   </span>
-                  <div className={cn("h-1 w-4 rounded-full", activeRound === rNum ? "bg-stone-900 animate-pulse" : "bg-stone-200")} />
+                  <div className={cn("h-1 w-3 rounded-full", activeRound === rNum ? "bg-stone-900 animate-pulse" : "bg-stone-200")} />
                </div>
-               <div className="flex flex-col h-full justify-around gap-12 min-h-[480px]">
+               <div className="flex flex-col h-full justify-around gap-8 min-h-[450px]">
                   {playoffGames.filter(g => g.round === rNum).map(game => (
                     <PlayoffMatchup key={game.id} game={game} teams={teams} handlePick={handlePick} />
                   ))}
@@ -182,30 +182,30 @@ export default function PlayoffBracket() {
           {/* Winner Section */}
           <AnimatePresence>
             {champGame?.winnerId && (
-              <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col items-center justify-center">
-                 <div className="bg-white rounded-[4rem] border border-stone-100 p-12 text-center shadow-3xl min-w-[340px] relative overflow-hidden">
+              <motion.div initial={{ x: 30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col items-center justify-center">
+                 <div className="bg-white rounded-[3rem] border border-stone-100 p-8 text-center shadow-2xl min-w-[280px] relative overflow-hidden">
                     {/* Background Shine */}
-                    <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-yellow-400/5 to-transparent pointer-events-none" />
+                    <div className="absolute top-0 left-0 w-full h-full bg-linear-to-br from-yellow-400/5 to-transparent pointer-events-none" />
                     
                     <div className="relative z-10">
-                      <div className="relative inline-block mb-10">
-                        <div className="w-28 h-28 bg-yellow-400 rounded-full flex items-center justify-center shadow-3xl shadow-yellow-400/50">
-                          <Trophy className="w-12 h-12 text-white drop-shadow-lg" />
+                      <div className="relative inline-block mb-6">
+                        <div className="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center shadow-2xl shadow-yellow-400/50">
+                          <Trophy className="w-10 h-10 text-white drop-shadow-lg" />
                         </div>
-                        <motion.div animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.6, 0.3] }} transition={{ repeat: Infinity, duration: 3 }} className="absolute inset-0 bg-yellow-400 rounded-full blur-3xl -z-10" />
+                        <motion.div animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.5, 0.3] }} transition={{ repeat: Infinity, duration: 3 }} className="absolute inset-0 bg-yellow-400 rounded-full blur-2xl -z-10" />
                       </div>
                       
-                      <p className="text-[10px] font-black uppercase tracking-[0.6em] text-yellow-600 mb-4 bg-yellow-50 px-4 py-1.5 rounded-full inline-block">League Champion</p>
-                      <h2 className="text-4xl font-black text-stone-900 mb-10 leading-tight">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-yellow-600 mb-2 bg-yellow-50 px-3 py-1 rounded-full inline-block">League Champion</p>
+                      <h2 className="text-2xl font-black text-stone-900 mb-6 leading-tight truncate px-2">
                         {teams.find(t => t.id === champGame.winnerId)?.name || 'TBD'}
                       </h2>
                       
                       <Button 
                         size="lg"
                         onClick={() => champGame.winnerId && completeSeason(champGame.winnerId)}
-                        className="w-full h-16 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs bg-emerald-500 hover:bg-emerald-600 text-white shadow-2xl shadow-emerald-500/40 border-b-4 border-emerald-700"
+                        className="w-full h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/30 border-b-4 border-emerald-700 active:translate-y-1 active:border-b-0"
                       >
-                        Finalize Season
+                        Finalize
                       </Button>
                     </div>
                  </div>
@@ -219,12 +219,14 @@ export default function PlayoffBracket() {
 }
 
 function PlayoffMatchup({ game, teams, handlePick }: { game: PlayoffGame, teams: Team[], handlePick: any }) {
+  const round1 = game.round === 1;
   return (
-    <div className="relative group">
-      {/* Decorative Connector Hint */}
-      <div className="absolute -right-8 top-1/2 w-8 h-px bg-stone-100" />
+    <div className="relative group w-full">
+      {/* Connector lines (visual only) */}
+      {!round1 && <div className="absolute -left-4 top-1/2 w-4 h-px bg-stone-100" />}
+      <div className="absolute -right-4 top-1/2 w-4 h-px bg-stone-100" />
       
-      <div className="bg-white rounded-[2.5rem] shadow-xl border border-stone-100 overflow-hidden w-full divide-y divide-stone-50 transition-all hover:shadow-2xl hover:-translate-y-1">
+      <div className="bg-white rounded-[1.5rem] shadow-lg border border-stone-100 overflow-hidden w-full divide-y divide-stone-50 transition-all hover:shadow-xl hover:-translate-y-0.5">
          {[1, 2].map(slot => {
            const teamId = slot === 1 ? game.team1Id : game.team2Id;
            const seed = slot === 1 ? game.seed1 : game.seed2;
@@ -237,15 +239,15 @@ function PlayoffMatchup({ game, teams, handlePick }: { game: PlayoffGame, teams:
                key={slot}
                onClick={() => team && handlePick(game.id, team.id)} 
                className={cn(
-                 "w-full flex items-center justify-between p-5 transition-all outline-none",
-                 isWinner ? "bg-emerald-50/30" : "hover:bg-stone-50/50"
+                 "w-full flex items-center justify-between p-3 transition-all outline-none",
+                 isWinner ? "bg-emerald-50/20" : "hover:bg-stone-50/30"
                )}
              >
-               <div className="flex items-center gap-5">
+               <div className="flex items-center gap-3">
                  <div 
                    className={cn(
-                     "w-12 h-12 rounded-2xl flex items-center justify-center border-2 shadow-inner text-white overflow-hidden transition-all",
-                     isWinner ? "scale-110" : ""
+                     "w-9 h-9 rounded-xl flex items-center justify-center border-2 shadow-inner text-white overflow-hidden transition-all shrink-0",
+                     isWinner ? "scale-105" : ""
                    )}
                    style={{ 
                      backgroundColor: team?.primaryColor || '#f9fafb', 
@@ -255,24 +257,24 @@ function PlayoffMatchup({ game, teams, handlePick }: { game: PlayoffGame, teams:
                    {team?.logoUrl ? (
                      <img src={team.logoUrl} className="w-full h-full object-cover p-1" alt={team.name} />
                    ) : team && Icon ? (
-                     <Icon className="w-6 h-6" />
+                     <Icon className="w-5 h-5" />
                    ) : (
-                     <AlertCircle className="w-6 h-6 text-stone-100" />
+                     <AlertCircle className="w-5 h-5 text-stone-100" />
                    )}
                  </div>
-                 <div className="text-left">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[10px] font-black text-stone-300 uppercase tracking-widest">Seed {seed || 'TBD'}</span>
-                      {isWinner && <span className="bg-emerald-100 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded leading-none uppercase">W</span>}
+                 <div className="text-left min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0">
+                      <span className="text-[8px] font-black text-stone-300 uppercase tracking-widest">{seed ? `Seed ${seed}` : 'TBD'}</span>
+                      {isWinner && <span className="text-emerald-500 text-[7px] font-black uppercase">Win</span>}
                     </div>
-                    <p className={cn("font-black text-[15px] tracking-tight truncate max-w-[140px]", team ? "text-stone-900" : "text-stone-200")}>
+                    <p className={cn("font-black text-xs tracking-tight truncate max-w-[100px]", team ? "text-stone-900" : "text-stone-200")}>
                       {team?.name || 'TBD'}
                     </p>
                  </div>
                </div>
                {isWinner && (
-                 <div className="bg-emerald-500 rounded-full p-1.5 shadow-lg shadow-emerald-500/20">
-                   <CheckCircle2 className="w-4 h-4 text-white" />
+                 <div className="bg-emerald-500 rounded-full p-1 shadow-lg shadow-emerald-500/10 shrink-0">
+                   <CheckCircle2 className="w-3 h-3 text-white" />
                  </div>
                )}
              </button>
