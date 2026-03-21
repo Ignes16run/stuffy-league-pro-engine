@@ -236,10 +236,12 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       // 3. Defense: Position-specific behavior
       dLines.forEach(p => {
         p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 4) + 1;
+        if (Math.random() < 0.15) p.stats.sacks = (p.stats.sacks || 0) + 1;
       });
       lBackers.forEach(p => {
         p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 10) + 3;
         if (Math.random() < 0.05) p.stats.interceptions = (p.stats.interceptions || 0) + 1;
+        if (Math.random() < 0.08) p.stats.sacks = (p.stats.sacks || 0) + 1;
       });
       dBacks.forEach(p => {
         p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 6) + 2;

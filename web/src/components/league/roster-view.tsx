@@ -41,7 +41,9 @@ export default function RosterView() {
       touchdowns: getTop('touchdowns'),
       yards: getTop('yards'),
       tackles: getTop('tackles'),
-      interceptions: getTop('interceptions')
+      interceptions: getTop('interceptions'),
+      points: getTop('points'),
+      sacks: getTop('sacks')
     };
   }, [players]);
 
@@ -116,10 +118,12 @@ export default function RosterView() {
         </TabsContent>
 
         <TabsContent value="leaders" className="mt-0 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <LeaderboardCard title="Touchdown Leaders" players={leaderboards.touchdowns} teams={teams} statKey="touchdowns" />
             <LeaderboardCard title="Yards Leaderboard" players={leaderboards.yards} teams={teams} statKey="yards" />
+            <LeaderboardCard title="Scoring Leaders" players={leaderboards.points} teams={teams} statKey="points" />
             <LeaderboardCard title="Defensive Tackles" players={leaderboards.tackles} teams={teams} statKey="tackles" />
+            <LeaderboardCard title="Sack Masters" players={leaderboards.sacks} teams={teams} statKey="sacks" />
             <LeaderboardCard title="Interceptions" players={leaderboards.interceptions} teams={teams} statKey="interceptions" />
           </div>
         </TabsContent>
@@ -369,6 +373,8 @@ function LeaderboardCard({ title, players, teams, statKey }: {
             {statKey === 'touchdowns' ? <Target className="w-5 h-5 text-emerald-500" /> :
              statKey === 'yards' ? <Zap className="w-5 h-5 text-amber-500" /> :
              statKey === 'tackles' ? <Shield className="w-5 h-5 text-blue-500" /> :
+             statKey === 'sacks' ? <Zap className="w-5 h-5 text-orange-500" /> :
+             statKey === 'points' ? <Trophy className="w-5 h-5 text-indigo-500" /> :
              <Star className="w-5 h-5 text-purple-500" />}
           </div>
           <CardTitle className="text-xl font-black text-stone-900">{title}</CardTitle>
