@@ -16,6 +16,8 @@ import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { getStatForAward } from '@/lib/league/awardsEngine';
 import { PersistenceEngine } from '@/lib/league/persistenceEngine';
 import { SimulationEngine } from '@/lib/league/simulationEngine';
+import { assignStatsToPlayers } from '@/lib/league/statsEngine';
+import { validateGameStats } from '@/lib/league/validationEngine';
 
 
 
@@ -317,47 +319,58 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     simulateSeason,
     resetPredictions,
     handlePick: (gameId, winnerId) => {
-      setGames(g => g.map(game => {
-        if (game.id !== gameId) return game;
-        
-        let homeScore = 0;
-        let awayScore = 0;
-        const homeTeam = teams.find(t => t.id === game.homeTeamId);
-        const awayTeam = teams.find(t => t.id === game.awayTeamId);
+      const gameToUpdate = games.find(g => g.id === gameId);
+      if (!gameToUpdate) return;
+      
+      let finalHomeScore = 0;
+      let finalAwayScore = 0;
+      const finalWinnerId = winnerId === 'tie' ? undefined : (winnerId || undefined);
+      const isTie = winnerId === 'tie';
 
-        if (winnerId === 'tie') {
-          homeScore = 20 + Math.floor(Math.random() * 10);
-          awayScore = homeScore;
-          return { ...game, homeScore, awayScore, winnerId: undefined, isTie: true };
-        } else if (winnerId) {
-          // Generate realistic scores until winner matches picked ID
-          const isHome = winnerId === game.homeTeamId;
+      const homeTeam = teams.find(t => t.id === gameToUpdate.homeTeamId);
+      const awayTeam = teams.find(t => t.id === gameToUpdate.awayTeamId);
+
+      // 1. Generate Result (Winner/Scores)
+      if (winnerId === 'tie') {
+          finalHomeScore = 20 + Math.floor(Math.random() * 10);
+          finalAwayScore = finalHomeScore;
+      } else if (winnerId) {
+          const isHome = winnerId === gameToUpdate.homeTeamId;
           const winner = isHome ? homeTeam : awayTeam;
           const loser = isHome ? awayTeam : homeTeam;
-          
           if (winner && loser) {
              const score = generateRealisticFootballScore(winner, loser, players);
-             // Ensure the winner actually has more points (or just swap if needed)
-             homeScore = isHome ? Math.max(score.homeScore, score.awayScore + 3) : Math.min(score.homeScore, score.awayScore - 3);
-             awayScore = isHome ? Math.min(score.awayScore, score.homeScore - 3) : Math.max(score.awayScore, score.homeScore + 3);
+             finalHomeScore = isHome ? Math.max(score.homeScore, score.awayScore + 3) : Math.min(score.homeScore, score.awayScore - 3);
+             finalAwayScore = isHome ? Math.min(score.awayScore, score.homeScore - 3) : Math.max(score.awayScore, score.homeScore + 3);
           } else {
-             homeScore = isHome ? 21 : 14;
-             awayScore = isHome ? 14 : 21;
+             finalHomeScore = isHome ? 21 : 14;
+             finalAwayScore = isHome ? 14 : 21;
           }
-          return { ...game, homeScore, awayScore, winnerId, isTie: false };
-        } else {
+      } else {
           // Deselect
-          return { ...game, homeScore: undefined, awayScore: undefined, winnerId: undefined, isTie: false };
-        }
-      }));
-
-      // Proactively assign stats for the newly decided results
-      const gameToUpdate = games.find(g => g.id === gameId);
-      if (gameToUpdate && winnerId) {
-         // This is a bit tricky since setPlayers is async and we need the new scores.
-         // In a real app, this should probably be an async action.
-         // For now, we'll let the user run simulation for stats or we can trigger it.
+          setGames(g => g.map(x => x.id === gameId ? { ...x, homeScore: undefined, awayScore: undefined, winnerId: undefined, isTie: false } : x));
+          return;
       }
+
+      const updatedGame = { ...gameToUpdate, homeScore: finalHomeScore, awayScore: finalAwayScore, winnerId: finalWinnerId, isTie };
+
+      // 2. Generate Stats for BOTH teams
+      setPlayers(prev => {
+        let currentPlayers = [...prev];
+        const preGamePlayers = [...currentPlayers];
+        
+        // Home Stats
+        currentPlayers = assignStatsToPlayers(currentPlayers, gameToUpdate.homeTeamId, finalHomeScore, finalAwayScore);
+        // Away Stats
+        currentPlayers = assignStatsToPlayers(currentPlayers, gameToUpdate.awayTeamId, finalAwayScore, finalHomeScore);
+        
+        // Final Sync/Validate
+        const { validatedPlayers } = validateGameStats(updatedGame, currentPlayers, preGamePlayers);
+        return validatedPlayers;
+      });
+
+      // 3. Update Games
+      setGames(g => g.map(x => x.id === gameId ? updatedGame : x));
     },
     setPlayoffGames,
     syncPlayoffGames: async (bracket) => {
