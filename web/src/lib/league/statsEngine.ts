@@ -1,5 +1,5 @@
 // Last Updated: 2026-03-22T23:15:00Z
-import { Player, Team, Game, PlayerStats } from './types';
+import { Player, PlayerStats } from './types';
 import { getRatingInfluencedValue } from './position-system';
 
 /**
@@ -21,12 +21,11 @@ export function assignStatsToPlayers(
   if (teamPlayers.length === 0) return players;
 
   // 2. Identify Key Position Groups
-  const qbs = teamPlayers.filter(p => p.position === 'QB');
   const rbs = teamPlayers.filter(p => p.position === 'RB');
   const receivers = teamPlayers.filter(p => p.position === 'WR' || p.position === 'TE');
   
   // 3. Statistical Distribution Logic
-  const calculateShareSet = (subset: Player[], totalValue: number, ratingAttr: string) => {
+  const calculateShareSet = (subset: Player[], totalValue: number) => {
     const totalRating = subset.reduce((sum, p) => sum + p.rating, 0);
     return subset.map(p => ({
        id: p.id,
@@ -34,8 +33,37 @@ export function assignStatsToPlayers(
     }));
   };
 
-  const passShares = calculateShareSet(receivers, basePassingYards, 'Hands');
-  const rushShares = calculateShareSet(rbs, baseRushingYards, 'Power');
+  const passShares = calculateShareSet(receivers, basePassingYards);
+  const rushShares = calculateShareSet(rbs, baseRushingYards);
+
+  // 4. Calculate TD Pools (Realism: ~30-40% of offensive TDs are rushing)
+  const totalOffensiveTDs = Math.floor(score / 7);
+  let rushingTdsPool = 0;
+  if (totalOffensiveTDs > 0) {
+    // Stochastic but tied to total TDs
+    rushingTdsPool = Math.floor(totalOffensiveTDs * 0.35 + (Math.random() < 0.3 ? 1 : 0));
+    // Ensure we don't exceed total TDs
+    rushingTdsPool = Math.min(rushingTdsPool, totalOffensiveTDs);
+  } else if (score >= 3 && score < 7 && Math.random() > 0.8) {
+    // Rare goal line TD even with low score (e.g. 3-0 game)
+    rushingTdsPool = 1;
+  }
+
+  // 5. Distribute Rushing TDs to RBs (Weighted by Power/Rating)
+  const rbTdAssignments: Record<string, number> = {};
+  if (rushingTdsPool > 0 && rbs.length > 0) {
+    for (let i = 0; i < rushingTdsPool; i++) {
+      const totalPower = rbs.reduce((sum, r) => sum + r.rating, 0);
+      let rand = Math.random() * totalPower;
+      for (const rb of rbs) {
+        rand -= rb.rating;
+        if (rand <= 0) {
+          rbTdAssignments[rb.id] = (rbTdAssignments[rb.id] || 0) + 1;
+          break;
+        }
+      }
+    }
+  }
 
   return players.map(p => {
     if (p.teamId !== teamId) return p;
@@ -48,14 +76,15 @@ export function assignStatsToPlayers(
       case 'QB':
         // QBs take all passing yards in this simplified model
         s.passingYards = (s.passingYards || 0) + getRatingInfluencedValue(p, 'Arm Strength', basePassingYards);
-        s.passingTds = (s.passingTds || 0) + Math.floor(score / 9); // Scaled
+        // Correct Passing TDs to account for what's left after rushing
+        s.passingTds = (s.passingTds || 0) + Math.max(0, totalOffensiveTDs - rushingTdsPool);
         s.completionPct = getRatingInfluencedValue(p, 'Accuracy', 62);
         break;
 
       case 'RB':
         const rShare = rushShares.find(rs => rs.id === p.id)?.shareValue || 0;
         s.rushingYards = (s.rushingYards || 0) + Math.round(getRatingInfluencedValue(p, 'Vision', rShare));
-        s.rushingTds = (s.rushingTds || 0) + (Math.random() > 0.8 ? 1 : 0); // Stochastic
+        s.rushingTds = (s.rushingTds || 0) + (rbTdAssignments[p.id] || 0);
         break;
 
       case 'WR':
@@ -72,8 +101,8 @@ export function assignStatsToPlayers(
         const fgCount = Math.floor((score % 7) / 3);
         s.points = (s.points || 0) + (xpCount * 1) + (fgCount * 3);
         // Add new category tracking if needed (for leaders)
-        (s as any).fgMade = ((s as any).fgMade || 0) + fgCount;
-        (s as any).xpMade = ((s as any).xpMade || 0) + xpCount;
+        s.fgMade = (s.fgMade || 0) + fgCount;
+        s.xpMade = (s.xpMade || 0) + xpCount;
         break;
 
       case 'DL':

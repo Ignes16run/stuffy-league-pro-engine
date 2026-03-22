@@ -1,9 +1,9 @@
 // Last Updated: 2026-03-22T22:10:00Z
-import { Game, Player, Team, PlayerStats, SeasonHistory, AwardType } from './types';
-import { generateRealisticFootballScore, calculateStandings } from './utils';
+import { Game, Player, Team, PlayerStats, AwardType } from './types';
+import { generateRealisticFootballScore } from './utils';
 import { assignStatsToPlayers } from './statsEngine';
 import { validateGameStats } from './validationEngine';
-import { getAwardFinalists, validateAwardCandidates } from './awardsEngine';
+import { validateAwardCandidates } from './awardsEngine';
 
 /**
  * Orchestration engine for season-level simulations and finalizations.
@@ -38,7 +38,7 @@ export const SimulationEngine = {
         currentPlayers = assignStatsToPlayers(currentPlayers, away.id, awayScore, homeScore);
 
         // 2. Post-game validation and correction
-        const { validatedPlayers } = validateGameStats(updatedGame, currentPlayers, teams);
+        const { validatedPlayers } = validateGameStats(updatedGame, currentPlayers);
         currentPlayers = validatedPlayers;
       }
     }
@@ -60,15 +60,15 @@ export const SimulationEngine = {
    */
   finalizeSeason(
     players: Player[],
-    awardResults: Record<string, any>,
+    awardResults: Record<string, { winner: Player, narrative: string }>,
     currentYear: number
   ): { finalPlayers: Player[] } {
     const seasonId = currentYear.toString();
     
     const finalPlayers = players.map(p => {
       // 1. Migrate stats to career
-      const career = { ...(p.stats || {}) } as any;
-      const oldCareer = (p.careerStats ? { ...p.careerStats } : { gamesPlayed: 0 }) as any;
+      const career = { ...(p.stats || {}) } as Record<string, number>;
+      const oldCareer = (p.careerStats ? { ...p.careerStats } : { gamesPlayed: 0 }) as Record<string, number>;
       
       Object.keys(career).forEach(k => {
           if (typeof career[k] === 'number') oldCareer[k] = (oldCareer[k] || 0) + career[k];
@@ -82,14 +82,14 @@ export const SimulationEngine = {
       Object.entries(awardResults).forEach(([cat, res]) => {
           if (res.winner.id === p.id) {
               narrativeText = narrativeText ? `${narrativeText} Also, ${res.narrative}` : res.narrative;
-              newAwards.push({ year: currentYear, awardType: cat as any, playerTeam: p.teamId, statsAtTime: { ...p.stats } });
-              newAwardsHistory.push({ awardType: cat as any, seasonId });
+              newAwards.push({ year: currentYear, awardType: cat as AwardType, playerTeam: p.teamId, statsAtTime: { ...p.stats } });
+              newAwardsHistory.push({ awardType: cat as AwardType, seasonId });
           }
       });
 
       return { 
           ...p, 
-          careerStats: oldCareer as PlayerStats, 
+          careerStats: oldCareer as unknown as PlayerStats, 
           stats: { gamesPlayed: 0 } as PlayerStats, 
           awards: newAwards,
           awardsHistory: newAwardsHistory,

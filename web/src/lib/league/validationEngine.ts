@@ -1,5 +1,5 @@
 // Last Updated: 2026-03-22T22:00:00Z
-import { Game, Player, Team, PlayerStats } from './types';
+import { Game, Player } from './types';
 
 export interface ValidationReport {
   gameId: string;
@@ -13,8 +13,7 @@ export interface ValidationReport {
  */
 export function validateGameStats(
   game: Game,
-  players: Player[],
-  teams: Team[]
+  players: Player[]
 ): { validatedPlayers: Player[]; report: ValidationReport } {
   const report: ValidationReport = {
     gameId: game.id,
@@ -112,7 +111,8 @@ function adjustTouchdowns(teamId: string, players: Player[], diff: number, repor
   if (diff > 0) {
     const scorer = offensivePlayers.sort((a,b) => b.rating - a.rating)[0];
     if (scorer.stats) {
-       if (scorer.position === 'RB') {
+       if (['RB', 'QB'].includes(scorer.position)) {
+           // Offensive correction for RBs or QB scrambling
            scorer.stats.rushingTds = (scorer.stats.rushingTds || 0) + diff;
        } else if (['WR', 'TE'].includes(scorer.position)) {
            scorer.stats.receivingTds = (scorer.stats.receivingTds || 0) + diff;
