@@ -363,9 +363,7 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger}
-      </DialogTrigger>
+      <DialogTrigger render={trigger} />
       <DialogContent className="max-w-xl rounded-[2.5rem] border-none p-0 overflow-hidden shadow-2xl">
         <DialogHeader className="p-8 pb-4 bg-stone-900 text-white">
           <div className="flex items-center gap-6">
