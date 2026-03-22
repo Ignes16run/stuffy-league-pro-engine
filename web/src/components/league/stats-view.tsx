@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useLeague } from '@/context/league-context';
 import { Player, PlayerStats, PlayerPosition } from '@/lib/league/types';
-import { Target, BarChart3, PlayCircle, Shield, Award, Search, Users, Filter, X, ChevronRight } from 'lucide-react';
+import { Target, Search, Users, Filter, X } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -115,7 +115,7 @@ export default function StatsView() {
         </div>
         
         <div className="w-56">
-          <Select value={teamFilter} onValueChange={setTeamFilter}>
+          <Select value={teamFilter} onValueChange={(val) => setTeamFilter(val || 'all')}>
             <SelectTrigger className="h-10 border-stone-100 rounded-xl bg-stone-50/50">
               <Users className="w-4 h-4 text-stone-400 mr-2" />
               <SelectValue placeholder="All Teams" />
@@ -131,7 +131,7 @@ export default function StatsView() {
 
         {currentAvailablePositions.length > 0 && (
           <div className="w-48">
-            <Select value={positionFilter} onValueChange={setPositionFilter}>
+            <Select value={positionFilter} onValueChange={(val) => setPositionFilter(val || 'all')}>
               <SelectTrigger className="h-10 border-stone-100 rounded-xl bg-stone-50/50">
                 <Filter className="w-4 h-4 text-stone-400 mr-2" />
                 <SelectValue placeholder="All Positions" />
@@ -311,7 +311,7 @@ function TeamStatsView({ preselectedTeamId }: { preselectedTeamId: string | null
 
 function renderPositionalStats(player: Player) {
   const s = player.stats;
-  const items: { label: string, value: any }[] = [];
+  const items: { label: string, value: string | number | undefined }[] = [];
 
   if (player.position === 'QB') {
     items.push({ label: 'Pass Yds', value: s.passingYards });
