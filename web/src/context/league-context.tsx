@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T05:50:00-04:00
+// Last Updated: 2026-03-22T08:35:44-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats, Standing } from '@/lib/league/types';
@@ -7,6 +7,7 @@ import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { generateRoundRobinSchedule, calculateStandings, generateRealisticFootballScore } from '@/lib/league/utils';
 import { supabase } from '@/lib/supabase-client';
 import { useAuth } from './auth-context';
+import { applySoftCeiling } from '@/lib/league/stat-system';
 import { generateTeamRoster } from '@/lib/league/players';
 
 interface LeagueContextType {
@@ -47,8 +48,7 @@ interface LeagueContextType {
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
 
 export function LeagueProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const scheduleRef = useRef<boolean>(false);
+  const { user, isLoading } = useAuth();
   
   // State variables
   const [teams, setTeams] = useState<Team[]>(DEFAULT_LEAGUE_TEAMS);
@@ -60,6 +60,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history' | 'players'>('setup');
   const [isSimulating, setIsSimulating] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const lastLoadedUserId = useRef<string | null | undefined>(undefined);
 
   // Sync helpers
   const syncTeams = useCallback(async (teamsArr: Team[]) => {
@@ -114,10 +115,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const loadData = useCallback(async () => {
-    if (!user && scheduleRef.current) return; // For anonymous users, only load once
-    if (user && scheduleRef.current) return; // For logged-in users, only load once
+    if (isLoading) return; // Wait until auth is resolved
+    if (lastLoadedUserId.current === (user?.id || null)) return; // Only load once per auth state
 
-    scheduleRef.current = true;
+    lastLoadedUserId.current = user?.id || null;
+    setIsLoaded(false);
     
     if (!user) {
       // For anonymous users, ensure defaults are set (Teams, Players, and Schedule)
@@ -221,7 +223,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoaded(true);
     }
-  }, [user, syncTeams, syncPlayers, syncGames]);
+  }, [user, isLoading, syncTeams, syncPlayers, syncGames]);
 
   useEffect(() => {
     loadData();
@@ -275,25 +277,30 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       let passTds = 0;
       let rushTds = 0;
       for (let i = 0; i < tds; i++) {
-        if (Math.random() > 0.4) {
-          passTds++;
-        } else {
-          rushTds++;
-        }
+        if (Math.random() > 0.4) { passTds++; } else { rushTds++; }
       }
 
       const totalYards = Math.min(score * 15 + Math.floor(Math.random() * 80), 550);
-      const passYards = Math.floor(totalYards * 0.65);
-      const rushYards = totalYards - passYards;
+      const rawPassYards = Math.floor(totalYards * 0.65);
+      const rawRushYards = totalYards - rawPassYards;
+
+      const qbRating = qb?.rating || 75;
+      const rbRating = rbs[0]?.rating || 75;
+      const scoreWeight = Math.max(0.5, score / 21); // 21 pts = average game
+
+      // Soft Ceilings Enforcement
+      const boundedPassYards = applySoftCeiling(rawPassYards, 'passingYards', qbRating, scoreWeight);
+      const boundedPassTds = applySoftCeiling(passTds, 'passingTds', qbRating, scoreWeight);
+      const boundedRushYards = applySoftCeiling(rawRushYards, 'rushingYards', rbRating, scoreWeight);
+      const boundedRushTds = applySoftCeiling(rushTds, 'rushingTds', rbRating, scoreWeight);
 
       // Passing Logic
       if (qb) {
-        qb.stats.passingTds = (qb.stats.passingTds || 0) + passTds;
-        qb.stats.passingYards = (qb.stats.passingYards || 0) + passYards;
+        qb.stats.passingTds = (qb.stats.passingTds || 0) + boundedPassTds;
+        qb.stats.passingYards = (qb.stats.passingYards || 0) + boundedPassYards;
         
-        // 25 to 45 attempts based on passing yards
         let attempts = Math.floor(Math.random() * 10) + 25; 
-        if (passYards > 300) attempts += 10;
+        if (boundedPassYards > 300) attempts += 10;
         const completions = Math.floor(attempts * (0.55 + (qb.rating / 500))); 
         const gamePct = (completions / attempts) * 100;
 
@@ -301,9 +308,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           ? Math.round(((qb.stats.completionPct + gamePct) / 2) * 10) / 10 
           : Math.round(gamePct * 10) / 10;
 
-        // Receiving logic
-        let remainingPassYards = passYards;
-        let remainingRec = completions;
+        let remainingPassYards = boundedPassYards;
+        let remainingRec = applySoftCeiling(completions, 'receptions', qbRating, scoreWeight, 3.0); // Total team receptions
+        
         receivers.forEach((p, idx) => {
            let share = 0;
            let recShare = 0;
@@ -311,33 +318,39 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
              share = remainingPassYards;
              recShare = remainingRec;
            } else {
-             // Try to weight WR1 more
-             const weight = idx === 0 ? 0.4 : (1 / (receivers.length - idx));
-             share = Math.floor(remainingPassYards * weight);
+             // 33% target for WR1 aligns roughly with 1400/4200 yard split requirement
+             const weight = idx === 0 ? 0.33 : (0.67 / (receivers.length - 1));
+             share = Math.floor(boundedPassYards * weight);
              recShare = Math.floor(remainingRec * weight);
            }
-           p.stats.receivingYards = (p.stats.receivingYards || 0) + Math.max(0, share);
-           p.stats.receptions = (p.stats.receptions || 0) + Math.max(0, recShare);
-           p.stats.yards = (p.stats.yards || 0) + Math.max(0, share); // generic fallback
-           remainingPassYards -= share;
-           remainingRec -= recShare;
+           
+           // Apply individual player soft ceiling to receiving yards
+           const finalShare = applySoftCeiling(share, 'receivingYards', p.rating, scoreWeight);
+           const finalRecShare = applySoftCeiling(recShare, 'receptions', p.rating, scoreWeight);
+
+           p.stats.receivingYards = (p.stats.receivingYards || 0) + Math.max(0, finalShare);
+           p.stats.receptions = (p.stats.receptions || 0) + Math.max(0, finalRecShare);
+           p.stats.yards = (p.stats.yards || 0) + Math.max(0, finalShare);
+           
+           remainingPassYards -= finalShare;
+           remainingRec -= finalRecShare;
         });
 
-        // Receiving TDs
-        for (let i = 0; i < passTds; i++) {
+        for (let i = 0; i < boundedPassTds; i++) {
            const target = receivers[Math.floor(Math.random() * receivers.length)];
            if (target) {
-              target.stats.receivingTds = (target.stats.receivingTds || 0) + 1;
-              target.stats.touchdowns = (target.stats.touchdowns || 0) + 1;
-              target.stats.points = (target.stats.points || 0) + 6;
+              const boundedRecTd = applySoftCeiling(1, 'receivingTds', target.rating, scoreWeight);
+              target.stats.receivingTds = (target.stats.receivingTds || 0) + boundedRecTd;
+              target.stats.touchdowns = (target.stats.touchdowns || 0) + boundedRecTd;
+              target.stats.points = (target.stats.points || 0) + (boundedRecTd * 6);
            }
         }
         
-        // Interceptions Thrown -> caught by DB
         const ints = Math.random() < 0.15 ? (Math.random() < 0.3 ? 2 : 1) : 0;
-        if (ints > 0) {
-           qb.stats.interceptionsThrown = (qb.stats.interceptionsThrown || 0) + ints;
-           for(let i = 0; i < ints; ++i) {
+        const boundedInts = applySoftCeiling(ints, 'interceptionsThrown', qb.rating, 1.0);
+        if (boundedInts > 0) {
+           qb.stats.interceptionsThrown = (qb.stats.interceptionsThrown || 0) + boundedInts;
+           for(let i = 0; i < boundedInts; ++i) {
              const defDB = db[Math.floor(Math.random() * db.length)];
              if (defDB) defDB.stats.interceptions = (defDB.stats.interceptions || 0) + 1;
            }
@@ -345,63 +358,72 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Rushing logic
-      let remainingRushYards = rushYards;
-      let remainingCarries = Math.floor(Math.random() * 10) + 20; // 20-30 carries
+      let remainingRushYards = boundedRushYards;
+      const boundedCarries = applySoftCeiling(Math.floor(Math.random() * 10) + 20, 'carries', rbRating, scoreWeight);
+      let remainingCarries = boundedCarries;
+      
       if (rbs.length > 0) {
         rbs.forEach((p, idx) => {
-           const share = idx === rbs.length - 1 ? remainingRushYards : Math.floor(remainingRushYards * 0.7);
-           const carryShare = idx === rbs.length - 1 ? remainingCarries : Math.floor(remainingCarries * 0.7);
-           p.stats.rushingYards = (p.stats.rushingYards || 0) + Math.max(0, share);
-           p.stats.yards = (p.stats.yards || 0) + Math.max(0, share);
+           const share = idx === rbs.length - 1 ? remainingRushYards : Math.floor(boundedRushYards * 0.7);
+           const carryShare = idx === rbs.length - 1 ? remainingCarries : Math.floor(boundedCarries * 0.7);
+           
+           const finalRushShare = applySoftCeiling(share, 'rushingYards', p.rating, scoreWeight);
+           p.stats.rushingYards = (p.stats.rushingYards || 0) + Math.max(0, finalRushShare);
+           p.stats.yards = (p.stats.yards || 0) + Math.max(0, finalRushShare);
            p.stats.carries = (p.stats.carries || 0) + Math.max(0, carryShare);
-           remainingRushYards -= share;
+           
+           remainingRushYards -= finalRushShare;
            remainingCarries -= carryShare;
         });
 
-        // Rushing TDs
-        for (let i = 0; i < rushTds; i++) {
+        for (let i = 0; i < boundedRushTds; i++) {
            const target = rbs[0]; // mostly given to rb1
            if (target) {
-              target.stats.rushingTds = (target.stats.rushingTds || 0) + 1;
-              target.stats.touchdowns = (target.stats.touchdowns || 0) + 1;
-              target.stats.points = (target.stats.points || 0) + 6;
+              const bRushTd = applySoftCeiling(1, 'rushingTds', target.rating, scoreWeight);
+              target.stats.rushingTds = (target.stats.rushingTds || 0) + bRushTd;
+              target.stats.touchdowns = (target.stats.touchdowns || 0) + bRushTd;
+              target.stats.points = (target.stats.points || 0) + (bRushTd * 6);
            }
         }
       }
 
       // Defense Stats Calculation
       // Sacks generated based on pass attempts
-      const totalSacks = Math.floor(Math.random() * 5); // 0-4 sacks
-      for (let i = 0; i < totalSacks; i++) {
-         const isDL = Math.random() > 0.3; // DL gets 70% of sacks, LB 30%
+      const boundedSacksTotal = applySoftCeiling(Math.floor(Math.random() * 5), 'sacks', 85, scoreWeight, 2.5);
+      for (let i = 0; i < boundedSacksTotal; i++) {
+         const isDL = Math.random() > 0.3; 
          const targetList = isDL && dl.length ? dl : (lb.length ? lb : null);
          if (targetList) {
              const defPlayer = targetList[Math.floor(Math.random() * targetList.length)];
-             defPlayer.stats.sacks = (defPlayer.stats.sacks || 0) + 1;
-             defPlayer.stats.tacklesForLoss = (defPlayer.stats.tacklesForLoss || 0) + 1;
-             defPlayer.stats.tackles = (defPlayer.stats.tackles || 0) + 1;
+             const bSack = applySoftCeiling(1, 'sacks', defPlayer.rating, scoreWeight, isDL ? 1.0 : 0.6);
+             defPlayer.stats.sacks = (defPlayer.stats.sacks || 0) + bSack;
+             defPlayer.stats.tacklesForLoss = (defPlayer.stats.tacklesForLoss || 0) + bSack;
+             defPlayer.stats.tackles = (defPlayer.stats.tackles || 0) + bSack;
          }
       }
 
-      // Pass Deflections
-      const totalPds = Math.floor(Math.random() * 8); // 0-7 pd
-      for (let i = 0; i < totalPds; i++) {
+      const boundedPdsTotal = applySoftCeiling(Math.floor(Math.random() * 8), 'passDeflections', 85, scoreWeight, 3.0);
+      for (let i = 0; i < boundedPdsTotal; i++) {
          if (db.length) {
              const defDB = db[Math.floor(Math.random() * db.length)];
-             defDB.stats.passDeflections = (defDB.stats.passDeflections || 0) + 1;
+             const bPd = applySoftCeiling(1, 'passDeflections', defDB.rating, scoreWeight, 1.0);
+             defDB.stats.passDeflections = (defDB.stats.passDeflections || 0) + bPd;
          }
       }
 
-      // General Tackles & TFL
       defPlayers.forEach(p => {
-         let tackles = Math.floor(Math.random() * 4) + 1; // 1-4 base
-         if (p.position === 'LB') tackles += Math.floor(Math.random() * 5); // LB 1-9
-         if (p.position === 'DB') tackles += Math.floor(Math.random() * 4); // DB 1-8
-         p.stats.tackles = (p.stats.tackles || 0) + tackles;
+         let tackles = Math.floor(Math.random() * 4) + 1; 
+         if (p.position === 'LB') tackles += Math.floor(Math.random() * 5); 
+         if (p.position === 'DB') tackles += Math.floor(Math.random() * 4); 
+
+         const posMult = p.position === 'LB' ? 1.0 : (p.position === 'DB' ? 0.6 : 0.46);
+         const boundedTackles = applySoftCeiling(tackles, 'tackles', p.rating, scoreWeight, posMult);
+         p.stats.tackles = (p.stats.tackles || 0) + boundedTackles;
 
          if (['DL', 'LB'].includes(p.position) && Math.random() < 0.2) {
-             p.stats.tacklesForLoss = (p.stats.tacklesForLoss || 0) + 1;
-             p.stats.tackles = (p.stats.tackles || 0) + 1; // TFL implies a tackle
+             const bTFL = applySoftCeiling(1, 'tacklesForLoss', p.rating, scoreWeight, p.position === 'LB' ? 1.0 : 0.9);
+             p.stats.tacklesForLoss = (p.stats.tacklesForLoss || 0) + bTFL;
+             p.stats.tackles = (p.stats.tackles || 0) + bTFL;
          }
       });
 
