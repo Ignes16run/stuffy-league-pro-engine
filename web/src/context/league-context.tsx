@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-23T00:05:00Z
+// Last Updated: 2026-03-23T00:20:00Z
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -17,9 +17,9 @@ import {
 import { supabase } from '@/lib/supabase-client';
 import { useAuth } from '@/context/auth-context';
 import { generateTeamRoster, migratePlayerRatings } from '@/lib/league/players';
-import { selectNarrativeTemplate, generateNarrative } from '@/lib/league/narratives';
+import { selectNarrativeTemplate, generateNarrative, NARRATIVE_BANK } from '@/lib/league/narratives';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
-import { getStatForAward } from '@/lib/league/awardsEngine';
+import { getStatForAward, getAwardFinalists } from '@/lib/league/awardsEngine';
 import { PersistenceEngine } from '@/lib/league/persistenceEngine';
 import { SimulationEngine } from '@/lib/league/simulationEngine';
 import { assignStatsToPlayers } from '@/lib/league/statsEngine';
@@ -51,6 +51,13 @@ interface LeagueContextType {
   setPlayoffGames: React.Dispatch<React.SetStateAction<PlayoffGame[]>>;
   syncPlayoffGames: (bracket: PlayoffGame[]) => Promise<void>;
   setHistory: React.Dispatch<React.SetStateAction<SeasonHistory[]>>;
+  // Awards System
+  isAwardsPhase: boolean;
+  awardFinalists: Record<string, Player[]>;
+  setAwardWinner: (category: string, playerId: string) => void;
+  selectedAwards: Record<string, string>;
+  awardResults: Record<string, any>;
+  finalizeSeason: () => void;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -67,41 +74,33 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [recentNarrativesUsed, setRecentNarrativesUsed] = useState<NarrativeMemoryEntry[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // Awards State
+  const [isAwardsPhase, setIsAwardsPhase] = useState(false);
+  const [awardFinalists, setAwardFinalists] = useState<Record<string, Player[]>>({});
+  const [selectedAwards, setSelectedAwards] = useState<Record<string, string>>({});
+  const [awardResults, setAwardResults] = useState<Record<string, any>>({});
+
   // --- STAT RECALCULATION ENGINE ---
-  /**
-   * Rebuilds all player statistics from scratch based on the current state of games.
-   * Ensures idempotency and prevents stat compounding.
-   */
   const recalculateStats = useCallback((allGames: Game[], allPlayers: Player[]) => {
-    // 1. Reset everyone to zero
     let playersPool = allPlayers.map(p => ({
       ...p,
       stats: { gamesPlayed: 0 } as PlayerStats
     }));
-
-    // 2. Identify all completed games (Picks or Sims)
     const completedGames = allGames
       .filter(g => (g.homeScore !== undefined && g.awayScore !== undefined))
       .sort((a, b) => a.week - b.week || a.id.localeCompare(b.id));
 
-    // 3. Deterministically replay each game's stat generation
     completedGames.forEach(game => {
       const homeScore = game.homeScore || 0;
       const awayScore = game.awayScore || 0;
-      
-      // Use gameId as seed to ensure consistency
       const random = createSeededRandom(game.id);
-      
-      // Home
       playersPool = assignStatsToPlayers(playersPool, game.homeTeamId, homeScore, awayScore, random);
-      // Away
       playersPool = assignStatsToPlayers(playersPool, game.awayTeamId, awayScore, homeScore, random);
     });
-
     return playersPool;
   }, []);
 
-  // Sync effect to handle initialization and initial stat population
+  // Sync effect
   useEffect(() => {
     const init = async () => {
       if (typeof window !== 'undefined') {
@@ -115,6 +114,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
             setPlayoffGames(data.playoffGames || []);
             setCurrentWeek(data.currentWeek || 1);
             setHistory(data.history || []);
+            setIsAwardsPhase(data.isAwardsPhase || false);
+            setAwardFinalists(data.awardFinalists || {});
+            setSelectedAwards(data.selectedAwards || {});
+            setAwardResults(data.awardResults || {});
           } catch (e) {
             console.error('Failed to parse saved data', e);
           }
@@ -128,22 +131,21 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   // Persistence effect
   useEffect(() => {
     if (!isInitializing) {
-      const data = { teams, players, games, playoffGames, currentWeek, history };
+      const data = { 
+        teams, players, games, playoffGames, currentWeek, history,
+        isAwardsPhase, awardFinalists, selectedAwards, awardResults 
+      };
       localStorage.setItem('stuffy_league_data', JSON.stringify(data));
     }
-  }, [teams, players, games, playoffGames, currentWeek, history, isInitializing]);
+  }, [teams, players, games, playoffGames, currentWeek, history, isInitializing, isAwardsPhase, awardFinalists, selectedAwards, awardResults]);
 
   const addTeam = async (team: Omit<Team, 'id'>) => {
     const newTeam = { ...team, id: generateUUID() };
     const newTeams = [...teams, newTeam];
-    
-    // Generate roster for new team
     const newRoster = generateTeamRoster(newTeam.id);
     const newPlayers = [...players, ...newRoster];
-    
     setTeams(newTeams);
     setPlayers(newPlayers);
-    
     if (user) {
       await PersistenceEngine.saveTeams([newTeam]);
       await PersistenceEngine.savePlayers(newRoster);
@@ -153,9 +155,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const updateTeam = async (team: Team) => {
     const newTeams = teams.map(t => t.id === team.id ? team : t);
     setTeams(newTeams);
-    if (user) {
-      await PersistenceEngine.updateTeam(team);
-    }
+    if (user) await PersistenceEngine.updateTeam(team);
   };
 
   const resetLeague = async () => {
@@ -165,30 +165,22 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setPlayoffGames([]);
     setCurrentWeek(1);
     setHistory([]);
+    setIsAwardsPhase(false);
+    setAwardFinalists({});
+    setSelectedAwards({});
+    setAwardResults({});
     localStorage.removeItem('stuffy_league_data');
-    
-    if (user) {
-      await supabase.from('teams').delete().neq('id', '0');
-      await supabase.from('players').delete().neq('id', '0');
-      await supabase.from('games').delete().neq('id', '0');
-    }
+    if (user) await PersistenceEngine.clearAll(user.id);
   };
 
   const createLeague = async (name: string) => {
     await resetLeague();
-    
-    // Add default teams
     for (const teamDef of DEFAULT_LEAGUE_TEAMS) {
       await addTeam(teamDef);
     }
-    
-    // Generate schedule
     const newGames = generateRoundRobinSchedule(teams, 14);
     setGames(newGames);
-    
-    if (user) {
-      await PersistenceEngine.saveGames(newGames);
-    }
+    if (user) await PersistenceEngine.saveGames(newGames);
   };
 
   const saveToSupabase = async () => {
@@ -201,89 +193,139 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const loadFromSupabase = async () => {
     if (!user) return;
-    const { teams: t, players: p, games: g, playoffGames: pg } = await PersistenceEngine.loadAll();
-    if (t) setTeams(t);
-    if (p) setPlayers(p);
-    if (g) setGames(g);
-    if (pg) setPlayoffGames(pg);
+    const data = await PersistenceEngine.loadAllData(user.id);
+    setTeams(data.teams);
+    setPlayers(data.players);
+    setGames(data.games);
+    setPlayoffGames(data.playoffGames);
+    setHistory(data.history);
   };
 
   const advanceWeek = () => {
     if (currentWeek < 14) {
       setCurrentWeek(prev => prev + 1);
+    } else {
+      // Trigger Awards Phase
+      const finalists = getAwardFinalists(players);
+      setAwardFinalists(finalists as Record<string, Player[]>);
+      setIsAwardsPhase(true);
     }
   };
 
   const simulateGames = (week: number) => {
-    const weekGames = games.filter(g => g.week === week);
     const updatedGames = [...games];
-    let updatedPlayers = [...players];
-
-    weekGames.forEach(game => {
+    games.filter(g => g.week === week).forEach(game => {
       const homeTeam = teams.find(t => t.id === game.homeTeamId);
       const awayTeam = teams.find(t => t.id === game.awayTeamId);
       if (homeTeam && awayTeam) {
         const score = generateRealisticFootballScore(homeTeam, awayTeam, players);
         const gameIndex = updatedGames.findIndex(g => g.id === game.id);
-        
         const isTie = score.homeScore === score.awayScore;
-        const winnerId = isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId);
-        
         updatedGames[gameIndex] = {
-          ...game,
-          homeScore: score.homeScore,
-          awayScore: score.awayScore,
-          winnerId,
+          ...game, homeScore: score.homeScore, awayScore: score.awayScore,
+          winnerId: isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId),
           isTie
         };
       }
     });
-
     setGames(updatedGames);
     setPlayers(prev => recalculateStats(updatedGames, prev));
   };
 
   const simulateSeason = () => {
     let updatedGames = [...games];
-    
     for (let w = 1; w <= 14; w++) {
-      const weekGames = updatedGames.filter(g => g.week === w);
-      weekGames.forEach(game => {
+      updatedGames.filter(g => g.week === w).forEach(game => {
         const homeTeam = teams.find(t => t.id === game.homeTeamId);
         const awayTeam = teams.find(t => t.id === game.awayTeamId);
         if (homeTeam && awayTeam) {
           const score = generateRealisticFootballScore(homeTeam, awayTeam, players);
           const gameIndex = updatedGames.findIndex(g => g.id === game.id);
-          
           const isTie = score.homeScore === score.awayScore;
-          const winnerId = isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId);
-          
           updatedGames[gameIndex] = {
-            ...game,
-            homeScore: score.homeScore,
-            awayScore: score.awayScore,
-            winnerId,
+            ...game, homeScore: score.homeScore, awayScore: score.awayScore,
+            winnerId: isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId),
             isTie
           };
         }
       });
     }
-
     setGames(updatedGames);
-    setPlayers(prev => recalculateStats(updatedGames, prev));
+    const finalPlayers = recalculateStats(updatedGames, players);
+    setPlayers(finalPlayers);
     setCurrentWeek(14);
+    
+    // Auto-trigger Awards
+    const finalists = getAwardFinalists(finalPlayers);
+    setAwardFinalists(finalists as Record<string, Player[]>);
+    setIsAwardsPhase(true);
   };
 
   const resetPredictions = () => {
     const resetGames = games.map(g => ({
-      ...g,
-      homeScore: undefined,
-      awayScore: undefined,
-      winnerId: undefined,
-      isTie: undefined
+      ...g, homeScore: undefined, awayScore: undefined, winnerId: undefined, isTie: undefined
     }));
     setGames(resetGames);
     setPlayers(prev => prev.map(p => ({ ...p, stats: { gamesPlayed: 0 } as PlayerStats })));
+    setIsAwardsPhase(false);
+    setAwardFinalists({});
+    setSelectedAwards({});
+    setAwardResults({});
+  };
+
+  const setAwardWinner = (category: string, playerId: string) => {
+    const winner = players.find(p => p.id === playerId);
+    if (!winner) return;
+
+    setSelectedAwards(prev => ({ ...prev, [category]: playerId }));
+    
+    const team = teams.find(t => t.id === winner.teamId);
+    const awardType = category as AwardType;
+    const statValue = getStatForAward(winner, awardType);
+    const statName = awardType === 'STPOY' ? 'Points' : (awardType === 'DPOY' ? 'Tackles/Sacks' : 'All-Purpose');
+
+    const template = selectNarrativeTemplate(
+      awardType,
+      winner.position,
+      winner.awardsHistory || [],
+      recentNarrativesUsed,
+      (history.length + 1).toString()
+    ) || NARRATIVE_BANK[0];
+
+    const narrative = generateNarrative(
+      winner,
+      awardType,
+      team?.name || 'his team',
+      statValue,
+      statName,
+      template
+    );
+
+    setRecentNarrativesUsed(prev => [...prev, { templateId: template.id, seasonId: (history.length + 1).toString() }]);
+    
+    setAwardResults(prev => ({
+      ...prev,
+      [category]: {
+        winner,
+        statName,
+        statValue,
+        narrative
+      }
+    }));
+  };
+
+  const finalizeSeason = () => {
+    const standings = calculateStandings(teams, games);
+    const championId = standings[0].teamId;
+    
+    const newHistory: SeasonHistory = {
+      year: new Date().getFullYear() + history.length,
+      championId,
+      finalStandings: standings
+    };
+    
+    setHistory(prev => [newHistory, ...prev]);
+    setIsAwardsPhase(false);
   };
 
   return (
@@ -295,54 +337,32 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       handlePick: (gameId, winnerId) => {
         const gameToUpdate = games.find(g => g.id === gameId);
         if (!gameToUpdate) return;
-        
-        let finalHomeScore = 0;
-        let finalAwayScore = 0;
-        const finalWinnerId = winnerId === 'tie' ? undefined : (winnerId || undefined);
-        const isTie = winnerId === 'tie';
-
         const homeTeam = teams.find(t => t.id === gameToUpdate.homeTeamId);
         const awayTeam = teams.find(t => t.id === gameToUpdate.awayTeamId);
-
-        // 1. Generate Result (Winner/Scores)
+        let hScore = 0, aScore = 0;
         if (winnerId === 'tie') {
-            finalHomeScore = 20 + Math.floor(Math.random() * 10);
-            finalAwayScore = finalHomeScore;
+            hScore = 20 + Math.floor(Math.random() * 10); aScore = hScore;
         } else if (winnerId) {
             const isHome = winnerId === gameToUpdate.homeTeamId;
-            const winner = isHome ? homeTeam : awayTeam;
-            const loser = isHome ? awayTeam : homeTeam;
-            if (winner && loser) {
-               const score = generateRealisticFootballScore(winner, loser, players);
-               finalHomeScore = isHome ? Math.max(score.homeScore, score.awayScore + 3) : Math.min(score.homeScore, score.awayScore - 3);
-               finalAwayScore = isHome ? Math.min(score.awayScore, score.homeScore - 3) : Math.max(score.awayScore, score.homeScore + 3);
-            } else {
-               finalHomeScore = isHome ? 21 : 14;
-               finalAwayScore = isHome ? 14 : 21;
-            }
+            const score = generateRealisticFootballScore(isHome ? homeTeam! : awayTeam!, isHome ? awayTeam! : homeTeam!, players);
+            hScore = isHome ? Math.max(score.homeScore, score.awayScore + 3) : Math.min(score.homeScore, score.awayScore - 3);
+            aScore = isHome ? Math.min(score.awayScore, score.homeScore - 3) : Math.max(score.awayScore, score.homeScore + 3);
         } else {
-            // Deselect
-            const deselectGames = games.map(x => x.id === gameId ? { ...x, homeScore: undefined, awayScore: undefined, winnerId: undefined, isTie: false } : x);
-            setGames(deselectGames);
-            setPlayers(prev => recalculateStats(deselectGames, prev));
+            const dg = games.map(x => x.id === gameId ? { ...x, homeScore: undefined, awayScore: undefined, winnerId: undefined, isTie: false } : x);
+            setGames(dg); setPlayers(prev => recalculateStats(dg, prev));
             return;
         }
-
-        const updatedGame = { ...gameToUpdate, homeScore: finalHomeScore, awayScore: finalAwayScore, winnerId: finalWinnerId, isTie };
-        const newGames = games.map(x => x.id === gameId ? updatedGame : x);
-
-        // 2. Update Games and Deterministically Replay all Stats
-        setGames(newGames);
-        setPlayers(prev => recalculateStats(newGames, prev));
+        const ug = { ...gameToUpdate, homeScore: hScore, awayScore: aScore, winnerId: winnerId === 'tie' ? undefined : winnerId, isTie: winnerId === 'tie' };
+        const ng = games.map(x => x.id === gameId ? ug : x);
+        setGames(ng); setPlayers(prev => recalculateStats(ng, prev));
       },
-      setPlayers,
-      setGames,
-      setPlayoffGames,
+      setPlayers, setGames, setPlayoffGames,
       syncPlayoffGames: async (bracket) => {
         setPlayoffGames(bracket);
         if (user) await PersistenceEngine.savePlayoffGames(bracket);
       },
-      setHistory
+      setHistory,
+      isAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, awardResults, finalizeSeason
     }}>
       {children}
     </LeagueContext.Provider>
@@ -351,8 +371,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
 export function useLeague() {
   const context = useContext(LeagueContext);
-  if (context === undefined) {
-    throw new Error('useLeague must be used within a LeagueProvider');
-  }
+  if (context === undefined) throw new Error('useLeague must be used within a LeagueProvider');
   return context;
 }
