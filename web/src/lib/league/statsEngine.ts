@@ -1,16 +1,18 @@
-// Last Updated: 2026-03-22T23:50:00Z
+// Last Updated: 2026-03-22T23:58:00Z
 import { Player, PlayerStats } from './types';
 
 /**
  * Assigns statistics to players for a single game based on team score.
  * Fulfills the "Stat Realism" and "Pool-Based Distribution" requirements.
  * Accounts for Extra Points (XPs) with rating-based miss logic.
+ * Now deterministic when a 'random' generator is provided.
  */
 export function assignStatsToPlayers(
   players: Player[],
   teamId: string,
   score: number,
-  oppScore: number
+  oppScore: number,
+  random: () => number = Math.random
 ): Player[] {
   const teamPlayers = players.filter(p => p.teamId === teamId);
   if (teamPlayers.length === 0) return players;
@@ -28,11 +30,11 @@ export function assignStatsToPlayers(
     
     if (Number.isInteger(totalValue) && totalValue < 50) {
       for (let i = 0; i < totalValue; i++) {
-        let rand = Math.random() * totalRating;
+        let randVal = random() * totalRating;
         let assigned = false;
         for (const p of subset) {
-          rand -= p.rating;
-          if (rand <= 0) {
+          randVal -= p.rating;
+          if (randVal <= 0) {
             results[p.id] = (results[p.id] || 0) + 1;
             assigned = true;
             break;
@@ -74,20 +76,18 @@ export function assignStatsToPlayers(
   const missChance = Math.max(0.01, 0.15 - (kickerRating / 800)); // 75 OVR -> ~6% miss
   
   for (let i = 0; i < totalTDs; i++) {
-    if (Math.random() > missChance) xpMade++;
+    if (random() > missChance) xpMade++;
   }
   
   // Points reconciliation (Remainder goes to Kicker points pool)
   const ptsFromTDs = totalTDs * 6;
   const kickerPointsPool = score - ptsFromTDs; 
-  // We use xpMade as the 'intended' stat, but we must reach kickerPointsPool
   const finalXpCount = Math.min(xpMade, kickerPointsPool);
   const finalFgCount = Math.floor((kickerPointsPool - finalXpCount) / 3);
-  const leftoverPoints = kickerPointsPool - finalXpCount - (finalFgCount * 3);
 
   // 5. Calculate TD Split Pools
   let rushingTdsCount = totalTDs > 0 
-    ? Math.floor(totalTDs * (0.2 + Math.random() * 0.3) + (Math.random() < 0.2 ? 1 : 0))
+    ? Math.floor(totalTDs * (0.2 + random() * 0.3) + (random() < 0.2 ? 1 : 0))
     : 0;
   
   if (rbs.length === 0) rushingTdsCount = 0;
@@ -96,8 +96,8 @@ export function assignStatsToPlayers(
   const passingTdsCount = Math.max(0, totalTDs - rushingTdsCount);
 
   // 6. Yardage Pools
-  const totalPassingYards = Math.round((score * 9.5) + (Math.random() * 60));
-  const totalRushingYards = Math.round((score * 5.5) + (Math.random() * 40));
+  const totalPassingYards = Math.round((score * 9.5) + (random() * 60));
+  const totalRushingYards = Math.round((score * 5.5) + (random() * 40));
 
   // 7. Distribute
   const rbYardsMap = distributePool(rbs, totalRushingYards);
@@ -116,7 +116,7 @@ export function assignStatsToPlayers(
       case 'QB':
         s.passingYards = (s.passingYards || 0) + totalPassingYards;
         s.passingTds = (s.passingTds || 0) + passingTdsCount;
-        s.completionPct = 60 + Math.floor(Math.random() * 15);
+        s.completionPct = 60 + Math.floor(random() * 15);
         break;
       case 'RB':
         s.rushingYards = (s.rushingYards || 0) + (rbYardsMap[p.id] || 0);
@@ -136,13 +136,13 @@ export function assignStatsToPlayers(
       case 'DL':
       case 'EDGE':
       case 'LB':
-        s.tackles = (s.tackles || 0) + Math.floor(Math.random() * 6) + Math.floor(oppScore / 10);
-        if (Math.random() > (0.98 - (p.rating / 1000))) s.sacks = (s.sacks || 0) + 1;
+        s.tackles = (s.tackles || 0) + Math.floor(random() * 6) + Math.floor(oppScore / 10);
+        if (random() > (0.98 - (p.rating / 1000))) s.sacks = (s.sacks || 0) + 1;
         break;
       case 'CB':
       case 'S':
-        s.tackles = (s.tackles || 0) + Math.floor(Math.random() * 4) + Math.floor(oppScore / 15);
-        if (Math.random() > 0.98) s.interceptions = (s.interceptions || 0) + 1;
+        s.tackles = (s.tackles || 0) + Math.floor(random() * 4) + Math.floor(oppScore / 15);
+        if (random() > 0.98) s.interceptions = (s.interceptions || 0) + 1;
         break;
     }
 
