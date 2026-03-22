@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-23T00:20:00Z
+// Last Updated: 2026-03-23T00:30:00Z
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -51,12 +51,14 @@ interface LeagueContextType {
   setPlayoffGames: React.Dispatch<React.SetStateAction<PlayoffGame[]>>;
   syncPlayoffGames: (bracket: PlayoffGame[]) => Promise<void>;
   setHistory: React.Dispatch<React.SetStateAction<SeasonHistory[]>>;
+  isLoaded: boolean;
   // Awards System
   isAwardsPhase: boolean;
   awardFinalists: Record<string, Player[]>;
   setAwardWinner: (category: string, playerId: string) => void;
   selectedAwards: Record<string, string>;
   awardResults: Record<string, any>;
+  completeSeason: (championId: string) => void;
   finalizeSeason: () => void;
 }
 
@@ -314,10 +316,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
-  const finalizeSeason = () => {
+  const completeSeason = (championId: string) => {
+    // Save history with the champion
     const standings = calculateStandings(teams, games);
-    const championId = standings[0].teamId;
-    
     const newHistory: SeasonHistory = {
       year: new Date().getFullYear() + history.length,
       championId,
@@ -325,7 +326,18 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     };
     
     setHistory(prev => [newHistory, ...prev]);
+    
+    // Move to awards phase if not already there
+    if (!isAwardsPhase) {
+      const finalists = getAwardFinalists(players);
+      setAwardFinalists(finalists as Record<string, Player[]>);
+      setIsAwardsPhase(true);
+    }
+  };
+
+  const finalizeSeason = () => {
     setIsAwardsPhase(false);
+    // Any final cleanup after awards
   };
 
   return (
@@ -335,6 +347,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       advanceWeek, simulateGames, resetLeague, saveToSupabase, loadFromSupabase,
       simulateSeason, resetPredictions, 
       handlePick: (gameId, winnerId) => {
+        // Special case for playoff handling if it looks like a playoff ID
+        if (gameId.includes('round-')) {
+            const ug = playoffGames.map(g => g.id === gameId ? { ...g, winnerId: (winnerId === 'tie' ? undefined : (winnerId || undefined)) } : g);
+            setPlayoffGames(ug); 
+            // syncPlayoffGames(ug); // We could sync here too
+            return;
+        }
+
         const gameToUpdate = games.find(g => g.id === gameId);
         if (!gameToUpdate) return;
         const homeTeam = teams.find(t => t.id === gameToUpdate.homeTeamId);
@@ -362,7 +382,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         if (user) await PersistenceEngine.savePlayoffGames(bracket);
       },
       setHistory,
-      isAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, awardResults, finalizeSeason
+      isLoaded: !isInitializing,
+      isAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, awardResults, 
+      completeSeason, finalizeSeason
     }}>
       {children}
     </LeagueContext.Provider>
