@@ -92,52 +92,61 @@ export function AwardsSelection() {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-3"
                   >
-                    {finalists.map(player => (
-                      <Card 
-                        key={player.id}
-                        className={cn(
-                          "cursor-pointer transition-all border-2 rounded-3xl overflow-hidden group hover:scale-[1.01]",
-                          selectedAwards[currentCategory] === player.id 
-                            ? "border-amber-400 bg-amber-50/30" 
-                            : "border-stone-100 hover:border-stone-200 bg-white"
-                        )}
-                        onClick={() => setAwardWinner(currentCategory, player.id)}
-                      >
-                        <CardContent className="p-4 flex items-center gap-6">
-                           <div className="w-16 h-16 rounded-2xl bg-stone-100 flex items-center justify-center text-3xl shrink-0 overflow-hidden">
-                                {player.profilePicture ? (
-                                  <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="text-stone-300">🧸</div>
-                                )}
-                           </div>
-                           <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-black text-lg text-stone-900">{player.name}</span>
-                                <Badge variant="outline" className="text-[10px] font-bold py-0">{player.position}</Badge>
-                              </div>
-                              <div className="flex gap-4 mt-1">
-                                {getRelevantStats(player, currentCategory).map(s => (
-                                  <div key={s.label} className="flex flex-col">
-                                    <span className="text-[10px] text-stone-400 font-bold uppercase">{s.label}</span>
-                                    <span className="text-sm font-black text-stone-700">{s.value}</span>
-                                  </div>
-                                ))}
-                              </div>
-                           </div>
-                           <div className="flex flex-col items-end gap-1">
-                              <span className="text-xs text-stone-400 font-bold uppercase">Rating</span>
-                              <span className="text-2xl font-black text-stone-900">{player.rating}</span>
-                           </div>
-                           <div className={cn(
-                             "w-8 h-8 rounded-full flex items-center justify-center transition-all",
-                             selectedAwards[currentCategory] === player.id ? "bg-amber-400 text-white" : "bg-stone-50 text-stone-200 group-hover:bg-stone-100"
-                           )}>
-                              <Star className={cn("w-4 h-4", selectedAwards[currentCategory] === player.id ? "fill-current" : "")} />
-                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {finalists.length > 0 ? (
+                      finalists.map(player => (
+                        <Card 
+                          key={player.id}
+                          className={cn(
+                            "cursor-pointer transition-all border-2 rounded-3xl overflow-hidden group hover:scale-[1.01]",
+                            selectedAwards[currentCategory] === player.id 
+                              ? "border-amber-400 bg-amber-50/30" 
+                              : "border-stone-100 hover:border-stone-200 bg-white"
+                          )}
+                          onClick={() => setAwardWinner(currentCategory, player.id)}
+                        >
+                          <CardContent className="p-4 flex items-center gap-6">
+                             <div className="w-16 h-16 rounded-2xl bg-stone-100 flex items-center justify-center text-3xl shrink-0 overflow-hidden">
+                                  {player.profilePicture ? (
+                                    <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="text-stone-300">🧸</div>
+                                  )}
+                             </div>
+                             <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-black text-lg text-stone-900">{player.name}</span>
+                                  <Badge variant="outline" className="text-[10px] font-bold py-0">{player.position}</Badge>
+                                </div>
+                                <div className="flex gap-4 mt-1">
+                                  {getRelevantStats(player, currentCategory).map(s => (
+                                    <div key={s.label} className="flex flex-col">
+                                      <span className="text-[10px] text-stone-400 font-bold uppercase">{s.label}</span>
+                                      <span className="text-sm font-black text-stone-700">{s.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                             </div>
+                             <div className="flex flex-col items-end gap-1">
+                                <span className="text-xs text-stone-400 font-bold uppercase">Rating</span>
+                                <span className="text-2xl font-black text-stone-900">{player.rating}</span>
+                             </div>
+                             <div className={cn(
+                               "w-8 h-8 rounded-full flex items-center justify-center transition-all",
+                               selectedAwards[currentCategory] === player.id ? "bg-amber-400 text-white" : "bg-stone-50 text-stone-200 group-hover:bg-stone-100"
+                             )}>
+                                <Star className={cn("w-4 h-4", selectedAwards[currentCategory] === player.id ? "fill-current" : "")} />
+                             </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : (
+                      <div className="text-center py-12 bg-stone-50 rounded-3xl border border-stone-100">
+                        <p className="text-stone-400 font-bold uppercase text-[10px]">No valid candidates found for this category</p>
+                        <Button variant="ghost" className="mt-4 text-stone-600 font-black h-12 rounded-2xl" onClick={() => setCurrentStep(prev => prev + 1)}>
+                          Skip Category
+                        </Button>
+                      </div>
+                    )}
                   </motion.div>
                 </AnimatePresence>
               </div>

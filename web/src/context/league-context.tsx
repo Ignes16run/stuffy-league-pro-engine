@@ -55,6 +55,7 @@ interface LeagueContextType {
   syncPlayoffGames: (bracket: PlayoffGame[]) => Promise<void>;
   completeSeason: (champId: string) => void;
   updatePlayer: (id: string, updates: Partial<Player>) => void;
+  bulkUpdatePlayers: (updates: { id: string, updates: Partial<Player> }[]) => Promise<void>;
   finalizeSeason: () => void;
   upgradeStat: (teamId: string, statKey: string) => Promise<void>;
 }
@@ -102,6 +103,17 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
              const parsed = JSON.parse(savedGames);
              if (Array.isArray(parsed)) setGames(parsed);
           }
+          const savedAwardsPhase = localStorage.getItem('stuffy_is_awards_phase');
+          if (savedAwardsPhase === 'true') setIsAwardsPhase(true);
+          
+          const savedSelectedAwards = localStorage.getItem('stuffy_selected_awards');
+          if (savedSelectedAwards) setSelectedAwards(JSON.parse(savedSelectedAwards));
+          
+          const savedAwardResults = localStorage.getItem('stuffy_award_results');
+          if (savedAwardResults) setAwardResults(JSON.parse(savedAwardResults));
+
+          const savedAwardFinalists = localStorage.getItem('stuffy_award_finalists');
+          if (savedAwardFinalists) setAwardFinalists(JSON.parse(savedAwardFinalists));
        } catch (e) {
           console.error("Local storage sync error:", e);
        }
@@ -205,11 +217,36 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  const bulkUpdatePlayers = useCallback(async (playerUpdates: { id: string, updates: Partial<Player> }[]) => {
+    setPlayers(prev => {
+      const newPlayers = [...prev];
+      playerUpdates.forEach(({ id, updates }) => {
+        const idx = newPlayers.findIndex(p => p.id === id);
+        if (idx !== -1) newPlayers[idx] = { ...newPlayers[idx], ...updates };
+      });
+      return newPlayers;
+    });
+
+    if (user) {
+      // For Supabase, we do separate updates in parallel for simplicity unless we want to risk complex RPC
+      await Promise.all(playerUpdates.map(({ id, updates }) => {
+        const dbUpdates: any = {};
+        Object.entries(updates).forEach(([key, val]) => {
+          const dbKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+          dbUpdates[dbKey] = val;
+        });
+        return supabase.from('players').update(dbUpdates).eq('id', id);
+      }));
+    }
+  }, [user]);
+
   const setAwardWinner = (category: string, playerId: string) => {
     const player = players.find(p => p.id === playerId);
     if (!player) return;
 
-    setSelectedAwards(prev => ({ ...prev, [category]: playerId }));
+    const newSelected = { ...selectedAwards, [category]: playerId };
+    setSelectedAwards(newSelected);
+    if (!user) localStorage.setItem('stuffy_selected_awards', JSON.stringify(newSelected));
 
     const seasonId = (history.length + 1).toString();
     const type = category as AwardType;
@@ -221,18 +258,23 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
     if (template) {
       const team = teams.find(t => t.id === player.teamId);
-      const statKey = type === 'MVP' ? 'passingYards' : type === 'DPOY' ? 'tackles' : type === 'STPOY' ? 'points' : 'yards';
-      const statName = type === 'MVP' ? 'Passing Yards' : type === 'DPOY' ? 'Tackles' : type === 'STPOY' ? 'Points' : 'Total Yards';
-      const val = (player.stats as any)[statKey] || 0;
+      const isSTPunter = type === 'STPOY' && player.position === 'P';
+      const statKey = type === 'MVP' ? 'passingYards' : type === 'DPOY' ? 'tackles' : type === 'STPOY' ? (isSTPunter ? 'rating' : 'points') : 'yards';
+      const statName = type === 'MVP' ? 'Passing Yards' : type === 'DPOY' ? 'Tackles' : type === 'STPOY' ? (isSTPunter ? 'Punting OVR' : 'Points') : 'Total Yards';
+      const val = (player.stats as any)[statKey] || (player as any)[statKey] || 0;
       
       const narrative = generateNarrative(
         player, type, team?.name || 'his team', val, statName, template
       );
 
-      setAwardResults(prev => ({
-        ...prev,
-        [category]: { winner: player, narrative, statValue: val, statName, templateId: template.id }
-      }));
+      setAwardResults(prev => {
+        const updated = {
+          ...prev,
+          [category]: { winner: player, narrative, statValue: val, statName, templateId: template.id }
+        };
+        if (!user) localStorage.setItem('stuffy_award_results', JSON.stringify(updated));
+        return updated;
+      });
     }
   };
 
@@ -263,8 +305,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
                s.passingTds = (s.passingTds || 0) + Math.floor(score/7);
              } else if (['WR','RB','TE'].includes(p.position)) {
                s.yards = (s.yards || 0) + Math.round(score * 3);
-             } else {
-               s.tackles = (s.tackles || 0) + Math.floor(Math.random()*5);
+               s.touchdowns = (s.touchdowns || 0) + Math.floor(score/10);
+             } else if (p.position === 'K') {
+               // Kickers earn points: roughly 1.5 pts per 7 team points (XPs + FGs)
+               s.points = (s.points || 0) + Math.floor(score / 4);
+             } else if (['DL', 'LB', 'EDGE', 'CB', 'S'].includes(p.position)) {
+               s.tackles = (s.tackles || 0) + Math.floor(Math.random()*7);
+               if (Math.random() > 0.9) s.interceptions = (s.interceptions || 0) + 1;
+               if (Math.random() > 0.85) s.sacks = (s.sacks || 0) + 1;
              }
              return { ...p, stats: s as PlayerStats };
           });
@@ -318,7 +366,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
        Object.entries(awardResults).forEach(([cat, res]) => {
           if (res.winner.id === p.id) {
-             narrativeText = res.narrative;
+             narrativeText = narrativeText ? `${narrativeText} Also, ${res.narrative}` : res.narrative;
              newAwards.push({ year: currentYear, awardType: cat as any, playerTeam: p.teamId, statsAtTime: { ...p.stats } });
              newAwardsHistory.push({ awardType: cat as any, seasonId });
              newNarrativeMemory.push({ templateId: (res as any).templateId, seasonId });
@@ -353,6 +401,12 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setAwardResults({});
     setSelectedAwards({});
     setIsAwardsPhase(false);
+    if (!user) {
+       localStorage.removeItem('stuffy_award_results');
+       localStorage.removeItem('stuffy_selected_awards');
+       localStorage.removeItem('stuffy_is_awards_phase');
+       localStorage.removeItem('stuffy_award_finalists');
+    }
     setActiveTab('history');
   };
 
@@ -364,8 +418,13 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setHistory(prev => [{ year, championId: champId, finalStandings: standings }, ...prev]);
     if (user) supabase.from('league_history').insert({ user_id: user.id, year, champion_id: champId, full_standings: standings }).then();
     
-    setAwardFinalists(getAwardFinalists(players));
+    const finalists = getAwardFinalists(players);
+    setAwardFinalists(finalists);
     setIsAwardsPhase(true);
+    if (!user) {
+       localStorage.setItem('stuffy_is_awards_phase', 'true');
+       localStorage.setItem('stuffy_award_finalists', JSON.stringify(finalists));
+    }
   };
 
   const addTeam = useCallback(async (t: Omit<Team, 'id'>) => {
@@ -415,7 +474,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const contextValue: LeagueContextType = {
     teams, players, games, playoffGames, history, activeTab, isSimulating, isLoaded, numWeeks,
     isAwardsPhase, awardFinalists, selectedAwards, awardResults, recentNarrativesUsed,
-    setActiveTab, setNumWeeks, setAwardWinner, updatePlayer, completeSeason, finalizeSeason,
+    setActiveTab, setNumWeeks, setAwardWinner, updatePlayer, bulkUpdatePlayers, completeSeason, finalizeSeason,
     addTeam,
     addDefaultTeams: async () => {
         for (const team of DEFAULT_LEAGUE_TEAMS) {

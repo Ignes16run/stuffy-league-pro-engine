@@ -41,9 +41,12 @@ export function calculateAwardScore(player: Player, type: AwardType): number {
     }
     
     case 'STPOY': {
-      if (player.position !== 'K') return 0;
-      // Points for kicker includes FGs and XPs
-      return (s.points || 0);
+      if (!['K', 'P'].includes(player.position)) return 0;
+      // Points for kicker, or rating/punts contribution
+      const points = s.points || 0;
+      const punts = (player.position === 'P') ? (player.rating / 10) : 0;
+      // Ensure positive score if they played
+      return points + punts + (s.gamesPlayed > 0 ? 1 : 0);
     }
     
     default:
@@ -59,10 +62,26 @@ export function getAwardFinalists(players: Player[]): Record<AwardType, Player[]
   const result: Partial<Record<AwardType, Player[]>> = {};
 
   categories.forEach(cat => {
-    const scored = players
+    let scored = players
       .map(p => ({ player: p, score: calculateAwardScore(p, cat) }))
       .filter(p => p.score > 0)
       .sort((a, b) => b.score - a.score);
+    
+    // Fallback: If no one has a score (e.g. season hasn't started or no stats recorded)
+    // Return top rated players for that position group
+    if (scored.length === 0) {
+      const positionGroups: Record<AwardType, string[]> = {
+        MVP: ['QB', 'RB', 'WR', 'TE', 'DL', 'LB', 'EDGE', 'CB', 'S'],
+        OPOY: ['QB', 'RB', 'WR', 'TE'],
+        DPOY: ['DL', 'LB', 'EDGE', 'CB', 'S'],
+        STPOY: ['K', 'P']
+      };
+
+      scored = players
+        .filter(p => positionGroups[cat].includes(p.position))
+        .map(p => ({ player: p, score: p.rating }))
+        .sort((a, b) => b.score - a.score);
+    }
     
     result[cat] = scored.slice(0, 5).map(s => s.player);
   });

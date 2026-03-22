@@ -52,26 +52,37 @@ export const NARRATIVE_BANK: NarrativeTemplate[] = [
     tags: ['repeat_winner'],
     content: "{playerName} has done it again. The {teamName} star captures his latest MVP trophy after a {phrase_dominant} totaling {value} {statName}."
   },
-  // OPOY - First Time
+  // OPOY - Variety
   {
-    id: 'opoy-first',
+    id: 'opoy-record',
     awardType: 'OPOY',
     tags: ['first_time'],
-    content: "The offensive explosion of {playerName} was the story of the year. He {phrase_earned} OPOY honors after {phrase_lead} the {teamName} attack with {value} {statName}."
+    positionGroups: ['QB', 'WR'],
+    content: "{playerName} rewrote the record books this season. His {phrase_dominant} resulted in {value} {statName}, establishing him as the most feared threat in the league."
   },
-  // DPOY
+  // DPOY - Variety
   {
-    id: 'dpoy-dominant',
+    id: 'dpoy-shutdown',
     awardType: 'DPOY',
     tags: ['first_time'],
-    content: "A nightmare for opposing offenses, {playerName} {phrase_earned} his first DPOY after a {phrase_dominant} for {teamName} recording {value} {statName}."
+    positionGroups: ['CB', 'S'],
+    content: "The league's premier lockdown defender, {playerName}, takes home DPOY honors. He made life impossible for receivers, recording {value} {statName} in a {phrase_dominant} campaign."
   },
   // STPOY (Kicker)
   {
     id: 'stpoy-clutch',
     awardType: 'STPOY',
     tags: ['first_time'],
+    positionGroups: ['K'],
     content: "{playerName} was the definition of clutch this year, {phrase_earned} STPOY for {teamName} with {value} total points."
+  },
+  // STPOY (Punter)
+  {
+    id: 'stpoy-field-position',
+    awardType: 'STPOY',
+    tags: ['first_time'],
+    positionGroups: ['P'],
+    content: "A master of field position, {playerName} {phrase_earned} STPOY honors. His {phrase_dominant} consistently pinned opponents deep, backed by an elite {value} rating."
   }
 ];
 

@@ -5,10 +5,8 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, Trophy, Search, 
-  Star, Shield, Zap, Target,
-  Camera, Award, UserCog,
-  CheckCircle2, AlertTriangle, ChevronRight,
-  RefreshCw, Settings2
+  Target, Camera, Award, UserCog,
+  AlertTriangle, Settings2
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { useAuth } from '@/context/auth-context';
@@ -35,7 +33,7 @@ import { calculatePlayerRankings } from '@/lib/league/utils';
 import { calculateOVR, POSITION_RATINGS } from '@/lib/league/ratings';
 
 export default function RosterView() {
-  const { teams, players, updatePlayer } = useLeague();
+  const { teams, players, updatePlayer, bulkUpdatePlayers } = useLeague();
   const [search, setSearch] = useState("");
   const [selectedTeam, setSelectedTeam] = useState<string | "all">("all");
   const [statMode, setStatMode] = useState<'season' | 'career'>('season');
@@ -127,7 +125,7 @@ export default function RosterView() {
             <BulkRatingEditor 
               teamId={selectedTeam} 
               onApply={(updatedPlayers) => {
-                updatedPlayers.forEach(p => updatePlayer(p.id, p));
+                bulkUpdatePlayers(updatedPlayers.map(p => ({ id: p.id, updates: p })));
               }} 
             />
           )}
