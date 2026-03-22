@@ -65,7 +65,7 @@ export interface LeagueState {
   history: SeasonHistory[];
 }
 
-export type PlayerPosition = 'QB' | 'RB' | 'WR' | 'TE' | 'OL' | 'DL' | 'LB' | 'DB' | 'K' | 'P';
+export type PlayerPosition = 'QB' | 'RB' | 'WR' | 'TE' | 'OL' | 'DL' | 'EDGE' | 'CB' | 'S' | 'LB' | 'K' | 'P';
 
 export interface PlayerStats {
   gamesPlayed: number;
@@ -98,6 +98,13 @@ export interface PlayerStats {
   passDeflections?: number;
 }
 
+export interface PlayerAward {
+  year: number;
+  awardType: 'MVP' | 'OPOY' | 'DPOY' | 'STPOY' | 'CHAMPION';
+  playerTeam: string; // Team name or ID at time of award
+  statsAtTime?: Partial<PlayerStats>;
+}
+
 export interface PlayerAbility {
   name: string;
   value: number;
@@ -115,5 +122,7 @@ export interface Player {
   position: PlayerPosition;
   rating: number; // 0-100 overall
   abilities: PlayerAbility[];
-  stats: PlayerStats;
+  stats: PlayerStats; // Current season stats
+  careerStats?: PlayerStats; // All-time totals
+  awards?: PlayerAward[];
 }

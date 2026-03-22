@@ -31,20 +31,26 @@ const ARCHETYPES = [
 export function generateTeamRoster(teamId: string): Player[] {
   const roster: Player[] = [];
   
-  // Required core positions
-  roster.push(createPlayer(teamId, 'QB'));
-  roster.push(createPlayer(teamId, 'RB'));
-  roster.push(createPlayer(teamId, 'WR'));
-  roster.push(createPlayer(teamId, 'WR'));
-  roster.push(createPlayer(teamId, 'TE'));
-  roster.push(createPlayer(teamId, 'OL'));
-  roster.push(createPlayer(teamId, 'DL'));
-  roster.push(createPlayer(teamId, 'DL'));
-  roster.push(createPlayer(teamId, 'LB'));
-  roster.push(createPlayer(teamId, 'LB'));
-  roster.push(createPlayer(teamId, 'DB'));
-  roster.push(createPlayer(teamId, 'DB'));
-  roster.push(createPlayer(teamId, 'K'));
+  // Personnel configuration (Total = 23)
+  const positions: { pos: PlayerPosition; count: number }[] = [
+    { pos: 'QB', count: 1 },
+    { pos: 'RB', count: 2 },
+    { pos: 'WR', count: 2 },
+    { pos: 'TE', count: 1 },
+    { pos: 'OL', count: 5 },
+    { pos: 'K',  count: 1 },
+    { pos: 'DL', count: 2 },
+    { pos: 'EDGE', count: 2 },
+    { pos: 'CB', count: 3 },
+    { pos: 'S',  count: 2 },
+    { pos: 'LB', count: 2 },
+  ];
+
+  positions.forEach(({ pos, count }) => {
+    for (let i = 0; i < count; i++) {
+        roster.push(createPlayer(teamId, pos));
+    }
+  });
 
   return roster;
 }
@@ -96,13 +102,22 @@ function generateAbilities(position: PlayerPosition, baseRating: number): Player
       abilities.push({ name: 'Agility', value: primaryAbilityVal, description: 'Quick cuts and moves' });
       abilities.push({ name: 'Stability', value: secondaryAbilityVal, description: 'Balance after contact' });
       break;
+    case 'CB':
+    case 'S':
+      abilities.push({ name: 'Speed', value: primaryAbilityVal, description: 'Closing speed' });
+      abilities.push({ name: 'Coverage', value: secondaryAbilityVal, description: 'Lockdown ability' });
+      break;
+    case 'EDGE':
+      abilities.push({ name: 'Power', value: primaryAbilityVal, description: 'Pass rush strength' });
+      abilities.push({ name: 'Finesse', value: secondaryAbilityVal, description: 'Shedding blocks' });
+      break;
     case 'DL':
     case 'OL':
       abilities.push({ name: 'Strength', value: primaryAbilityVal, description: 'Pushing power' });
-      abilities.push({ name: 'Stance', value: secondaryAbilityVal, description: 'Defensive/Offensive leverage' });
+      abilities.push({ name: 'Stance', value: secondaryAbilityVal, description: 'Leverage' });
       break;
     default:
-      abilities.push({ name: 'Motor', value: primaryAbilityVal, description: 'Consistent effort' });
+      abilities.push({ name: 'Motor', value: primaryAbilityVal, description: 'Effort' });
       abilities.push({ name: 'IQ', value: secondaryAbilityVal, description: 'Game awareness' });
   }
 

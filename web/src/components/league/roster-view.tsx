@@ -1,16 +1,17 @@
-// Last Updated: 2026-03-22T10:15:00Z
 "use client";
+// Last Updated: 2026-03-22T15:35:00Z
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, Trophy, Search, 
   Star, Shield, Zap, Target,
-  Camera, Save, Award, UserCog
+  Camera, Award, UserCog
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { 
   Card, CardContent, CardHeader, CardTitle 
 } from '@/components/ui/card';
@@ -33,6 +34,7 @@ export default function RosterView() {
   const { teams, players, updatePlayer } = useLeague();
   const [search, setSearch] = useState("");
   const [selectedTeam, setSelectedTeam] = useState<string | "all">("all");
+  const [statMode, setStatMode] = useState<'season' | 'career'>('season');
 
   const filteredPlayers = useMemo(() => {
     return players.filter(p => {
@@ -44,21 +46,27 @@ export default function RosterView() {
 
   // Dynamic QB Rankings
   const qbStats = useMemo(() => {
-    const qbs = players.filter(p => p.position === 'QB');
+    const qbs = players.filter(p => p.position === 'QB').map(p => ({
+        ...p,
+        displayStats: statMode === 'career' ? (p.careerStats || p.stats) : p.stats
+     }));
     return {
-      yards: calculatePlayerRankings(qbs, 'passingYards'),
-      tds: calculatePlayerRankings(qbs, 'passingTds'),
-      pct: calculatePlayerRankings(qbs, 'completionPct'),
-      ints: calculatePlayerRankings(qbs, 'interceptionsThrown', 'low')
+      yards: calculatePlayerRankings(qbs.map(q => ({ ...q, stats: q.displayStats })), 'passingYards'),
+      tds: calculatePlayerRankings(qbs.map(q => ({ ...q, stats: q.displayStats })), 'passingTds'),
+      pct: calculatePlayerRankings(qbs.map(q => ({ ...q, stats: q.displayStats })), 'completionPct'),
+      ints: calculatePlayerRankings(qbs.map(q => ({ ...q, stats: q.displayStats })), 'interceptionsThrown', 'low')
     };
-  }, [players]);
+  }, [players, statMode]);
 
   const leaderboards = useMemo(() => {
     const getTop = (key: keyof PlayerStats, positions: string[], reverse = false) => {
-      const pool = players.filter(p => positions.includes(p.position));
+      const pool = players.filter(p => positions.includes(p.position)).map(p => ({
+          ...p,
+          displayStats: statMode === 'career' ? (p.careerStats || p.stats) : p.stats
+      }));
       return [...pool].sort((a, b) => {
-        const valA = (a.stats[key] as number) || 0;
-        const valB = (b.stats[key] as number) || 0;
+        const valA = (a.displayStats[key] as number) || 0;
+        const valB = (b.displayStats[key] as number) || 0;
         return reverse ? valA - valB : valB - valA;
       }).slice(0, 5);
     };
@@ -70,13 +78,13 @@ export default function RosterView() {
       rushingTds: getTop('rushingTds', ['RB']),
       receivingYards: getTop('receivingYards', ['WR', 'TE']),
       receptions: getTop('receptions', ['WR', 'TE']),
-      tackles: getTop('tackles', ['DL', 'LB', 'DB']),
-      tacklesForLoss: getTop('tacklesForLoss', ['DL', 'LB']),
-      sacks: getTop('sacks', ['DL', 'LB']),
-      interceptions: getTop('interceptions', ['DB', 'LB']),
-      passDeflections: getTop('passDeflections', ['DB'])
+      tackles: getTop('tackles', ['DL', 'LB', 'EDGE', 'CB', 'S']),
+      tacklesForLoss: getTop('tacklesForLoss', ['DL', 'LB', 'EDGE']),
+      sacks: getTop('sacks', ['DL', 'LB', 'EDGE']),
+      interceptions: getTop('interceptions', ['CB', 'S', 'LB']),
+      passDeflections: getTop('passDeflections', ['CB', 'S'])
     };
-  }, [players]);
+  }, [players, statMode]);
 
   const getTeam = (teamId: string) => teams.find(t => t.id === teamId)!;
 
@@ -111,6 +119,17 @@ export default function RosterView() {
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
+
+          <div className="flex bg-stone-100 p-1 rounded-[1.25rem] shadow-inner gap-0.5">
+             <button 
+               onClick={() => setStatMode('season')}
+               className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all", statMode === 'season' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400")}
+             >Season</button>
+             <button 
+               onClick={() => setStatMode('career')}
+               className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all", statMode === 'career' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400")}
+             >Career</button>
+          </div>
         </div>
       </div>
 
@@ -137,6 +156,7 @@ export default function RosterView() {
                     key={player.id} 
                     player={player} 
                     team={team}
+                    statMode={statMode}
                     rankings={player.position === 'QB' ? {
                       passingYards: qbStats.yards[player.id],
                       passingTds: qbStats.tds[player.id],
@@ -154,25 +174,25 @@ export default function RosterView() {
         <TabsContent value="leaders" className="mt-0 space-y-12 pb-12">
           
           <div className="space-y-6">
-            <h3 className="text-2xl font-black text-stone-900 border-b border-stone-200 pb-2">Offensive Leaders</h3>
+            <h3 className="text-2xl font-black text-stone-900 border-b border-stone-200 pb-2">Offensive Leaders ({statMode})</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <LeaderboardCard title="Passing Yards" players={leaderboards.passingYards} teams={teams} statKey="passingYards" />
-              <LeaderboardCard title="Passing TDs" players={leaderboards.passingTds} teams={teams} statKey="passingTds" />
-              <LeaderboardCard title="Rushing Yards" players={leaderboards.rushingYards} teams={teams} statKey="rushingYards" />
-              <LeaderboardCard title="Rushing TDs" players={leaderboards.rushingTds} teams={teams} statKey="rushingTds" />
-              <LeaderboardCard title="Receiving Yards" players={leaderboards.receivingYards} teams={teams} statKey="receivingYards" />
-              <LeaderboardCard title="Receptions" players={leaderboards.receptions} teams={teams} statKey="receptions" />
+              <LeaderboardCard title="Passing Yards" players={leaderboards.passingYards} teams={teams} statKey="passingYards" statMode={statMode} />
+              <LeaderboardCard title="Passing TDs" players={leaderboards.passingTds} teams={teams} statKey="passingTds" statMode={statMode} />
+              <LeaderboardCard title="Rushing Yards" players={leaderboards.rushingYards} teams={teams} statKey="rushingYards" statMode={statMode} />
+              <LeaderboardCard title="Rushing TDs" players={leaderboards.rushingTds} teams={teams} statKey="rushingTds" statMode={statMode} />
+              <LeaderboardCard title="Receiving Yards" players={leaderboards.receivingYards} teams={teams} statKey="receivingYards" statMode={statMode} />
+              <LeaderboardCard title="Receptions" players={leaderboards.receptions} teams={teams} statKey="receptions" statMode={statMode} />
             </div>
           </div>
 
           <div className="space-y-6">
-            <h3 className="text-2xl font-black text-stone-900 border-b border-stone-200 pb-2">Defensive Leaders</h3>
+            <h3 className="text-2xl font-black text-stone-900 border-b border-stone-200 pb-2">Defensive Leaders ({statMode})</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <LeaderboardCard title="Total Tackles" players={leaderboards.tackles} teams={teams} statKey="tackles" />
-              <LeaderboardCard title="Tackles for Loss" players={leaderboards.tacklesForLoss} teams={teams} statKey="tacklesForLoss" />
-              <LeaderboardCard title="Sacks" players={leaderboards.sacks} teams={teams} statKey="sacks" />
-              <LeaderboardCard title="Interceptions" players={leaderboards.interceptions} teams={teams} statKey="interceptions" />
-              <LeaderboardCard title="Pass Deflections" players={leaderboards.passDeflections} teams={teams} statKey="passDeflections" />
+              <LeaderboardCard title="Total Tackles" players={leaderboards.tackles} teams={teams} statKey="tackles" statMode={statMode} />
+              <LeaderboardCard title="Tackles for Loss" players={leaderboards.tacklesForLoss} teams={teams} statKey="tacklesForLoss" statMode={statMode} />
+              <LeaderboardCard title="Sacks" players={leaderboards.sacks} teams={teams} statKey="sacks" statMode={statMode} />
+              <LeaderboardCard title="Interceptions" players={leaderboards.interceptions} teams={teams} statKey="interceptions" statMode={statMode} />
+              <LeaderboardCard title="Pass Deflections" players={leaderboards.passDeflections} teams={teams} statKey="passDeflections" statMode={statMode} />
             </div>
           </div>
 
@@ -182,12 +202,14 @@ export default function RosterView() {
   );
 }
 
-function PlayerCard({ player, team, rankings, onUpdate }: { 
+function PlayerCard({ player, team, rankings, statMode, onUpdate }: { 
   player: Player, 
   team: Team, 
   rankings?: Record<string, number>,
+  statMode: 'season' | 'career',
   onUpdate: (updates: Partial<Player>) => void 
 }) {
+  const displayStats = statMode === 'career' ? (player.careerStats || player.stats) : player.stats;
   return (
     <motion.div
       layout
@@ -261,28 +283,28 @@ function PlayerCard({ player, team, rankings, onUpdate }: {
         ))}
       </div>
 
-      {/* Season Stats Summary */}
+      {/* Stats Summary (Dynamic Mode) */}
       <div className="mt-8 pt-6 border-t border-stone-100 grid grid-cols-4 gap-2">
       {player.position === 'QB' ? (
         <>
-          <StatBox label="P-Yds" value={player.stats.passingYards || 0} rank={rankings?.passingYards} />
-          <StatBox label="P-TD" value={player.stats.passingTds || 0} rank={rankings?.passingTds} />
-          <StatBox label="CMP%" value={player.stats.completionPct || 0} suffix="%" rank={rankings?.completionPct} />
-          <StatBox label="INT" value={player.stats.interceptionsThrown || 0} rank={rankings?.interceptionsThrown} />
+          <StatBox label="P-Yds" value={displayStats.passingYards || 0} rank={rankings?.passingYards} />
+          <StatBox label="P-TD" value={displayStats.passingTds || 0} rank={rankings?.passingTds} />
+          <StatBox label="CMP%" value={displayStats.completionPct || 0} suffix="%" rank={rankings?.completionPct} />
+          <StatBox label="INT" value={displayStats.interceptionsThrown || 0} rank={rankings?.interceptionsThrown} />
         </>
       ) : ['RB', 'WR', 'TE'].includes(player.position) ? (
         <>
-          <StatBox label="TDs" value={player.stats.touchdowns || 0} />
-          <StatBox label="Yds" value={player.stats.yards || 0} />
-          <StatBox label="Pts" value={player.stats.points || 0} />
-          <StatBox label="GP" value={player.stats.gamesPlayed || 0} />
+          <StatBox label="TDs" value={displayStats.touchdowns || 0} />
+          <StatBox label="Yds" value={displayStats.yards || 0} />
+          <StatBox label="Pts" value={displayStats.points || 0} />
+          <StatBox label="GP" value={displayStats.gamesPlayed || 0} />
         </>
       ) : (
         <>
-          <StatBox label="Tkl" value={player.stats.tackles || 0} />
-          <StatBox label="Int" value={player.stats.interceptions || 0} />
-          <StatBox label="Sks" value={player.stats.sacks || 0} />
-          <StatBox label="GP" value={player.stats.gamesPlayed || 0} />
+          <StatBox label="Tkl" value={displayStats.tackles || 0} />
+          <StatBox label="Int" value={displayStats.interceptions || 0} />
+          <StatBox label="Sks" value={displayStats.sacks || 0} />
+          <StatBox label="GP" value={displayStats.gamesPlayed || 0} />
         </>
       )}
       </div>
@@ -341,7 +363,9 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+      <DialogTrigger asChild>
+        {trigger}
+      </DialogTrigger>
       <DialogContent className="max-w-xl rounded-[2.5rem] border-none p-0 overflow-hidden shadow-2xl">
         <DialogHeader className="p-8 pb-4 bg-stone-900 text-white">
           <div className="flex items-center gap-6">
@@ -446,7 +470,7 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
             className="w-full h-14 rounded-2xl bg-stone-900 text-white hover:bg-stone-800 font-black text-sm uppercase tracking-widest shadow-xl shadow-stone-900/20"
             onClick={handleSave}
           >
-            <Save className="w-4 h-4 mr-2" />
+            <Users className="w-4 h-4 mr-2" />
             Update Athlete Profile
           </Button>
         </DialogFooter>
@@ -455,11 +479,12 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
   );
 }
 
-function LeaderboardCard({ title, players, teams, statKey }: { 
+function LeaderboardCard({ title, players, teams, statKey, statMode }: { 
   title: string, 
-  players: Player[], 
+  players: any[], 
   teams: Team[], 
-  statKey: keyof PlayerStats 
+  statKey: keyof PlayerStats,
+  statMode: 'season' | 'career'
 }) {
   return (
     <Card className="rounded-[2.5rem] border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden group">
@@ -481,6 +506,7 @@ function LeaderboardCard({ title, players, teams, statKey }: {
           {players.map((player, idx) => {
             const team = teams.find(t => t.id === player.teamId);
             if (!team) return null;
+            const stats = statMode === 'career' ? (player.careerStats || player.stats) : player.stats;
             return (
               <div key={player.id} className="px-8 py-5 flex items-center justify-between hover:bg-stone-50/50 transition-colors group/item">
                 <div className="flex items-center gap-5">
@@ -498,7 +524,7 @@ function LeaderboardCard({ title, players, teams, statKey }: {
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-black text-stone-900 leading-none">
-                    {(player.stats[statKey] as number) || 0}
+                    {(stats[statKey] as number) || 0}
                   </p>
                   <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mt-1 opacity-60">
                     {statKey.replace(/([A-Z])/g, ' $1').trim()}

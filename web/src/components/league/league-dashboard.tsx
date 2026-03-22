@@ -1,10 +1,10 @@
 "use client";
-// Last Updated: 2026-03-21T14:43:00-04:00
+// Last Updated: 2026-03-22T15:30:00-04:00
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Plus, Upload, Trash2, RefreshCw, Save, Sliders, Trophy, History, PlayCircle, Star, Users, LayoutDashboard, LayoutGrid, BarChart3, Settings, User as UserIcon
+  RefreshCw, Trash2, Trophy, History, PlayCircle, Star, Users, LayoutDashboard, LayoutGrid, BarChart3, User as UserIcon
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { useAuth } from '@/context/auth-context';
@@ -18,6 +18,7 @@ import PlayoffBracket from './playoff-bracket';
 import TrainingCamp from './training-camp';
 import LeagueHistory from './league-history';
 import RosterView from './roster-view';
+import { AwardsSelection } from './awards-selection';
 
 export default function LeagueDashboard() {
   const { activeTab, setActiveTab, resetLeague, resetPredictions } = useLeague();
@@ -119,6 +120,7 @@ export default function LeagueDashboard() {
               {activeTab === 'history' && <LeagueHistory />}
             </motion.div>
           </AnimatePresence>
+          <AwardsSelection />
       </main>
 
       <footer className="w-full py-16 border-t border-stone-100 px-4">

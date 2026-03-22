@@ -2,7 +2,7 @@
 // Last Updated: 2026-03-22T08:35:44-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats, Standing } from '@/lib/league/types';
+import { Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats, Standing, PlayerAward } from '@/lib/league/types';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { generateRoundRobinSchedule, calculateStandings, generateRealisticFootballScore } from '@/lib/league/utils';
 import { supabase } from '@/lib/supabase-client';
@@ -40,6 +40,12 @@ interface LeagueContextType {
   setActiveTab: (tab: 'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history' | 'players') => void;
   isSimulating: boolean;
   isLoaded: boolean;
+  isAwardsPhase: boolean;
+  setIsAwardsPhase: (val: boolean) => void;
+  awardFinalists: Record<string, Player[]>;
+  setAwardWinner: (awardType: string, playerId: string) => void;
+  selectedAwards: Record<string, string>;
+  finalizeSeason: () => void;
   syncPlayoffGames: (games: PlayoffGame[]) => Promise<void>;
   allocatePlayerStats: (gameId: string, team1Id: string, team2Id: string, team1Score: number, team2Score: number) => void;
   user: { id: string } | null;
@@ -60,6 +66,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<'setup' | 'season' | 'standings' | 'playoffs' | 'training' | 'history' | 'players'>('setup');
   const [isSimulating, setIsSimulating] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isAwardsPhase, setIsAwardsPhase] = useState(false);
+  const [awardFinalists, setAwardFinalists] = useState<Record<string, Player[]>>({});
+  const [selectedAwards, setSelectedAwards] = useState<Record<string, string>>({});
+  const [pendingChampionId, setPendingChampionId] = useState<string | null>(null);
   const lastLoadedUserId = useRef<string | null | undefined>(undefined);
 
   // Sync helpers
@@ -176,7 +186,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         finalPlayers = dbPlayers.map(p => ({
           id: p.id, teamId: p.team_id, name: p.name, position: p.position,
           rating: p.rating, profilePicture: p.profile_picture, profile: p.profile,
-          archetype: p.archetype, jerseyNumber: p.jersey_number, abilities: p.abilities, stats: p.stats as PlayerStats
+          archetype: p.archetype, jerseyNumber: p.jersey_number, abilities: p.abilities, stats: (p.stats || { gamesPlayed: 0 }) as PlayerStats,
+          careerStats: (p.career_stats || { gamesPlayed: 0 }) as PlayerStats,
+          awards: (p.awards || []) as PlayerAward[]
         }));
         setPlayers(finalPlayers);
       } else {
@@ -270,8 +282,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       const k = offPlayers.find(p => p.position === 'K');
 
       const dl = defPlayers.filter(p => p.position === 'DL');
+      const edge = defPlayers.filter(p => p.position === 'EDGE');
       const lb = defPlayers.filter(p => p.position === 'LB');
-      const db = defPlayers.filter(p => p.position === 'DB');
+      const cb = defPlayers.filter(p => p.position === 'CB');
+      const s = defPlayers.filter(p => p.position === 'S');
+      const secondary = [...cb, ...s];
 
       const tds = Math.floor(score / 7);
       let passTds = 0;
@@ -351,8 +366,8 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         if (boundedInts > 0) {
            qb.stats.interceptionsThrown = (qb.stats.interceptionsThrown || 0) + boundedInts;
            for(let i = 0; i < boundedInts; ++i) {
-             const defDB = db[Math.floor(Math.random() * db.length)];
-             if (defDB) defDB.stats.interceptions = (defDB.stats.interceptions || 0) + 1;
+             const defPlayer = secondary[Math.floor(Math.random() * secondary.length)];
+             if (defPlayer) defPlayer.stats.interceptions = (defPlayer.stats.interceptions || 0) + 1;
            }
         }
       }
@@ -391,11 +406,12 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       // Sacks generated based on pass attempts
       const boundedSacksTotal = applySoftCeiling(Math.floor(Math.random() * 5), 'sacks', 85, scoreWeight, 2.5);
       for (let i = 0; i < boundedSacksTotal; i++) {
-         const isDL = Math.random() > 0.3; 
-         const targetList = isDL && dl.length ? dl : (lb.length ? lb : null);
+         const isDL = Math.random() > 0.4; 
+         const isEdge = !isDL && Math.random() > 0.3;
+         const targetList = isDL && dl.length ? dl : (isEdge && edge.length ? edge : (lb.length ? lb : null));
          if (targetList) {
              const defPlayer = targetList[Math.floor(Math.random() * targetList.length)];
-             const bSack = applySoftCeiling(1, 'sacks', defPlayer.rating, scoreWeight, isDL ? 1.0 : 0.6);
+             const bSack = applySoftCeiling(1, 'sacks', defPlayer.rating, scoreWeight, (isDL || isEdge) ? 1.0 : 0.6);
              defPlayer.stats.sacks = (defPlayer.stats.sacks || 0) + bSack;
              defPlayer.stats.tacklesForLoss = (defPlayer.stats.tacklesForLoss || 0) + bSack;
              defPlayer.stats.tackles = (defPlayer.stats.tackles || 0) + bSack;
@@ -404,23 +420,24 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
       const boundedPdsTotal = applySoftCeiling(Math.floor(Math.random() * 8), 'passDeflections', 85, scoreWeight, 3.0);
       for (let i = 0; i < boundedPdsTotal; i++) {
-         if (db.length) {
-             const defDB = db[Math.floor(Math.random() * db.length)];
-             const bPd = applySoftCeiling(1, 'passDeflections', defDB.rating, scoreWeight, 1.0);
-             defDB.stats.passDeflections = (defDB.stats.passDeflections || 0) + bPd;
+         if (secondary.length) {
+             const defPlayer = secondary[Math.floor(Math.random() * secondary.length)];
+             const bPd = applySoftCeiling(1, 'passDeflections', defPlayer.rating, scoreWeight, 1.0);
+             defPlayer.stats.passDeflections = (defPlayer.stats.passDeflections || 0) + bPd;
          }
       }
 
       defPlayers.forEach(p => {
          let tackles = Math.floor(Math.random() * 4) + 1; 
          if (p.position === 'LB') tackles += Math.floor(Math.random() * 5); 
-         if (p.position === 'DB') tackles += Math.floor(Math.random() * 4); 
+         if (p.position === 'S') tackles += Math.floor(Math.random() * 4); 
+         if (p.position === 'CB') tackles += Math.floor(Math.random() * 2); 
 
-         const posMult = p.position === 'LB' ? 1.0 : (p.position === 'DB' ? 0.6 : 0.46);
+         const posMult = p.position === 'LB' ? 1.0 : (p.position === 'S' ? 0.6 : (p.position === 'CB' ? 0.4 : 0.46));
          const boundedTackles = applySoftCeiling(tackles, 'tackles', p.rating, scoreWeight, posMult);
          p.stats.tackles = (p.stats.tackles || 0) + boundedTackles;
 
-         if (['DL', 'LB'].includes(p.position) && Math.random() < 0.2) {
+         if (['DL', 'LB', 'EDGE'].includes(p.position) && Math.random() < 0.2) {
              const bTFL = applySoftCeiling(1, 'tacklesForLoss', p.rating, scoreWeight, p.position === 'LB' ? 1.0 : 0.9);
              p.stats.tacklesForLoss = (p.stats.tacklesForLoss || 0) + bTFL;
              p.stats.tackles = (p.stats.tackles || 0) + bTFL;
@@ -570,13 +587,67 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const completeSeason = async (championId: string) => {
+    // Instead of immediate reset, compute finalists and enter Awards Phase
+    const { getAwardFinalists } = await import('@/lib/league/awards');
+    const finalists = getAwardFinalists(players);
+    setAwardFinalists(finalists);
+    setPendingChampionId(championId);
+    setSelectedAwards({});
+    setIsAwardsPhase(true);
+  };
+
+  const finalizeSeason = async () => {
+    if (!pendingChampionId) return;
+    const championId = pendingChampionId;
     const stands = calculateStandings(teams, games);
     const year = 2024 + history.length;
     const entry: SeasonHistory = { year, championId, finalStandings: stands };
     
+    // Save Awards to Players
+    const updatedPlayers = players.map(p => {
+      const pAwards = [...(p.awards || [])];
+      Object.entries(selectedAwards).forEach(([type, winnerId]) => {
+         if (p.id === winnerId) {
+            pAwards.push({
+               year, 
+               awardType: type as PlayerAward['awardType'], 
+               playerTeam: teams.find(t => t.id === p.teamId)?.name || p.teamId,
+               statsAtTime: { ...p.stats }
+            });
+         }
+      });
+      
+      // Roll Season stats into Career stats
+      const currentCareer = p.careerStats || { ...p.stats, gamesPlayed: 0 };
+      const nextCareer = { ...currentCareer };
+      Object.keys(p.stats).forEach(k => {
+          const key = k as keyof PlayerStats;
+          const val = p.stats[key];
+          if (typeof val === 'number') {
+             (nextCareer[key] as number) = ((nextCareer[key] as number) || 0) + val;
+          }
+      });
+
+      // Reset Season Stats
+      const resetStats: PlayerStats = { ...p.stats };
+      Object.keys(resetStats).forEach(k => {
+          const key = k as keyof PlayerStats;
+          if (typeof resetStats[key] === 'number') {
+             (resetStats[key] as number) = 0;
+          } else if (typeof resetStats[key] === 'string') {
+             (resetStats[key] as any) = ""; // Fallback for any strings in future
+          }
+      });
+
+      return { ...p, stats: resetStats, careerStats: nextCareer, awards: pAwards };
+    });
+
     setHistory(prev => [...prev, entry]);
+    setPlayers(updatedPlayers);
+
     if (user) {
       await supabase.from('season_history').insert({ user_id: user.id, year, champion_id: championId, final_standings: stands });
+      await syncPlayers(updatedPlayers);
     }
     
     const updatedTeams = teams.map(t => {
@@ -593,13 +664,16 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setTeams(updatedTeams);
     await syncTeams(updatedTeams);
     
-    // Reset for next year
+    // Reset league state
     setGames(prev => prev.map(g => ({ ...g, winnerId: undefined, isTie: false, homeScore: undefined, awayScore: undefined })));
     setPlayoffGames([]);
     if (user) {
       await supabase.from('games').update({ winner_id: null, is_tie: false, home_score: null, away_score: null }).eq('user_id', user.id);
       await supabase.from('playoff_games').delete().eq('user_id', user.id);
     }
+    
+    setIsAwardsPhase(false);
+    setPendingChampionId(null);
     setActiveTab('history');
   };
 
@@ -648,7 +722,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       if (p.length > 0) updateTeam(tId, { overallRating: Math.round(p.reduce((a,b)=>a+b.rating,0)/p.length) });
     },
     activeTab, setActiveTab,
-    isSimulating, isLoaded, syncPlayoffGames, allocatePlayerStats: (id: string, t1: string, t2: string, s1: number, s2: number) => {
+    isSimulating, isLoaded, isAwardsPhase, setIsAwardsPhase, awardFinalists, selectedAwards, 
+    setAwardWinner: (type: string, wid: string) => setSelectedAwards(p => ({ ...p, [type]: wid })),
+    finalizeSeason,
+    syncPlayoffGames, allocatePlayerStats: (id: string, t1: string, t2: string, s1: number, s2: number) => {
         setPlayers(prev => {
             const next = getUpdatedPlayersFromGame(prev, id, t1, t2, s1, s2);
             void syncPlayers(next.filter(p => p.teamId === t1 || p.teamId === t2));
