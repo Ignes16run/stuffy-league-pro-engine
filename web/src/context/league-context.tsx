@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useAuth } from './auth-context';
 import { generateTeamRoster, migratePlayerRatings } from '@/lib/league/players';
 import { selectNarrativeTemplate, generateNarrative } from '@/lib/league/narratives';
-import { AwardType } from '@/lib/league/awards';
+import { AwardType, getAwardFinalists } from '@/lib/league/awards';
 
 interface LeagueContextType {
   teams: Team[];
@@ -43,6 +43,7 @@ interface LeagueContextType {
   completeSeason: (champId: string) => void;
   updatePlayer: (id: string, updates: Partial<Player>) => void;
   finalizeSeason: () => void;
+  upgradeStat: (teamId: string, statKey: string) => Promise<void>;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -297,7 +298,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setHistory(prev => [{ year, championId: champId, finalStandings: standings }, ...prev]);
     if (user) supabase.from('league_history').insert({ user_id: user.id, year, champion_id: champId, full_standings: standings }).then();
     
-    const { getAwardFinalists } = require('@/lib/league/awards');
     setAwardFinalists(getAwardFinalists(players));
     setIsAwardsPhase(true);
   };
@@ -306,6 +306,19 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     teams, players, games, playoffGames, history, activeTab, isSimulating, isLoaded, numWeeks,
     isAwardsPhase, awardFinalists, selectedAwards, awardResults, recentNarrativesUsed,
     setActiveTab, setNumWeeks, setAwardWinner, updatePlayer, completeSeason, finalizeSeason,
+    upgradeStat: async (teamId: string, statKey: string) => {
+       const team = teams.find(t => t.id === teamId);
+       if (!team || (team.stuffyPoints || 0) < 50) return;
+       const currentVal = (team as Record<string, any>)[statKey] || 75;
+       const newVal = Math.min(99, (currentVal as number) + 1);
+       const updates = { [statKey]: newVal, stuffyPoints: (team.stuffyPoints || 0) - 50 };
+       setTeams(prev => prev.map(t => t.id === teamId ? { ...t, ...updates } : t));
+       if (user) {
+          const dbUpdates: Record<string, any> = {};
+          Object.entries(updates).forEach(([k, v]) => { dbUpdates[k.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`)] = v; });
+          await supabase.from('teams').update(dbUpdates).eq('id', teamId);
+       }
+    },
     addTeam: async (t) => {
        const newTeam = { ...t, id: crypto.randomUUID() };
        setTeams(prev => [...prev, newTeam]);
