@@ -281,7 +281,7 @@ function StatBox({ label, value, rank, suffix = "" }: { label: string, value: nu
 function PlayerEditModal({ player, team, trigger, onUpdate }: { 
   player: Player, 
   team: Team, 
-  trigger: React.ReactNode,
+  trigger: React.ReactElement,
   onUpdate: (updates: Partial<Player>) => void 
 }) {
   const { user } = useLeague();
