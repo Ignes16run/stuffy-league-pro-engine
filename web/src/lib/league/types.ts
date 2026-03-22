@@ -77,6 +77,11 @@ export interface PlayerStats {
   assists?: number;
   sacks?: number;
   stuffyPointsEarned?: number;
+  // QB Specific
+  passingYards?: number;
+  passingTds?: number;
+  interceptionsThrown?: number;
+  completionPct?: number;
 }
 
 export interface PlayerAbility {

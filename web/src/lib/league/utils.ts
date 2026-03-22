@@ -1,4 +1,5 @@
-import { Team, Game, Standing } from './types';
+// Last Updated: 2026-03-22T05:46:00-04:00
+import { Team, Game, Standing, Player } from './types';
 
 export function generateRoundRobinSchedule(teams: Team[], numWeeks: number = 0): Game[] {
   if (teams.length < 2) return [];
@@ -169,4 +170,67 @@ export function generatePlayoffBracket(standings: Standing[], size: 4 | 8): any[
   }
 
   return games;
+}
+
+/**
+ * Generates a realistic football score using combinations of 
+ * TDs (6), XPs (1), 2PCs (2), FGs (3), and Safeties (2).
+ * Ensures No Impossible Scores (like 1).
+ */
+export function generateRealisticFootballScore(intensity: number = 20): number {
+  const tds = Math.floor(Math.random() * (intensity / 7 + 3));
+  const fgs = Math.floor(Math.random() * (intensity / 10 + 2));
+  const safeties = Math.random() > 0.95 ? 1 : 0;
+  
+  let score = 0;
+  
+  // Scoring Each TD
+  for (let i = 0; i < tds; i++) {
+    score += 6;
+    const choice = Math.random();
+    if (choice < 0.90) {
+      score += 1; // Extra Point
+    } else if (choice < 0.95) {
+      score += 2; // Two-Point Conversion
+    }
+    // else 0 (missed extra point)
+  }
+  
+  score += (fgs * 3);
+  score += (safeties * 2);
+  
+  // NFL rules make 1 possible only via a rare safety on an XP/2PC where the scoring team somehow goes minus-99 yards?
+  // Effectively, 1 is the only impossible total score for a team.
+  if (score === 1) score = 0; 
+  
+  return score;
+}
+
+/**
+ * Validates if a score is theoretically possible in football.
+ * Almost all scores > 1 are possible.
+ */
+export function isValidFootballScore(score: number): boolean {
+  if (score < 0 || !Number.isInteger(score)) return false;
+  if (score === 1) return false;
+  return true;
+}
+
+/**
+ * Calculates rankings for players based on specific stats.
+ * Used for dynamic QB leaders.
+ */
+export function calculatePlayerRankings(players: Player[], stat: string, direction: 'high' | 'low' = 'high') {
+  const sorted = [...players].sort((a, b) => {
+    const valA = (a.stats[stat as keyof typeof a.stats] as number) || 0;
+    const valB = (b.stats[stat as keyof typeof b.stats] as number) || 0;
+    return direction === 'high' ? valB - valA : valA - valB;
+  });
+
+  const rankings: Record<string, number> = {};
+  sorted.forEach((p, index) => {
+    rankings[p.id] = index + 1;
+  });
+
+  return rankings;
 }

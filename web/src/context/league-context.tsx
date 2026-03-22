@@ -1,10 +1,10 @@
 "use client";
-// Last Updated: 2026-03-22T05:40:00-04:00
+// Last Updated: 2026-03-22T05:50:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
-import { generateRoundRobinSchedule, calculateStandings } from '@/lib/league/utils';
+import { generateRoundRobinSchedule, calculateStandings, generateRealisticFootballScore } from '@/lib/league/utils';
 import { supabase } from '@/lib/supabase-client';
 import { useAuth } from './auth-context';
 import { generateTeamRoster } from '@/lib/league/players';
@@ -48,7 +48,7 @@ const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
 
 export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const seedingRef = useRef(false);
+  const scheduleRef = useRef<boolean>(false);
   
   // State variables
   const [teams, setTeams] = useState<Team[]>(DEFAULT_LEAGUE_TEAMS);
@@ -113,6 +113,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const loadData = useCallback(async () => {
+    if (!user && scheduleRef.current) return; // For anonymous users, only load once
+    if (user && scheduleRef.current) return; // For logged-in users, only load once
+
+    scheduleRef.current = true;
+    
     if (!user) {
       // For anonymous users, ensure defaults are set (Teams, Players, and Schedule)
       const schedule = generateRoundRobinSchedule(DEFAULT_LEAGUE_TEAMS);
@@ -233,7 +238,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setTeams(prev => {
       const next = prev.map(t => t.id === id ? { ...t, ...updatedTeam } : t);
       const updated = next.find(t => t.id === id);
-      if (updated && user) syncTeams([updated]);
+      if (updated && user) void syncTeams([updated]); // Use void to explicitly ignore Promise
       return next;
     });
   };
@@ -251,11 +256,8 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       
       tPlayers.forEach(p => {
         p.stats.gamesPlayed = (p.stats.gamesPlayed || 0) + 1;
-        // Position-based reset for realism
-        const off = ['QB', 'RB', 'WR', 'TE'].includes(p.position);
-        const def = ['DL', 'LB', 'DB'].includes(p.position);
-        if (off) { p.stats.tackles = 0; p.stats.interceptions = 0; p.stats.sacks = 0; }
-        if (def) { p.stats.yards = 0; p.stats.touchdowns = 0; p.stats.points = 0; }
+        // Position-based reset for realism (only applicable per game context if we are adding to totals)
+        // Here we are adding to season totals, so we don't zero out.
       });
 
       const qb = tPlayers.find(p => p.position === 'QB');
@@ -266,13 +268,31 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       if (tds > 0) {
         for (let i = 0; i < tds; i++) {
           const target = skill[Math.floor(Math.random() * skill.length)];
-          if (target) { target.stats.touchdowns = (target.stats.touchdowns || 0) + 1; target.stats.points = (target.stats.points || 0) + 6; }
+          if (target) { 
+            target.stats.touchdowns = (target.stats.touchdowns || 0) + 1; 
+            target.stats.points = (target.stats.points || 0) + 6; 
+          }
         }
-        if (qb) qb.stats.touchdowns = (qb.stats.touchdowns || 0) + tds;
       }
       
       const yards = Math.min(score * 15 + Math.floor(Math.random() * 80), 600);
-      if (qb) qb.stats.yards = (qb.stats.yards || 0) + Math.floor(yards * 0.9);
+      if (qb) {
+        qb.stats.passingTds = (qb.stats.passingTds || 0) + tds;
+        qb.stats.passingYards = (qb.stats.passingYards || 0) + Math.floor(yards * 0.9);
+        
+        // Completion % logic
+        const attempts = Math.floor(Math.random() * 15) + 20;
+        const completions = Math.floor(attempts * (0.5 + (qb.rating / 300)));
+        const gamePct = (completions / attempts) * 100;
+        qb.stats.completionPct = qb.stats.completionPct 
+          ? Math.round(((qb.stats.completionPct + gamePct) / 2) * 10) / 10 
+          : Math.round(gamePct * 10) / 10;
+          
+        // Interceptions
+        if (Math.random() < 0.12) {
+          qb.stats.interceptionsThrown = (qb.stats.interceptionsThrown || 0) + 1;
+        }
+      }
       
       let remainingYards = yards;
       skill.forEach((p, idx) => {
@@ -324,7 +344,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         });
 
         // Sync changes
-        syncPlayoffGames(result.filter(g => g.id === gameId || (g.round === nextR && g.matchupIndex === nextIdx)));
+        void syncPlayoffGames(result.filter(g => g.id === gameId || (g.round === nextR && g.matchupIndex === nextIdx)));
         return result;
       });
       return;
@@ -339,11 +359,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     if (isDeselecting) {
       nextGameData = { winnerId: undefined, isTie: false, homeScore: undefined, awayScore: undefined };
     } else if (isTie) {
-      const score = Math.floor(Math.random() * 21) + 7;
+      const score = generateRealisticFootballScore(24);
       nextGameData = { winnerId: undefined, isTie: true, homeScore: score, awayScore: score };
     } else {
-      const winnerScore = Math.floor(Math.random() * 21) + 14;
-      const loserScore = Math.max(0, Math.floor(Math.random() * (winnerScore - 7)) + 3);
+      const winnerScore = generateRealisticFootballScore(28);
+      const loserScore = Math.min(winnerScore - 1, generateRealisticFootballScore(18));
       const isHomeWinner = winnerId === game.homeTeamId;
       nextGameData = { 
         winnerId, isTie: false, 
@@ -355,15 +375,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setGames(prev => {
       const next = prev.map(g => g.id === gameId ? { ...g, ...nextGameData } : g);
       const updated = next.find(g => g.id === gameId);
-      if (updated) syncGames([updated]);
+      if (updated) void syncGames([updated]);
       return next;
     });
 
     if (!isDeselecting && nextGameData.homeScore !== undefined) {
       setPlayers(prev => {
         const next = getUpdatedPlayersFromGame(prev, gameId, game.homeTeamId, game.awayTeamId, nextGameData.homeScore!, nextGameData.awayScore!);
-        const affected = next.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId);
-        syncPlayers(affected);
+        void syncPlayers(next.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId));
         return next;
       });
     }
@@ -372,7 +391,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const simulateSeason = async () => {
     setIsSimulating(true);
     const unplayed = games.filter(g => !g.winnerId && !g.isTie);
-    let currentGames = [...games];
+    const currentGames = [...games];
     let currentPlayers = [...players];
 
     for (let i = 0; i < unplayed.length; i++) {
@@ -390,13 +409,13 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         
         let res;
         if (roll < 0.05) {
-          const s = Math.floor(Math.random() * 14) + 7;
+          const s = generateRealisticFootballScore(24);
           res = { winnerId: undefined, isTie: true, homeScore: s, awayScore: s };
         } else {
           const winnerId = roll < winProb ? game.homeTeamId : game.awayTeamId;
           const wR = winnerId === game.homeTeamId ? hR : aR;
-          const wS = Math.floor(Math.random() * 21) + 14 + (wR/10);
-          const lS = Math.max(0, Math.floor(Math.random() * (wS - 7) ) + 3);
+          const wS = generateRealisticFootballScore(wR / 2);
+          const lS = Math.min(wS - 1, generateRealisticFootballScore(wR / 3));
           res = {
             winnerId, isTie: false,
             homeScore: winnerId === game.homeTeamId ? wS : lS,
@@ -481,7 +500,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     window.location.reload(); // Force full hydration from defaults
   };
 
-  const upgradeStat = (tId: string, s: any) => {
+  const upgradeStat = (tId: string, s: 'offenseRating' | 'defenseRating' | 'specialTeamsRating') => {
     const team = teams.find(t => t.id === tId);
     if (team && (team.stuffyPoints || 0) >= 50) {
       updateTeam(tId, { [s]: (team[s as keyof Team] as number) + 1, stuffyPoints: (team.stuffyPoints || 0) - 50 });
@@ -494,7 +513,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       setPlayers(prev => {
         const next = prev.map(pl => pl.id === id ? { ...pl, ...p } : pl);
         const upd = next.find(pl => pl.id === id);
-        if (upd) syncPlayers([upd]);
+        if (upd) void syncPlayers([upd]);
         return next;
       });
     },
@@ -504,11 +523,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       const p = players.filter(pl => pl.teamId === tId);
       if (p.length > 0) updateTeam(tId, { overallRating: Math.round(p.reduce((a,b)=>a+b.rating,0)/p.length) });
     },
-    activeTab, setActiveTab: setActiveTab as any,
+    activeTab, setActiveTab,
     isSimulating, isLoaded, syncPlayoffGames, allocatePlayerStats: (id: string, t1: string, t2: string, s1: number, s2: number) => {
         setPlayers(prev => {
             const next = getUpdatedPlayersFromGame(prev, id, t1, t2, s1, s2);
-            syncPlayers(next.filter(p => p.teamId === t1 || p.teamId === t2));
+            void syncPlayers(next.filter(p => p.teamId === t1 || p.teamId === t2));
             return next;
         });
     },
