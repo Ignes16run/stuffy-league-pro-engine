@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-23T00:30:00Z
+// Last Updated: 2026-03-23T00:45:00Z
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -35,7 +35,12 @@ interface LeagueContextType {
   setActiveTab: (tab: string) => void;
   currentWeek: number;
   addTeam: (team: Omit<Team, 'id'>) => Promise<void>;
-  updateTeam: (team: Team) => Promise<void>;
+  updateTeam: (teamId: string, updates: Partial<Team>) => Promise<void>;
+  deleteTeam: (teamId: string) => Promise<void>;
+  updatePlayer: (playerId: string, updates: Partial<Player>) => Promise<void>;
+  bulkUpdatePlayers: (playerUpdates: { id: string, updates: Partial<Player> }[]) => Promise<void>;
+  upgradeStat: (teamId: string, statId: string) => Promise<void>;
+  addDefaultTeams: () => Promise<void>;
   createLeague: (name: string) => Promise<void>;
   setCurrentWeek: (week: number) => void;
   advanceWeek: () => void;
@@ -154,10 +159,64 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateTeam = async (team: Team) => {
-    const newTeams = teams.map(t => t.id === team.id ? team : t);
+  const updateTeam = async (teamId: string, updates: Partial<Team>) => {
+    const newTeams = teams.map(t => t.id === teamId ? { ...t, ...updates } : t);
     setTeams(newTeams);
-    if (user) await PersistenceEngine.updateTeam(team);
+    // If a whole team object was passed in previously, we handle it
+    const team = newTeams.find(t => t.id === teamId);
+    if (user && team) await PersistenceEngine.saveTeams([team]);
+  };
+
+  const deleteTeam = async (teamId: string) => {
+    setTeams(prev => prev.filter(t => t.id !== teamId));
+    setPlayers(prev => prev.filter(p => p.teamId !== teamId));
+    if (user) await PersistenceEngine.deleteTeam(teamId, user.id);
+  };
+
+  const addDefaultTeams = async () => {
+    for (const teamDef of DEFAULT_LEAGUE_TEAMS) {
+      await addTeam(teamDef);
+    }
+  };
+
+  const updatePlayer = async (playerId: string, updates: Partial<Player>) => {
+    const newPlayers = players.map(p => p.id === playerId ? { ...p, ...updates } : p);
+    setPlayers(newPlayers);
+    if (user) {
+        const player = newPlayers.find(p => p.id === playerId);
+        if (player) await PersistenceEngine.savePlayers([player], user.id);
+    }
+  };
+
+  const bulkUpdatePlayers = async (playerUpdates: { id: string, updates: Partial<Player> }[]) => {
+    const nextPlayers = [...players];
+    const affected: Player[] = [];
+    
+    playerUpdates.forEach(({ id, updates }) => {
+      const idx = nextPlayers.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        nextPlayers[idx] = { ...nextPlayers[idx], ...updates };
+        affected.push(nextPlayers[idx]);
+      }
+    });
+
+    setPlayers(nextPlayers);
+    if (user) await PersistenceEngine.savePlayers(affected, user.id);
+  };
+
+  const upgradeStat = async (teamId: string, statId: string) => {
+    const team = teams.find(t => t.id === teamId);
+    if (!team || team.stuffyPoints < 50) return;
+
+    const val = (team as any)[statId] || 75;
+    if (val >= 99) return;
+
+    const updates = {
+      [statId]: val + 1,
+      stuffyPoints: team.stuffyPoints - 50
+    };
+
+    await updateTeam(teamId, updates);
   };
 
   const resetLeague = async () => {
@@ -177,9 +236,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const createLeague = async (name: string) => {
     await resetLeague();
-    for (const teamDef of DEFAULT_LEAGUE_TEAMS) {
-      await addTeam(teamDef);
-    }
+    await addDefaultTeams();
     const newGames = generateRoundRobinSchedule(teams, 14);
     setGames(newGames);
     if (user) await PersistenceEngine.saveGames(newGames);
@@ -207,7 +264,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     if (currentWeek < 14) {
       setCurrentWeek(prev => prev + 1);
     } else {
-      // Trigger Awards Phase
       const finalists = getAwardFinalists(players);
       setAwardFinalists(finalists as Record<string, Player[]>);
       setIsAwardsPhase(true);
@@ -256,8 +312,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     const finalPlayers = recalculateStats(updatedGames, players);
     setPlayers(finalPlayers);
     setCurrentWeek(14);
-    
-    // Auto-trigger Awards
     const finalists = getAwardFinalists(finalPlayers);
     setAwardFinalists(finalists as Record<string, Player[]>);
     setIsAwardsPhase(true);
@@ -278,56 +332,25 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const setAwardWinner = (category: string, playerId: string) => {
     const winner = players.find(p => p.id === playerId);
     if (!winner) return;
-
     setSelectedAwards(prev => ({ ...prev, [category]: playerId }));
-    
     const team = teams.find(t => t.id === winner.teamId);
     const awardType = category as AwardType;
     const statValue = getStatForAward(winner, awardType);
     const statName = awardType === 'STPOY' ? 'Points' : (awardType === 'DPOY' ? 'Tackles/Sacks' : 'All-Purpose');
-
-    const template = selectNarrativeTemplate(
-      awardType,
-      winner.position,
-      winner.awardsHistory || [],
-      recentNarrativesUsed,
-      (history.length + 1).toString()
-    ) || NARRATIVE_BANK[0];
-
-    const narrative = generateNarrative(
-      winner,
-      awardType,
-      team?.name || 'his team',
-      statValue,
-      statName,
-      template
-    );
-
+    const template = selectNarrativeTemplate(awardType, winner.position, winner.awardsHistory || [], recentNarrativesUsed, (history.length + 1).toString()) || NARRATIVE_BANK[0];
+    const narrative = generateNarrative(winner, awardType, team?.name || 'his team', statValue, statName, template);
     setRecentNarrativesUsed(prev => [...prev, { templateId: template.id, seasonId: (history.length + 1).toString() }]);
-    
-    setAwardResults(prev => ({
-      ...prev,
-      [category]: {
-        winner,
-        statName,
-        statValue,
-        narrative
-      }
-    }));
+    setAwardResults(prev => ({ ...prev, [category]: { winner, statName, statValue, narrative } }));
   };
 
   const completeSeason = (championId: string) => {
-    // Save history with the champion
     const standings = calculateStandings(teams, games);
     const newHistory: SeasonHistory = {
       year: new Date().getFullYear() + history.length,
       championId,
       finalStandings: standings
     };
-    
     setHistory(prev => [newHistory, ...prev]);
-    
-    // Move to awards phase if not already there
     if (!isAwardsPhase) {
       const finalists = getAwardFinalists(players);
       setAwardFinalists(finalists as Record<string, Player[]>);
@@ -337,24 +360,20 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const finalizeSeason = () => {
     setIsAwardsPhase(false);
-    // Any final cleanup after awards
   };
 
   return (
     <LeagueContext.Provider value={{
       teams, players, games, playoffGames, history, activeTab, setActiveTab,
-      currentWeek, addTeam, updateTeam, createLeague, setCurrentWeek, 
+      currentWeek, addTeam, updateTeam, deleteTeam, updatePlayer, bulkUpdatePlayers, upgradeStat, addDefaultTeams,
+      createLeague, setCurrentWeek, 
       advanceWeek, simulateGames, resetLeague, saveToSupabase, loadFromSupabase,
       simulateSeason, resetPredictions, 
       handlePick: (gameId, winnerId) => {
-        // Special case for playoff handling if it looks like a playoff ID
         if (gameId.includes('round-')) {
             const ug = playoffGames.map(g => g.id === gameId ? { ...g, winnerId: (winnerId === 'tie' ? undefined : (winnerId || undefined)) } : g);
-            setPlayoffGames(ug); 
-            // syncPlayoffGames(ug); // We could sync here too
-            return;
+            setPlayoffGames(ug); return;
         }
-
         const gameToUpdate = games.find(g => g.id === gameId);
         if (!gameToUpdate) return;
         const homeTeam = teams.find(t => t.id === gameToUpdate.homeTeamId);
