@@ -17,6 +17,42 @@ const STORAGE_KEYS = {
   AWARD_FINALISTS: 'stuffy_award_finalists'
 };
 
+const VALID_COLUMNS = {
+  teams: ['id', 'user_id', 'name', 'icon', 'primary_color', 'secondary_color', 'logo_url', 'offense_rating', 'defense_rating', 'special_teams_rating', 'stuffy_points', 'all_time_wins', 'championships'],
+  players: ['id', 'user_id', 'team_id', 'name', 'profile_picture', 'profile', 'archetype', 'position', 'rating', 'abilities', 'stats', 'career_stats', 'awards', 'awards_history', 'jersey_number'],
+  games: ['id', 'user_id', 'week', 'home_team_id', 'away_team_id', 'winner_id', 'home_score', 'away_score', 'is_tie'],
+  playoff_games: ['id', 'user_id', 'round', 'matchup_index', 'team1_id', 'team2_id', 'winner_id', 'seed1', 'seed2'],
+  league_history: ['user_id', 'year', 'champion_id', 'full_standings']
+};
+
+/**
+ * Normalizes camelCase objects to snake_case and filters for valid DB columns.
+ */
+function normalizePayload(obj: Record<string, unknown>, table: keyof typeof VALID_COLUMNS) {
+  const normalized: Record<string, unknown> = {};
+  const validCols = VALID_COLUMNS[table];
+  
+  Object.entries(obj).forEach(([key, val]) => {
+    // Convert camelCase to snake_case
+    const dbKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    if (validCols.includes(dbKey)) {
+      normalized[dbKey] = val;
+    }
+  });
+  
+  return normalized;
+}
+
+async function handleSupabaseRequest(request: unknown, actionLabel: string, payload?: unknown) {
+  console.log(`[Supabase] ${actionLabel} - Payload:`, payload);
+  const result = (await request) as { data: unknown; error: { message: string; details?: string; hint?: string } };
+  if (result.error) {
+    console.error(`[Supabase Error] ${actionLabel}:`, result.error.message, result.error.details, result.error.hint);
+    throw new Error(`Supabase ${actionLabel} failed: ${result.error.message}`);
+  }
+  return result.data;
+}
+
 export const PersistenceEngine = {
   
   // --- Teams ---
@@ -29,7 +65,12 @@ export const PersistenceEngine = {
       localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
       return;
     }
-    await supabase.from('teams').upsert({ ...team, user_id: userId });
+    const dbTeam = normalizePayload({ ...team, user_id: userId }, 'teams');
+    await handleSupabaseRequest(
+      supabase.from('teams').upsert(dbTeam),
+      'saveTeam',
+      dbTeam
+    );
   },
 
   async deleteTeam(id: string, userId?: string) {
@@ -38,7 +79,11 @@ export const PersistenceEngine = {
       localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams.filter((t: Team) => t.id !== id)));
       return;
     }
-    await supabase.from('teams').delete().eq('id', id);
+    await handleSupabaseRequest(
+      supabase.from('teams').delete().eq('id', id),
+      'deleteTeam',
+      { id }
+    );
   },
 
   // --- Players ---
@@ -48,14 +93,12 @@ export const PersistenceEngine = {
       return;
     }
     // Bulk upsert for Supabase
-    const dbPlayers = players.map(p => ({
-        id: p.id, user_id: userId, team_id: p.teamId, name: p.name,
-        position: p.position, rating: p.rating, archetype: p.archetype,
-        jersey_number: p.jerseyNumber, profile: p.profile, abilities: p.abilities,
-        stats: p.stats, career_stats: p.careerStats,
-        awards: p.awards, awards_history: p.awardsHistory
-    }));
-    await supabase.from('players').upsert(dbPlayers);
+    const dbPlayers = players.map(p => normalizePayload({ ...p, user_id: userId, team_id: p.teamId }, 'players'));
+    await handleSupabaseRequest(
+      supabase.from('players').upsert(dbPlayers),
+      'savePlayers',
+      `Bulk upsert of ${dbPlayers.length} players`
+    );
   },
 
   // --- Games ---
@@ -64,13 +107,12 @@ export const PersistenceEngine = {
       localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
       return;
     }
-    const dbGames = games.map(g => ({
-        id: g.id, user_id: userId, week: g.week, 
-        home_team_id: g.homeTeamId, away_team_id: g.awayTeamId,
-        home_score: g.homeScore, away_score: g.awayScore,
-        winner_id: g.winnerId, is_tie: g.isTie
-    }));
-    await supabase.from('games').upsert(dbGames);
+    const dbGames = games.map(g => normalizePayload({ ...g, user_id: userId }, 'games'));
+    await handleSupabaseRequest(
+      supabase.from('games').upsert(dbGames),
+      'saveGames',
+      `Bulk upsert of ${dbGames.length} games`
+    );
   },
 
   // --- Awards & History ---
@@ -82,12 +124,18 @@ export const PersistenceEngine = {
 
   async saveLeagueHistory(history: SeasonHistory, userId?: string) {
     if (userId) {
-        await supabase.from('league_history').insert({
+        const dbHistory = normalizePayload({
+            ...history,
             user_id: userId,
-            year: history.year,
             champion_id: history.championId,
             full_standings: history.finalStandings
-        });
+        }, 'league_history');
+        
+        await handleSupabaseRequest(
+          supabase.from('league_history').upsert(dbHistory, { onConflict: 'user_id,year' }),
+          'saveLeagueHistory',
+          dbHistory
+        );
     }
   },
 

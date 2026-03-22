@@ -256,8 +256,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     });
 
     setPlayers(prev => [...prev, ...roster]);
-    await PersistenceEngine.saveTeam(newTeam, user?.id);
-    await PersistenceEngine.savePlayers(roster, user?.id);
+    
+    // Perform insertions out-of-band to not block UI
+    PersistenceEngine.saveTeam(newTeam, user?.id).catch(err => console.error("addTeam Persist Error:", err));
+    PersistenceEngine.savePlayers(roster, user?.id).catch(err => console.error("addPlayers Persist Error:", err));
   }, [user, numWeeks]);
 
   const contextValue: LeagueContextType = {
@@ -266,13 +268,43 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setActiveTab, setNumWeeks, setAwardWinner, updatePlayer, bulkUpdatePlayers, completeSeason, finalizeSeason,
     addTeam,
     addDefaultTeams: async () => {
-        for (const team of DEFAULT_LEAGUE_TEAMS) {
-            await addTeam(team);
+        // Bulk implementation to avoid loops and redundant schedule generation
+        const newTeams: Team[] = [];
+        let allPlayers: Player[] = [];
+        
+        for (const teamBase of DEFAULT_LEAGUE_TEAMS) {
+            const teamId = generateUUID();
+            const newTeam = { ...teamBase, id: teamId } as Team;
+            const roster = generateTeamRoster(teamId);
+            newTeams.push(newTeam);
+            allPlayers = [...allPlayers, ...roster];
+        }
+
+        setTeams(newTeams);
+        setPlayers(allPlayers);
+        
+        const schedule = generateRoundRobinSchedule(newTeams, numWeeks);
+        setGames(schedule);
+
+        // Bulk Save to Persistence
+        if (user) {
+            // Sequential for safety but bulk payloads
+            await Promise.all(newTeams.map(t => PersistenceEngine.saveTeam(t, user.id)));
+            await PersistenceEngine.savePlayers(allPlayers, user.id);
+            await PersistenceEngine.saveGames(schedule, user.id);
+        } else {
+            // LocalStorage fallback
+            localStorage.setItem('stuffy_teams', JSON.stringify(newTeams));
+            localStorage.setItem('stuffy_players', JSON.stringify(allPlayers));
+            localStorage.setItem('stuffy_games', JSON.stringify(schedule));
         }
     },
     updateTeam: async (id, updates) => {
        setTeams(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-       if (user) await supabase.from('teams').update(updates).eq('id', id);
+       const teamToUpdate = teams.find(t => t.id === id);
+       if (teamToUpdate) {
+           await PersistenceEngine.saveTeam({ ...teamToUpdate, ...updates }, user?.id);
+       }
     },
     deleteTeam: async (id) => {
        setTeams(prev => prev.filter(t => t.id !== id));
