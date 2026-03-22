@@ -65,10 +65,19 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [selectedAwards, setSelectedAwards] = useState<Record<string, string>>({});
   const [awardResults, setAwardResults] = useState<Record<string, { winner: Player, narrative: string, statValue: string | number, statName: string }>>({});
   
-  const hasLoaded = useRef(false);
+  const loadedUserIdRef = useRef<string | null | undefined>(undefined);
+  const isInitialLoadRef = useRef(true);
 
   const loadData = useCallback(async () => {
-    if (!user || hasLoaded.current) return;
+    const currentUserId = user?.id || null;
+    if (loadedUserIdRef.current === currentUserId && !isInitialLoadRef.current) return;
+    
+    if (!user) {
+       setIsLoaded(true);
+       loadedUserIdRef.current = null;
+       isInitialLoadRef.current = false;
+       return;
+    }
     try {
       const { data: dbTeams } = await supabase.from('teams').select('*').eq('user_id', user.id);
       const { data: dbPlayers } = await supabase.from('players').select('*').eq('user_id', user.id);
@@ -77,11 +86,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       const { data: dbHistory } = await supabase.from('league_history').select('*').eq('user_id', user.id).order('year', { ascending: false });
       const { data: dbNarratives } = await supabase.from('narrative_memory').select('*').eq('user_id', user.id);
 
-      if (dbTeams) setTeams(dbTeams);
-      if (dbNarratives) setRecentNarrativesUsed(dbNarratives.map((n: any) => ({ templateId: n.template_id, seasonId: n.season_id })));
+      if (dbNarratives) setRecentNarrativesUsed(dbNarratives.map((n: Record<string, any>) => ({ templateId: n.template_id, seasonId: n.season_id })));
       
-      if (dbPlayers) {
-        setPlayers(dbPlayers.map((p: any) => migratePlayerRatings({
+      if (dbTeams) {
+        setTeams(dbTeams);
+        const teamsWithPlayers = new Set(dbPlayers?.map((p: any) => p.team_id) || []);
+        const missingTeams = dbTeams.filter(t => !teamsWithPlayers.has(t.id));
+        
+        let currentPlayers = dbPlayers ? dbPlayers.map((p: any) => migratePlayerRatings({
           id: p.id, teamId: p.team_id, name: p.name, position: p.position,
           rating: p.rating, profilePicture: p.profile_picture, profile: p.profile,
           archetype: p.archetype, jerseyNumber: p.jersey_number, abilities: p.abilities, 
@@ -89,7 +101,26 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           careerStats: p.career_stats || { gamesPlayed: 0 },
           awards: (p.awards || []) as PlayerAward[],
           awardsHistory: (p.awards_history || []) as AwardsHistoryEntry[]
-        })));
+        })) : [];
+
+        if (missingTeams.length > 0) {
+           const generatedPlayers: Player[] = [];
+           for (const team of missingTeams) {
+              const roster = generateTeamRoster(team.id);
+              generatedPlayers.push(...roster);
+              if (user) {
+                 await supabase.from('players').insert(roster.map(p => ({
+                    id: p.id, user_id: user.id, team_id: p.teamId, name: p.name,
+                    position: p.position, rating: p.rating, archetype: p.archetype,
+                    jersey_number: p.jerseyNumber, profile: p.profile, abilities: p.abilities,
+                    stats: p.stats, career_stats: p.careerStats || { gamesPlayed: 0 },
+                    awards: p.awards || [], awards_history: p.awardsHistory || []
+                 }))).then();
+              }
+           }
+           currentPlayers = [...currentPlayers, ...generatedPlayers];
+        }
+        setPlayers(currentPlayers);
       }
 
       if (dbGames) {
@@ -115,16 +146,15 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       }
       
       setIsLoaded(true);
-      hasLoaded.current = true;
+      loadedUserIdRef.current = user.id;
+      isInitialLoadRef.current = false;
     } catch (error) {
       console.error('Error loading league data:', error);
     }
   }, [user]);
 
   useEffect(() => {
-    if (user && !hasLoaded.current) {
-      loadData();
-    }
+    loadData();
   }, [user, loadData]);
 
   const updatePlayer = useCallback((id: string, updates: Partial<Player>) => {
@@ -320,9 +350,33 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
        }
     },
     addTeam: async (t) => {
-       const newTeam = { ...t, id: crypto.randomUUID() };
+       const teamId = crypto.randomUUID();
+       const newTeam = { ...t, id: teamId };
        setTeams(prev => [...prev, newTeam]);
-       if (user) await supabase.from('teams').insert({ ...newTeam, user_id: user.id });
+       
+       const roster = generateTeamRoster(teamId);
+       setPlayers(prev => [...prev, ...roster]);
+
+       if (user) {
+          await supabase.from('teams').insert({ ...newTeam, user_id: user.id });
+          await supabase.from('players').insert(roster.map(p => ({
+             id: p.id,
+             user_id: user.id,
+             team_id: p.teamId,
+             name: p.name,
+             position: p.position,
+             rating: p.rating,
+             archetype: p.archetype,
+             jersey_number: p.jerseyNumber,
+             profile: p.profile,
+             abilities: p.abilities,
+             stats: p.stats,
+             career_stats: p.careerStats || { gamesPlayed: 0 },
+             awards: p.awards || [],
+             awards_history: p.awardsHistory || []
+          })));
+       }
+       
        const allTeams = [...teams, newTeam];
        if (allTeams.length >= 2) {
           const schedule = generateRoundRobinSchedule(allTeams, numWeeks);
