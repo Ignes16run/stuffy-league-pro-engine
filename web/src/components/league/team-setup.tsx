@@ -6,6 +6,7 @@ import {
   Plus, Upload, Trash2, RefreshCw, Settings, Sliders
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
+import { useAuth } from '@/context/auth-context';
 import { Team, StuffyIcon } from '@/lib/league/types';
 import { STUFFY_ICONS, ICON_OPTIONS, DEFAULT_COLORS } from '@/lib/league/constants';
 import { cn } from '@/lib/utils';
@@ -15,7 +16,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { uploadFile } from '@/lib/supabase-client';
 
 export default function TeamSetup() {
-  const { teams, addTeam, updateTeam, removeTeam, user } = useLeague();
+  const { teams, addTeam, updateTeam, deleteTeam } = useLeague();
+  const { user } = useAuth();
   
   const [newTeam, setNewTeam] = useState<Partial<Team>>({
     name: '',
@@ -50,9 +52,8 @@ export default function TeamSetup() {
       });
       setEditingTeamId(null);
     } else {
-      const team: Team = {
-        id: generateId(),
-        name: newTeam.name,
+      const team: Omit<Team, 'id'> = {
+        name: newTeam.name!,
         icon: newTeam.icon as StuffyIcon,
         primaryColor: newTeam.primaryColor!,
         secondaryColor: newTeam.secondaryColor!,
@@ -97,7 +98,6 @@ export default function TeamSetup() {
     const names = bulkNamesText.split('\n').filter(n => n.trim().length > 0);
     names.forEach(name => {
       addTeam({
-        id: generateId(),
         name: name.trim(),
         icon: ICON_OPTIONS[Math.floor(Math.random() * ICON_OPTIONS.length)] as StuffyIcon,
         primaryColor: DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)],
@@ -163,7 +163,7 @@ export default function TeamSetup() {
             >
               <div className="p-8 pb-4">
                 <h3 className="text-xl font-black text-stone-900 uppercase tracking-widest mb-2">Bulk Stat Modifier</h3>
-                <p className="text-sm text-stone-500 font-medium">Fine-tune your entire league's power balance in real-time.</p>
+                <p className="text-sm text-stone-500 font-medium">Fine-tune your entire league&apos;s power balance in real-time.</p>
               </div>
               
               <div className="flex-1 overflow-y-auto px-8 py-4 space-y-4">
@@ -363,7 +363,7 @@ export default function TeamSetup() {
                 </Card>
                 <div className="absolute top-2 right-2 flex gap-1 group-hover:opacity-100 opacity-0 transition-opacity">
                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" onClick={() => editTeam(team)}><Settings className="w-4 h-4" /></Button>
-                   <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => removeTeam(team.id)}><Trash2 className="w-4 h-4" /></Button>
+                   <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => deleteTeam(team.id)}><Trash2 className="w-4 h-4" /></Button>
                 </div>
               </motion.div>
             )
