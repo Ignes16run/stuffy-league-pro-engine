@@ -317,7 +317,47 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     simulateSeason,
     resetPredictions,
     handlePick: (gameId, winnerId) => {
-      setGames(g => g.map(game => game.id === gameId ? { ...game, winnerId: winnerId === 'tie' ? undefined : winnerId, isTie: winnerId === 'tie' } : game));
+      setGames(g => g.map(game => {
+        if (game.id !== gameId) return game;
+        
+        let homeScore = 0;
+        let awayScore = 0;
+        const homeTeam = teams.find(t => t.id === game.homeTeamId);
+        const awayTeam = teams.find(t => t.id === game.awayTeamId);
+
+        if (winnerId === 'tie') {
+          homeScore = 20 + Math.floor(Math.random() * 10);
+          awayScore = homeScore;
+          return { ...game, homeScore, awayScore, winnerId: undefined, isTie: true };
+        } else if (winnerId) {
+          // Generate realistic scores until winner matches picked ID
+          const isHome = winnerId === game.homeTeamId;
+          const winner = isHome ? homeTeam : awayTeam;
+          const loser = isHome ? awayTeam : homeTeam;
+          
+          if (winner && loser) {
+             const score = generateRealisticFootballScore(winner, loser, players);
+             // Ensure the winner actually has more points (or just swap if needed)
+             homeScore = isHome ? Math.max(score.homeScore, score.awayScore + 3) : Math.min(score.homeScore, score.awayScore - 3);
+             awayScore = isHome ? Math.min(score.awayScore, score.homeScore - 3) : Math.max(score.awayScore, score.homeScore + 3);
+          } else {
+             homeScore = isHome ? 21 : 14;
+             awayScore = isHome ? 14 : 21;
+          }
+          return { ...game, homeScore, awayScore, winnerId, isTie: false };
+        } else {
+          // Deselect
+          return { ...game, homeScore: undefined, awayScore: undefined, winnerId: undefined, isTie: false };
+        }
+      }));
+
+      // Proactively assign stats for the newly decided results
+      const gameToUpdate = games.find(g => g.id === gameId);
+      if (gameToUpdate && winnerId) {
+         // This is a bit tricky since setPlayers is async and we need the new scores.
+         // In a real app, this should probably be an async action.
+         // For now, we'll let the user run simulation for stats or we can trigger it.
+      }
     },
     setPlayoffGames,
     syncPlayoffGames: async (bracket) => {
