@@ -1,18 +1,29 @@
 "use client";
-// Last Updated: 2026-03-22T16:50:00Z
+// Last Updated: 2026-03-22T17:15:00Z
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { 
-  Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats, 
+import {
+  Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats,
   PlayerAward, NarrativeMemoryEntry, AwardsHistoryEntry,
   PlayerPosition, PlayerAbility
 } from '@/lib/league/types';
 import { generateRoundRobinSchedule, calculateStandings, generateRealisticFootballScore } from '@/lib/league/utils';
 import { supabase } from '@/lib/supabase-client';
-import { useAuth } from './auth-context';
+import { useAuth } from '@/context/auth-context';
 import { generateTeamRoster, migratePlayerRatings } from '@/lib/league/players';
 import { selectNarrativeTemplate, generateNarrative } from '@/lib/league/narratives';
 import { AwardType, getAwardFinalists } from '@/lib/league/awards';
+import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
+
+// Safe UUID generation fallback
+const generateUUID = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+};
 
 interface LeagueContextType {
   teams: Team[];
@@ -33,6 +44,7 @@ interface LeagueContextType {
   setNumWeeks: (weeks: number) => void;
   setAwardWinner: (category: string, playerId: string) => void;
   addTeam: (team: Omit<Team, 'id'>) => Promise<void>;
+  addDefaultTeams: () => Promise<void>;
   updateTeam: (id: string, updates: Partial<Team>) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
   resetLeague: () => Promise<void>;
@@ -74,10 +86,25 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     if (loadedUserIdRef.current === currentUserId && !isInitialLoadRef.current) return;
     
     if (!user) {
-       const savedTeams = localStorage.getItem('stuffy_teams');
-       const savedPlayers = localStorage.getItem('stuffy_players');
-       if (savedTeams) setTeams(JSON.parse(savedTeams));
-       if (savedPlayers) setPlayers(JSON.parse(savedPlayers));
+       try {
+          const savedTeams = localStorage.getItem('stuffy_teams');
+          const savedPlayers = localStorage.getItem('stuffy_players');
+          const savedGames = localStorage.getItem('stuffy_games');
+          if (savedTeams) {
+             const parsed = JSON.parse(savedTeams);
+             if (Array.isArray(parsed)) setTeams(parsed);
+          }
+          if (savedPlayers) {
+             const parsed = JSON.parse(savedPlayers);
+             if (Array.isArray(parsed)) setPlayers(parsed);
+          }
+          if (savedGames) {
+             const parsed = JSON.parse(savedGames);
+             if (Array.isArray(parsed)) setGames(parsed);
+          }
+       } catch (e) {
+          console.error("Local storage sync error:", e);
+       }
        
        setIsLoaded(true);
        loadedUserIdRef.current = null;
@@ -140,7 +167,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       if (dbPlayoffs) {
         setPlayoffGames(dbPlayoffs.map((g: Record<string, any>) => ({
           id: g.id, round: g.round, matchupIndex: g.matchup_index,
-          team1Id: g.team1_id, team2Id: g.team2_id, winnerId: g.winner_id,
+          team1Id: g.team1_id, team2Id: g.team2_id, winner_id: g.winner_id,
           seed1: g.seed1, seed2: g.seed2
         })));
       }
@@ -160,7 +187,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    loadData();
+    const timer = setTimeout(() => {
+      loadData();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [user, loadData]);
 
   const updatePlayer = useCallback((id: string, updates: Partial<Player>) => {
@@ -338,66 +368,60 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setIsAwardsPhase(true);
   };
 
+  const addTeam = useCallback(async (t: Omit<Team, 'id'>) => {
+    const teamId = generateUUID();
+    const newTeam = { ...t, id: teamId } as Team;
+    
+    setTeams(prev => {
+      const updated = [...prev, newTeam];
+      if (!user) localStorage.setItem('stuffy_teams', JSON.stringify(updated));
+      
+      if (updated.length >= 2) {
+         const schedule = generateRoundRobinSchedule(updated, numWeeks);
+         setGames(schedule);
+         if (!user) {
+            localStorage.setItem('stuffy_games', JSON.stringify(schedule));
+         } else {
+            supabase.from('games').delete().eq('user_id', user.id).then(() => {
+               supabase.from('games').insert(schedule.map(g => ({ 
+                  id: g.id, user_id: user.id, week: g.week, 
+                  home_team_id: g.homeTeamId, away_team_id: g.awayTeamId 
+               }))).then();
+            });
+         }
+      }
+      return updated;
+    });
+    
+    const roster = generateTeamRoster(teamId);
+    setPlayers(prev => {
+       const updated = [...prev, ...roster];
+       if (!user) localStorage.setItem('stuffy_players', JSON.stringify(updated));
+       return updated;
+    });
+
+    if (user) {
+       await supabase.from('teams').insert({ ...newTeam, user_id: user.id });
+       await supabase.from('players').insert(roster.map(p => ({
+          id: p.id, user_id: user.id, team_id: p.teamId, name: p.name,
+          position: p.position, rating: p.rating, archetype: p.archetype,
+          jersey_number: p.jerseyNumber, profile: p.profile, abilities: p.abilities,
+          stats: p.stats, career_stats: p.careerStats || { gamesPlayed: 0 },
+          awards: p.awards || [], awards_history: p.awardsHistory || []
+       })));
+    }
+  }, [user, numWeeks]);
+
   const contextValue: LeagueContextType = {
     teams, players, games, playoffGames, history, activeTab, isSimulating, isLoaded, numWeeks,
     isAwardsPhase, awardFinalists, selectedAwards, awardResults, recentNarrativesUsed,
     setActiveTab, setNumWeeks, setAwardWinner, updatePlayer, completeSeason, finalizeSeason,
-    upgradeStat: async (teamId: string, statKey: string) => {
-       const team = teams.find(t => t.id === teamId);
-       if (!team || (team.stuffyPoints || 0) < 50) return;
-       const currentVal = (team as Record<string, any>)[statKey] || 75;
-       const newVal = Math.min(99, (currentVal as number) + 1);
-       const updates = { [statKey]: newVal, stuffyPoints: (team.stuffyPoints || 0) - 50 };
-       setTeams(prev => prev.map(t => t.id === teamId ? { ...t, ...updates } : t));
-       if (user) {
-          const dbUpdates: Record<string, any> = {};
-          Object.entries(updates).forEach(([k, v]) => { dbUpdates[k.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`)] = v; });
-          await supabase.from('teams').update(dbUpdates).eq('id', teamId);
-       }
-    },
-    addTeam: async (t) => {
-        const teamId = crypto.randomUUID();
-        const newTeam = { ...t, id: teamId } as Team;
-        
-        setTeams(prev => {
-          const updated = [...prev, newTeam];
-          if (!user) localStorage.setItem('stuffy_teams', JSON.stringify(updated));
-          
-          if (updated.length >= 2) {
-             const schedule = generateRoundRobinSchedule(updated, numWeeks);
-             setGames(schedule);
-             if (!user) {
-                localStorage.setItem('stuffy_games', JSON.stringify(schedule));
-             } else {
-                supabase.from('games').delete().eq('user_id', user.id).then(() => {
-                   supabase.from('games').insert(schedule.map(g => ({ 
-                      id: g.id, user_id: user.id, week: g.week, 
-                      home_team_id: g.homeTeamId, away_team_id: g.awayTeamId 
-                   }))).then();
-                });
-             }
-          }
-          return updated;
-        });
-        
-        const roster = generateTeamRoster(teamId);
-        setPlayers(prev => {
-           const updated = [...prev, ...roster];
-           if (!user) localStorage.setItem('stuffy_players', JSON.stringify(updated));
-           return updated;
-        });
-
-        if (user) {
-           await supabase.from('teams').insert({ ...newTeam, user_id: user.id });
-           await supabase.from('players').insert(roster.map(p => ({
-              id: p.id, user_id: user.id, team_id: p.teamId, name: p.name,
-              position: p.position, rating: p.rating, archetype: p.archetype,
-              jersey_number: p.jerseyNumber, profile: p.profile, abilities: p.abilities,
-              stats: p.stats, career_stats: p.careerStats || { gamesPlayed: 0 },
-              awards: p.awards || [], awards_history: p.awardsHistory || []
-           })));
+    addTeam,
+    addDefaultTeams: async () => {
+        for (const team of DEFAULT_LEAGUE_TEAMS) {
+            await addTeam(team);
         }
-     },
+    },
     updateTeam: async (id, updates) => {
        setTeams(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
        if (user) await supabase.from('teams').update(updates).eq('id', id);
@@ -415,6 +439,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           supabase.from('playoff_games').delete().eq('user_id', user.id),
           supabase.from('league_history').delete().eq('user_id', user.id)
        ]);
+       if (!user) {
+          localStorage.removeItem('stuffy_teams');
+          localStorage.removeItem('stuffy_players');
+          localStorage.removeItem('stuffy_games');
+       }
     },
     simulateSeason,
     resetPredictions,
@@ -429,6 +458,19 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           id: g.id, user_id: user.id, round: g.round, matchup_index: g.matchupIndex,
           team1_id: g.team1Id, team2_id: g.team2Id, winner_id: g.winnerId, seed1: g.seed1, seed2: g.seed2
        })));
+    },
+    upgradeStat: async (teamId: string, statKey: string) => {
+       const team = teams.find(t => t.id === teamId);
+       if (!team || (team.stuffyPoints || 0) < 50) return;
+       const currentVal = (team as Record<string, any>)[statKey] || 75;
+       const newVal = Math.min(99, (currentVal as number) + 1);
+       const updates = { [statKey]: newVal, stuffyPoints: (team.stuffyPoints || 0) - 50 };
+       setTeams(prev => prev.map(t => t.id === teamId ? { ...t, ...updates } : t));
+       if (user) {
+          const dbUpdates: Record<string, any> = {};
+          Object.entries(updates).forEach(([k, v]) => { dbUpdates[k.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`)] = v; });
+          await supabase.from('teams').update(dbUpdates).eq('id', teamId);
+       }
     }
   };
 

@@ -5,8 +5,6 @@ import LeagueDashboard from '@/components/league/league-dashboard';
 
 export default function LeaguePage() {
   return (
-    <LeagueProvider>
-      <LeagueDashboard />
-    </LeagueProvider>
+    <LeagueDashboard />
   );
 }

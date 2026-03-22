@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Plus, Upload, Trash2, RefreshCw, Settings, Sliders
+  Plus, Upload, Trash2, RefreshCw, Settings, Sliders, LayoutGrid
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { useAuth } from '@/context/auth-context';
@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { uploadFile } from '@/lib/supabase-client';
 
 export default function TeamSetup() {
-  const { teams, addTeam, updateTeam, deleteTeam } = useLeague();
+  const { teams, addTeam, updateTeam, deleteTeam, addDefaultTeams } = useLeague();
   const { user } = useAuth();
   
   const [newTeam, setNewTeam] = useState<Partial<Team>>({
@@ -329,9 +329,22 @@ export default function TeamSetup() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
+          {teams.length === 0 && (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center border-4 border-dashed border-stone-100 rounded-[3rem] bg-stone-50/30">
+               <LayoutGrid className="w-16 h-16 text-stone-200 mb-6" />
+               <h3 className="text-xl font-black text-stone-400 uppercase tracking-widest mb-2">No Teams Detected</h3>
+               <p className="text-stone-300 text-xs font-bold uppercase mb-8">Start by recruiting stuffies or load the league defaults</p>
+               <Button 
+                onClick={addDefaultTeams}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest px-8 h-14 rounded-2xl shadow-lg shadow-emerald-500/20"
+               >
+                 Initialize Default League
+               </Button>
+            </div>
+          )}
           {teams.map(team => {
-            const IconComp = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS];
+            const IconComp = (team.icon && STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS]) ? STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] : STUFFY_ICONS.TeddyBear;
             return (
               <motion.div layout key={team.id} className="relative group">
                 <Card className="rounded-3xl overflow-hidden border border-stone-100 hover:shadow-xl hover:-translate-y-1 transition-all">
