@@ -26,7 +26,7 @@ const ARCHETYPES = [
   { name: "The Underdog", profile: "Small in stature but big on heart and determination." }
 ];
 
-const POSITIONS: PlayerPosition[] = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB', 'K'];
+// Positions definition moved inside generateTeamRoster or unused
 
 export function generateTeamRoster(teamId: string): Player[] {
   const roster: Player[] = [];

@@ -2,7 +2,7 @@
 // Last Updated: 2026-03-22T05:50:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
+import { Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats, Standing } from '@/lib/league/types';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { generateRoundRobinSchedule, calculateStandings, generateRealisticFootballScore } from '@/lib/league/utils';
 import { supabase } from '@/lib/supabase-client';
