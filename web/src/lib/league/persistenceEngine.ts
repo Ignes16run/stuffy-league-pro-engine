@@ -1,4 +1,4 @@
-// Last Updated: 2026-03-22T22:05:00Z
+// Last Updated: 2026-03-23T01:00:00Z
 import { supabase } from '@/lib/supabase-client';
 import { Team, Player, Game, SeasonHistory, PlayoffGame } from './types';
 
@@ -21,7 +21,7 @@ const VALID_COLUMNS = {
   teams: ['id', 'user_id', 'name', 'icon', 'primary_color', 'secondary_color', 'logo_url', 'offense_rating', 'defense_rating', 'special_teams_rating', 'stuffy_points', 'all_time_wins', 'championships'],
   players: ['id', 'user_id', 'team_id', 'name', 'profile_picture', 'profile', 'archetype', 'position', 'rating', 'abilities', 'stats', 'career_stats', 'awards', 'awards_history', 'jersey_number'],
   games: ['id', 'user_id', 'week', 'home_team_id', 'away_team_id', 'winner_id', 'home_score', 'away_score', 'is_tie'],
-  playoff_games: ['id', 'user_id', 'round', 'matchup_index', 'team1_id', 'team2_id', 'winner_id', 'seed1', 'seed2'],
+  playoff_games: ['id', 'user_id', 'round', 'matchup_index', 'team1_id', 'team2_id', 'winner_id', 'seed1', 'seed2', 'team1_score', 'team2_score'],
   league_history: ['user_id', 'year', 'champion_id', 'full_standings']
 };
 
@@ -73,6 +73,19 @@ export const PersistenceEngine = {
     );
   },
 
+  async saveTeams(teams: Team[], userId?: string) {
+    if (!userId) {
+      localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
+      return;
+    }
+    const dbTeams = teams.map(t => normalizePayload({ ...t, user_id: userId }, 'teams'));
+    await handleSupabaseRequest(
+      supabase.from('teams').upsert(dbTeams),
+      'saveTeams',
+      `Bulk upsert of ${dbTeams.length} teams`
+    );
+  },
+
   async deleteTeam(id: string, userId?: string) {
     if (!userId) {
       const teams = JSON.parse(localStorage.getItem(STORAGE_KEYS.TEAMS) || '[]');
@@ -115,6 +128,21 @@ export const PersistenceEngine = {
     );
   },
 
+  async savePlayoffGames(games: PlayoffGame[], userId?: string) {
+    if (!userId) {
+      // Handled by generic local persistent state in LeagueProvider usually, 
+      // but for consistency:
+      localStorage.setItem('stuffy_playoff_games', JSON.stringify(games));
+      return;
+    }
+    const dbGames = games.map(g => normalizePayload({ ...g, user_id: userId }, 'playoff_games'));
+    await handleSupabaseRequest(
+      supabase.from('playoff_games').upsert(dbGames),
+      'savePlayoffGames',
+      `Bulk upsert of ${dbGames.length} playoff games`
+    );
+  },
+
   // --- Awards & History ---
   async saveAwardPhase(isPhase: boolean, userId?: string) {
     if (!userId) {
@@ -150,7 +178,7 @@ export const PersistenceEngine = {
         awardResults: JSON.parse(localStorage.getItem(STORAGE_KEYS.AWARD_RESULTS) || '{}'),
         awardFinalists: JSON.parse(localStorage.getItem(STORAGE_KEYS.AWARD_FINALISTS) || '{}') as Record<string, Player[]>,
         history: [] as SeasonHistory[],
-        playoffGames: []
+        playoffGames: JSON.parse(localStorage.getItem('stuffy_playoff_games') || '[]') as PlayoffGame[]
       };
     }
 
@@ -190,6 +218,7 @@ export const PersistenceEngine = {
   async clearAll(userId?: string) {
     if (!userId) {
       Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+      localStorage.removeItem('stuffy_playoff_games');
     } else {
       await Promise.all([
         supabase.from('teams').delete().eq('user_id', userId),
