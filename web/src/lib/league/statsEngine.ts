@@ -65,6 +65,9 @@ export function assignStatsToPlayers(
         const sackMove = p.position === 'DL' ? 'Power Move' : 'Power';
         const sackProb = 0.96 - (getRatingInfluencedValue(p, sackMove, p.rating) / 500);
         if (Math.random() > sackProb) s.sacks = (s.sacks || 0) + 1;
+        // Tackles for Loss influenced by Pursuit
+        const tflProb = 0.92 - (getRatingInfluencedValue(p, 'Pursuit', p.rating) / 400);
+        if (Math.random() > tflProb) s.tacklesForLoss = (s.tacklesForLoss || 0) + 1;
         break;
       case 'CB':
       case 'S':
@@ -73,6 +76,10 @@ export function assignStatsToPlayers(
         // Interceptions influenced by Ball Skills
         const intProb = 0.98 - (getRatingInfluencedValue(p, 'Ball Skills', p.rating) / 1000);
         if (Math.random() > intProb) s.interceptions = (s.interceptions || 0) + 1;
+        // Pass Deflections influenced by Coverage
+        const pdRating = p.position === 'CB' ? 'Man Coverage' : 'Zone Coverage';
+        const pdProb = 0.88 - (getRatingInfluencedValue(p, pdRating, p.rating) / 300);
+        if (Math.random() > pdProb) s.passDeflections = (s.passDeflections || 0) + 1;
         break;
     }
 

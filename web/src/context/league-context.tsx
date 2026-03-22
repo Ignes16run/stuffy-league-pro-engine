@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T17:15:00Z
+// Last Updated: 2026-03-22T21:58:00Z
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -15,6 +15,7 @@ import { selectNarrativeTemplate, generateNarrative } from '@/lib/league/narrati
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { getAwardFinalists, getStatForAward, validateAwardCandidates } from '@/lib/league/awardsEngine';
 import { assignStatsToPlayers } from '@/lib/league/statsEngine';
+import { validateGameStats } from '@/lib/league/validationEngine';
 
 // Safe UUID generation fallback
 const generateUUID = () => {
@@ -298,6 +299,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           // Modularized stat engine distribution
           currentPlayers = assignStatsToPlayers(currentPlayers, home.id, homeScore, awayScore);
           currentPlayers = assignStatsToPlayers(currentPlayers, away.id, awayScore, homeScore);
+
+          // Post-game validation and correction
+          const { validatedPlayers } = validateGameStats(updatedGame, currentPlayers, teams);
+          currentPlayers = validatedPlayers;
        }
     }
 
