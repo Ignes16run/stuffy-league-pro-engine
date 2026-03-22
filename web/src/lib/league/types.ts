@@ -109,6 +109,8 @@ export interface PlayerStats {
   // Defensive Specific (DL, LB, DB)
   tacklesForLoss?: number;
   passDeflections?: number;
+  fgMade?: number;
+  xpMade?: number;
 }
 
 export interface PlayerAward {

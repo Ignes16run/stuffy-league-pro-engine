@@ -1,6 +1,6 @@
 // Last Updated: 2026-03-22T22:05:00Z
 import { supabase } from '@/lib/supabase-client';
-import { Team, Player, Game, SeasonHistory, AwardType } from './types';
+import { Team, Player, Game, SeasonHistory, PlayoffGame } from './types';
 
 /**
  * Persistence layer for Stuffy League Pro.
@@ -23,7 +23,7 @@ export const PersistenceEngine = {
   async saveTeam(team: Team, userId?: string) {
     if (!userId) {
       const teams = JSON.parse(localStorage.getItem(STORAGE_KEYS.TEAMS) || '[]');
-      const idx = teams.findIndex((t: any) => t.id === team.id);
+      const idx = teams.findIndex((t: Team) => t.id === team.id);
       if (idx !== -1) teams[idx] = team;
       else teams.push(team);
       localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
@@ -35,7 +35,7 @@ export const PersistenceEngine = {
   async deleteTeam(id: string, userId?: string) {
     if (!userId) {
       const teams = JSON.parse(localStorage.getItem(STORAGE_KEYS.TEAMS) || '[]');
-      localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams.filter((t: any) => t.id !== id)));
+      localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams.filter((t: Team) => t.id !== id)));
       return;
     }
     await supabase.from('teams').delete().eq('id', id);
@@ -127,7 +127,7 @@ export const PersistenceEngine = {
       playoffGames: (dbPlayoffs || []).map((g: any) => ({
         id: g.id, round: g.round, matchupIndex: g.matchup_index,
         team1Id: g.team1_id, team2Id: g.team2_id, winnerId: g.winner_id, seed1: g.seed1, seed2: g.seed2
-      })),
+      })) as PlayoffGame[],
       history: (dbHistory || []).map((h: any) => ({
         year: h.year, championId: h.champion_id, finalStandings: h.full_standings || []
       })) as SeasonHistory[],

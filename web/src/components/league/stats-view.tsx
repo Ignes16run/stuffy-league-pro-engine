@@ -1,16 +1,15 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useLeague } from '@/context/league-context';
-import { calculatePlayerRankings } from '@/lib/league/utils';
-import { PlayerStats, AwardType } from '@/lib/league/types';
-import { Trophy, Target, BarChart3, Users, PlayCircle, Shield, Award } from 'lucide-react';
+import { Player, PlayerStats } from '@/lib/league/types';
+import { Target, BarChart3, PlayCircle, Shield, Award } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import Standings from './standings';
 
 export default function StatsView() {
-  const { players, teams, games } = useLeague();
+  const { players } = useLeague();
   const [statMode, setStatMode] = useState<'season' | 'career'>('season');
 
   const leaderboards = useMemo(() => {
@@ -34,10 +33,12 @@ export default function StatsView() {
       receivingYards: getTop('receivingYards', ['WR', 'TE']),
       receivingTds: getTop('receivingTds', ['WR', 'TE']),
       tackles: getTop('tackles', ['DL', 'LB', 'EDGE', 'CB', 'S']),
+      tacklesForLoss: getTop('tacklesForLoss', ['DL', 'LB', 'EDGE']),
       sacks: getTop('sacks', ['DL', 'LB', 'EDGE']),
       interceptions: getTop('interceptions', ['CB', 'S', 'LB']),
+      passDeflections: getTop('passDeflections', ['CB', 'S']),
       points: getTop('points', ['K']), // Special Teams!
-      fgMade: getTop('fgMade' as any, ['K']),
+      fgMade: getTop('fgMade' as keyof PlayerStats, ['K']),
     };
   }, [players, statMode]);
 
@@ -95,8 +96,10 @@ export default function StatsView() {
 
         <TabsContent value="defensive" className="mt-0 focus-visible:outline-none grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <StatLeaderCard title="Tackles" players={leaderboards.tackles} statKey="tackles" statMode={statMode} />
+          <StatLeaderCard title="Tackles for Loss" players={leaderboards.tacklesForLoss} statKey="tacklesForLoss" statMode={statMode} />
           <StatLeaderCard title="Sacks" players={leaderboards.sacks} statKey="sacks" statMode={statMode} />
           <StatLeaderCard title="Interceptions" players={leaderboards.interceptions} statKey="interceptions" statMode={statMode} />
+          <StatLeaderCard title="Pass Deflections" players={leaderboards.passDeflections} statKey="passDeflections" statMode={statMode} />
         </TabsContent>
 
         <TabsContent value="st" className="mt-0 focus-visible:outline-none grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -110,9 +113,9 @@ export default function StatsView() {
 
 function StatLeaderCard({ title, players, statKey, statMode }: { 
   title: string, 
-  players: any[], 
-  statKey: string,
-  statMode: string 
+  players: Player[], 
+  statKey: keyof PlayerStats,
+  statMode: 'season' | 'career' 
 }) {
   const { teams } = useLeague();
   return (
