@@ -82,6 +82,20 @@ export interface PlayerStats {
   passingTds?: number;
   interceptionsThrown?: number;
   completionPct?: number;
+  
+  // RB Specific
+  rushingYards?: number;
+  rushingTds?: number;
+  carries?: number;
+  
+  // WR / TE Specific
+  receivingYards?: number;
+  receivingTds?: number;
+  receptions?: number;
+
+  // Defensive Specific (DL, LB, DB)
+  tacklesForLoss?: number;
+  passDeflections?: number;
 }
 
 export interface PlayerAbility {

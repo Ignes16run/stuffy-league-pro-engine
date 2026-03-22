@@ -251,68 +251,169 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const getUpdatedPlayersFromGame = (currentPlayers: Player[], gameId: string, team1Id: string, team2Id: string, team1Score: number, team2Score: number): Player[] => {
     const nextPlayers = currentPlayers.map(p => ({ ...p, stats: { ...p.stats } }));
-    const updateTeamStats = (teamId: string, score: number) => {
-      const tPlayers = nextPlayers.filter(p => p.teamId === teamId);
-      if (tPlayers.length === 0) return;
-      
-      tPlayers.forEach(p => {
-        p.stats.gamesPlayed = (p.stats.gamesPlayed || 0) + 1;
-        // Position-based reset for realism (only applicable per game context if we are adding to totals)
-        // Here we are adding to season totals, so we don't zero out.
-      });
+    
+    // Add games played
+    nextPlayers.filter(p => p.teamId === team1Id || p.teamId === team2Id).forEach(p => {
+      p.stats.gamesPlayed = (p.stats.gamesPlayed || 0) + 1;
+    });
 
-      const qb = tPlayers.find(p => p.position === 'QB');
-      const skill = tPlayers.filter(p => ['RB', 'WR', 'TE'].includes(p.position));
-      const k = tPlayers.find(p => p.position === 'K');
+    const updateTeamStats = (offTeamId: string, defTeamId: string, score: number) => {
+      const offPlayers = nextPlayers.filter(p => p.teamId === offTeamId);
+      const defPlayers = nextPlayers.filter(p => p.teamId === defTeamId);
+      if (offPlayers.length === 0) return;
+
+      const qb = offPlayers.find(p => p.position === 'QB');
+      const rbs = offPlayers.filter(p => p.position === 'RB');
+      const receivers = offPlayers.filter(p => ['WR', 'TE'].includes(p.position));
+      const k = offPlayers.find(p => p.position === 'K');
+
+      const dl = defPlayers.filter(p => p.position === 'DL');
+      const lb = defPlayers.filter(p => p.position === 'LB');
+      const db = defPlayers.filter(p => p.position === 'DB');
 
       const tds = Math.floor(score / 7);
-      if (tds > 0) {
-        for (let i = 0; i < tds; i++) {
-          const target = skill[Math.floor(Math.random() * skill.length)];
-          if (target) { 
-            target.stats.touchdowns = (target.stats.touchdowns || 0) + 1; 
-            target.stats.points = (target.stats.points || 0) + 6; 
-          }
+      let passTds = 0;
+      let rushTds = 0;
+      for (let i = 0; i < tds; i++) {
+        if (Math.random() > 0.4) {
+          passTds++;
+        } else {
+          rushTds++;
         }
       }
-      
-      const yards = Math.min(score * 15 + Math.floor(Math.random() * 80), 600);
+
+      const totalYards = Math.min(score * 15 + Math.floor(Math.random() * 80), 550);
+      const passYards = Math.floor(totalYards * 0.65);
+      const rushYards = totalYards - passYards;
+
+      // Passing Logic
       if (qb) {
-        qb.stats.passingTds = (qb.stats.passingTds || 0) + tds;
-        qb.stats.passingYards = (qb.stats.passingYards || 0) + Math.floor(yards * 0.9);
+        qb.stats.passingTds = (qb.stats.passingTds || 0) + passTds;
+        qb.stats.passingYards = (qb.stats.passingYards || 0) + passYards;
         
-        // Completion % logic
-        const attempts = Math.floor(Math.random() * 15) + 20;
-        const completions = Math.floor(attempts * (0.5 + (qb.rating / 300)));
+        // 25 to 45 attempts based on passing yards
+        let attempts = Math.floor(Math.random() * 10) + 25; 
+        if (passYards > 300) attempts += 10;
+        const completions = Math.floor(attempts * (0.55 + (qb.rating / 500))); 
         const gamePct = (completions / attempts) * 100;
+
         qb.stats.completionPct = qb.stats.completionPct 
           ? Math.round(((qb.stats.completionPct + gamePct) / 2) * 10) / 10 
           : Math.round(gamePct * 10) / 10;
-          
-        // Interceptions
-        if (Math.random() < 0.12) {
-          qb.stats.interceptionsThrown = (qb.stats.interceptionsThrown || 0) + 1;
+
+        // Receiving logic
+        let remainingPassYards = passYards;
+        let remainingRec = completions;
+        receivers.forEach((p, idx) => {
+           let share = 0;
+           let recShare = 0;
+           if (idx === receivers.length - 1) {
+             share = remainingPassYards;
+             recShare = remainingRec;
+           } else {
+             // Try to weight WR1 more
+             const weight = idx === 0 ? 0.4 : (1 / (receivers.length - idx));
+             share = Math.floor(remainingPassYards * weight);
+             recShare = Math.floor(remainingRec * weight);
+           }
+           p.stats.receivingYards = (p.stats.receivingYards || 0) + Math.max(0, share);
+           p.stats.receptions = (p.stats.receptions || 0) + Math.max(0, recShare);
+           p.stats.yards = (p.stats.yards || 0) + Math.max(0, share); // generic fallback
+           remainingPassYards -= share;
+           remainingRec -= recShare;
+        });
+
+        // Receiving TDs
+        for (let i = 0; i < passTds; i++) {
+           const target = receivers[Math.floor(Math.random() * receivers.length)];
+           if (target) {
+              target.stats.receivingTds = (target.stats.receivingTds || 0) + 1;
+              target.stats.touchdowns = (target.stats.touchdowns || 0) + 1;
+              target.stats.points = (target.stats.points || 0) + 6;
+           }
+        }
+        
+        // Interceptions Thrown -> caught by DB
+        const ints = Math.random() < 0.15 ? (Math.random() < 0.3 ? 2 : 1) : 0;
+        if (ints > 0) {
+           qb.stats.interceptionsThrown = (qb.stats.interceptionsThrown || 0) + ints;
+           for(let i = 0; i < ints; ++i) {
+             const defDB = db[Math.floor(Math.random() * db.length)];
+             if (defDB) defDB.stats.interceptions = (defDB.stats.interceptions || 0) + 1;
+           }
         }
       }
-      
-      let remainingYards = yards;
-      skill.forEach((p, idx) => {
-        const share = idx === skill.length - 1 ? remainingYards : Math.floor(Math.random() * (remainingYards / (skill.length - idx)));
-        p.stats.yards = (p.stats.yards || 0) + share;
-        remainingYards -= share;
+
+      // Rushing logic
+      let remainingRushYards = rushYards;
+      let remainingCarries = Math.floor(Math.random() * 10) + 20; // 20-30 carries
+      if (rbs.length > 0) {
+        rbs.forEach((p, idx) => {
+           const share = idx === rbs.length - 1 ? remainingRushYards : Math.floor(remainingRushYards * 0.7);
+           const carryShare = idx === rbs.length - 1 ? remainingCarries : Math.floor(remainingCarries * 0.7);
+           p.stats.rushingYards = (p.stats.rushingYards || 0) + Math.max(0, share);
+           p.stats.yards = (p.stats.yards || 0) + Math.max(0, share);
+           p.stats.carries = (p.stats.carries || 0) + Math.max(0, carryShare);
+           remainingRushYards -= share;
+           remainingCarries -= carryShare;
+        });
+
+        // Rushing TDs
+        for (let i = 0; i < rushTds; i++) {
+           const target = rbs[0]; // mostly given to rb1
+           if (target) {
+              target.stats.rushingTds = (target.stats.rushingTds || 0) + 1;
+              target.stats.touchdowns = (target.stats.touchdowns || 0) + 1;
+              target.stats.points = (target.stats.points || 0) + 6;
+           }
+        }
+      }
+
+      // Defense Stats Calculation
+      // Sacks generated based on pass attempts
+      const totalSacks = Math.floor(Math.random() * 5); // 0-4 sacks
+      for (let i = 0; i < totalSacks; i++) {
+         const isDL = Math.random() > 0.3; // DL gets 70% of sacks, LB 30%
+         const targetList = isDL && dl.length ? dl : (lb.length ? lb : null);
+         if (targetList) {
+             const defPlayer = targetList[Math.floor(Math.random() * targetList.length)];
+             defPlayer.stats.sacks = (defPlayer.stats.sacks || 0) + 1;
+             defPlayer.stats.tacklesForLoss = (defPlayer.stats.tacklesForLoss || 0) + 1;
+             defPlayer.stats.tackles = (defPlayer.stats.tackles || 0) + 1;
+         }
+      }
+
+      // Pass Deflections
+      const totalPds = Math.floor(Math.random() * 8); // 0-7 pd
+      for (let i = 0; i < totalPds; i++) {
+         if (db.length) {
+             const defDB = db[Math.floor(Math.random() * db.length)];
+             defDB.stats.passDeflections = (defDB.stats.passDeflections || 0) + 1;
+         }
+      }
+
+      // General Tackles & TFL
+      defPlayers.forEach(p => {
+         let tackles = Math.floor(Math.random() * 4) + 1; // 1-4 base
+         if (p.position === 'LB') tackles += Math.floor(Math.random() * 5); // LB 1-9
+         if (p.position === 'DB') tackles += Math.floor(Math.random() * 4); // DB 1-8
+         p.stats.tackles = (p.stats.tackles || 0) + tackles;
+
+         if (['DL', 'LB'].includes(p.position) && Math.random() < 0.2) {
+             p.stats.tacklesForLoss = (p.stats.tacklesForLoss || 0) + 1;
+             p.stats.tackles = (p.stats.tackles || 0) + 1; // TFL implies a tackle
+         }
       });
 
-      tPlayers.filter(p => ['DL', 'LB', 'DB'].includes(p.position)).forEach(p => {
-        p.stats.tackles = (p.stats.tackles || 0) + Math.floor(Math.random() * 8) + 2;
-        if (Math.random() < 0.1) p.stats.sacks = (p.stats.sacks || 0) + 1;
-        if (p.position === 'DB' && Math.random() < 0.05) p.stats.interceptions = (p.stats.interceptions || 0) + 1;
-      });
-
-      if (k) k.stats.points = (k.stats.points || 0) + (Math.floor((score % 7)/3) * 3) + tds;
+      // Kicker
+      if (k) {
+        k.stats.points = (k.stats.points || 0) + (Math.floor((score % 7)/3) * 3) + tds;
+      }
     };
 
-    updateTeamStats(team1Id, team1Score);
-    updateTeamStats(team2Id, team2Score);
+    updateTeamStats(team1Id, team2Id, team1Score);
+    updateTeamStats(team2Id, team1Id, team2Score);
+    
     return nextPlayers;
   };
 

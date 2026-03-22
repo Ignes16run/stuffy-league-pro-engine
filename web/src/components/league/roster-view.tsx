@@ -54,16 +54,27 @@ export default function RosterView() {
   }, [players]);
 
   const leaderboards = useMemo(() => {
-    const getTop = (key: keyof PlayerStats) => 
-      [...players].sort((a, b) => ((b.stats[key] || 0) as number) - ((a.stats[key] || 0) as number)).slice(0, 5);
+    const getTop = (key: keyof PlayerStats, positions: string[], reverse = false) => {
+      const pool = players.filter(p => positions.includes(p.position));
+      return [...pool].sort((a, b) => {
+        const valA = (a.stats[key] as number) || 0;
+        const valB = (b.stats[key] as number) || 0;
+        return reverse ? valA - valB : valB - valA;
+      }).slice(0, 5);
+    };
 
     return {
-      touchdowns: getTop('touchdowns'),
-      yards: getTop('yards'),
-      tackles: getTop('tackles'),
-      interceptions: getTop('interceptions'),
-      points: getTop('points'),
-      sacks: getTop('sacks')
+      passingYards: getTop('passingYards', ['QB']),
+      passingTds: getTop('passingTds', ['QB']),
+      rushingYards: getTop('rushingYards', ['RB']),
+      rushingTds: getTop('rushingTds', ['RB']),
+      receivingYards: getTop('receivingYards', ['WR', 'TE']),
+      receptions: getTop('receptions', ['WR', 'TE']),
+      tackles: getTop('tackles', ['DL', 'LB', 'DB']),
+      tacklesForLoss: getTop('tacklesForLoss', ['DL', 'LB']),
+      sacks: getTop('sacks', ['DL', 'LB']),
+      interceptions: getTop('interceptions', ['DB', 'LB']),
+      passDeflections: getTop('passDeflections', ['DB'])
     };
   }, [players]);
 
@@ -140,15 +151,31 @@ export default function RosterView() {
           </div>
         </TabsContent>
 
-        <TabsContent value="leaders" className="mt-0 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <LeaderboardCard title="Touchdown Leaders" players={leaderboards.touchdowns} teams={teams} statKey="touchdowns" />
-            <LeaderboardCard title="Yards Leaderboard" players={leaderboards.yards} teams={teams} statKey="yards" />
-            <LeaderboardCard title="Scoring Leaders" players={leaderboards.points} teams={teams} statKey="points" />
-            <LeaderboardCard title="Defensive Tackles" players={leaderboards.tackles} teams={teams} statKey="tackles" />
-            <LeaderboardCard title="Sack Masters" players={leaderboards.sacks} teams={teams} statKey="sacks" />
-            <LeaderboardCard title="Interceptions" players={leaderboards.interceptions} teams={teams} statKey="interceptions" />
+        <TabsContent value="leaders" className="mt-0 space-y-12 pb-12">
+          
+          <div className="space-y-6">
+            <h3 className="text-2xl font-black text-stone-900 border-b border-stone-200 pb-2">Offensive Leaders</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <LeaderboardCard title="Passing Yards" players={leaderboards.passingYards} teams={teams} statKey="passingYards" />
+              <LeaderboardCard title="Passing TDs" players={leaderboards.passingTds} teams={teams} statKey="passingTds" />
+              <LeaderboardCard title="Rushing Yards" players={leaderboards.rushingYards} teams={teams} statKey="rushingYards" />
+              <LeaderboardCard title="Rushing TDs" players={leaderboards.rushingTds} teams={teams} statKey="rushingTds" />
+              <LeaderboardCard title="Receiving Yards" players={leaderboards.receivingYards} teams={teams} statKey="receivingYards" />
+              <LeaderboardCard title="Receptions" players={leaderboards.receptions} teams={teams} statKey="receptions" />
+            </div>
           </div>
+
+          <div className="space-y-6">
+            <h3 className="text-2xl font-black text-stone-900 border-b border-stone-200 pb-2">Defensive Leaders</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <LeaderboardCard title="Total Tackles" players={leaderboards.tackles} teams={teams} statKey="tackles" />
+              <LeaderboardCard title="Tackles for Loss" players={leaderboards.tacklesForLoss} teams={teams} statKey="tacklesForLoss" />
+              <LeaderboardCard title="Sacks" players={leaderboards.sacks} teams={teams} statKey="sacks" />
+              <LeaderboardCard title="Interceptions" players={leaderboards.interceptions} teams={teams} statKey="interceptions" />
+              <LeaderboardCard title="Pass Deflections" players={leaderboards.passDeflections} teams={teams} statKey="passDeflections" />
+            </div>
+          </div>
+
         </TabsContent>
       </Tabs>
     </div>
@@ -439,11 +466,11 @@ function LeaderboardCard({ title, players, teams, statKey }: {
       <CardHeader className="bg-stone-50/50 pb-6 pt-8 px-8 border-b border-stone-100/50">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-white rounded-2xl shadow-sm border border-stone-100 group-hover:scale-110 transition-transform">
-            {statKey === 'touchdowns' ? <Target className="w-6 h-6 text-emerald-500" /> :
-             statKey === 'yards' ? <Zap className="w-6 h-6 text-amber-500" /> :
-             statKey === 'tackles' ? <Shield className="w-6 h-6 text-blue-500" /> :
-             statKey === 'sacks' ? <Zap className="w-6 h-6 text-orange-500" /> :
-             statKey === 'points' ? <Trophy className="w-6 h-6 text-indigo-500" /> :
+            {['passingTds', 'rushingTds', 'receivingTds'].includes(statKey) ? <Target className="w-6 h-6 text-emerald-500" /> :
+             ['passingYards', 'rushingYards', 'receivingYards'].includes(statKey) ? <Zap className="w-6 h-6 text-amber-500" /> :
+             ['sacks', 'tacklesForLoss'].includes(statKey) ? <Zap className="w-6 h-6 text-orange-500" /> :
+             ['tackles'].includes(statKey) ? <Shield className="w-6 h-6 text-blue-500" /> :
+             ['interceptions', 'passDeflections'].includes(statKey) ? <Target className="w-6 h-6 text-indigo-500" /> :
              <Star className="w-6 h-6 text-purple-500" />}
           </div>
           <CardTitle className="text-2xl font-black text-stone-900 tracking-tight">{title}</CardTitle>
@@ -473,7 +500,9 @@ function LeaderboardCard({ title, players, teams, statKey }: {
                   <p className="text-2xl font-black text-stone-900 leading-none">
                     {(player.stats[statKey] as number) || 0}
                   </p>
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mt-1 opacity-60">{statKey}</p>
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mt-1 opacity-60">
+                    {statKey.replace(/([A-Z])/g, ' $1').trim()}
+                  </p>
                 </div>
               </div>
             );
