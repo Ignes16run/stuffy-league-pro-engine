@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T05:38:00-04:00
+// Last Updated: 2026-03-22T05:40:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
@@ -114,12 +114,17 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const loadData = useCallback(async () => {
     if (!user) {
-      // For anonymous users, ensure default rosters are generated
+      // For anonymous users, ensure defaults are set (Teams, Players, and Schedule)
+      const schedule = generateRoundRobinSchedule(DEFAULT_LEAGUE_TEAMS);
       const newPlayers: Player[] = [];
       DEFAULT_LEAGUE_TEAMS.forEach(team => {
         newPlayers.push(...generateTeamRoster(team.id));
       });
+      
+      setTeams(DEFAULT_LEAGUE_TEAMS);
       setPlayers(newPlayers);
+      setGames(schedule);
+      setNumWeeks(Math.max(...schedule.map(g => g.week), 0));
       setIsLoaded(true);
       return;
     }
@@ -155,6 +160,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       } else {
         // First time user: Seed teams to DB
         await syncTeams(DEFAULT_LEAGUE_TEAMS);
+        setTeams(DEFAULT_LEAGUE_TEAMS); // Trigger state update
       }
       
       // Players Hydration
