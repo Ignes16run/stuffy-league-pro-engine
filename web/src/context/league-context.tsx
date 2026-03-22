@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-23T00:45:00Z
+// Last Updated: 2026-03-23T00:50:00Z
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -34,6 +34,9 @@ interface LeagueContextType {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   currentWeek: number;
+  numWeeks: number;
+  setNumWeeks: (weeks: number) => void;
+  isSimulating: boolean;
   addTeam: (team: Omit<Team, 'id'>) => Promise<void>;
   updateTeam: (teamId: string, updates: Partial<Team>) => Promise<void>;
   deleteTeam: (teamId: string) => Promise<void>;
@@ -76,6 +79,8 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [games, setGames] = useState<Game[]>([]);
   const [playoffGames, setPlayoffGames] = useState<PlayoffGame[]>([]);
   const [currentWeek, setCurrentWeek] = useState(1);
+  const [numWeeks, setNumWeeks] = useState(14);
+  const [isSimulating, setIsSimulating] = useState(false);
   const [history, setHistory] = useState<SeasonHistory[]>([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [recentNarrativesUsed, setRecentNarrativesUsed] = useState<NarrativeMemoryEntry[]>([]);
@@ -120,6 +125,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
             setGames(data.games || []);
             setPlayoffGames(data.playoffGames || []);
             setCurrentWeek(data.currentWeek || 1);
+            setNumWeeks(data.numWeeks || (data.teams?.length > 0 ? data.teams.length - 1 : 14));
             setHistory(data.history || []);
             setIsAwardsPhase(data.isAwardsPhase || false);
             setAwardFinalists(data.awardFinalists || {});
@@ -139,12 +145,12 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isInitializing) {
       const data = { 
-        teams, players, games, playoffGames, currentWeek, history,
+        teams, players, games, playoffGames, currentWeek, numWeeks, history,
         isAwardsPhase, awardFinalists, selectedAwards, awardResults 
       };
       localStorage.setItem('stuffy_league_data', JSON.stringify(data));
     }
-  }, [teams, players, games, playoffGames, currentWeek, history, isInitializing, isAwardsPhase, awardFinalists, selectedAwards, awardResults]);
+  }, [teams, players, games, playoffGames, currentWeek, numWeeks, history, isInitializing, isAwardsPhase, awardFinalists, selectedAwards, awardResults]);
 
   const addTeam = async (team: Omit<Team, 'id'>) => {
     const newTeam = { ...team, id: generateUUID() };
@@ -162,7 +168,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const updateTeam = async (teamId: string, updates: Partial<Team>) => {
     const newTeams = teams.map(t => t.id === teamId ? { ...t, ...updates } : t);
     setTeams(newTeams);
-    // If a whole team object was passed in previously, we handle it
     const team = newTeams.find(t => t.id === teamId);
     if (user && team) await PersistenceEngine.saveTeams([team]);
   };
@@ -191,7 +196,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const bulkUpdatePlayers = async (playerUpdates: { id: string, updates: Partial<Player> }[]) => {
     const nextPlayers = [...players];
     const affected: Player[] = [];
-    
     playerUpdates.forEach(({ id, updates }) => {
       const idx = nextPlayers.findIndex(p => p.id === id);
       if (idx !== -1) {
@@ -199,7 +203,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         affected.push(nextPlayers[idx]);
       }
     });
-
     setPlayers(nextPlayers);
     if (user) await PersistenceEngine.savePlayers(affected, user.id);
   };
@@ -207,15 +210,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const upgradeStat = async (teamId: string, statId: string) => {
     const team = teams.find(t => t.id === teamId);
     if (!team || team.stuffyPoints < 50) return;
-
     const val = (team as any)[statId] || 75;
     if (val >= 99) return;
-
-    const updates = {
-      [statId]: val + 1,
-      stuffyPoints: team.stuffyPoints - 50
-    };
-
+    const updates = { [statId]: val + 1, stuffyPoints: team.stuffyPoints - 50 };
     await updateTeam(teamId, updates);
   };
 
@@ -237,7 +234,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const createLeague = async (name: string) => {
     await resetLeague();
     await addDefaultTeams();
-    const newGames = generateRoundRobinSchedule(teams, 14);
+    const newGames = generateRoundRobinSchedule(teams, numWeeks);
     setGames(newGames);
     if (user) await PersistenceEngine.saveGames(newGames);
   };
@@ -261,7 +258,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const advanceWeek = () => {
-    if (currentWeek < 14) {
+    if (currentWeek < numWeeks) {
       setCurrentWeek(prev => prev + 1);
     } else {
       const finalists = getAwardFinalists(players);
@@ -291,8 +288,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const simulateSeason = () => {
+    setIsSimulating(true);
     let updatedGames = [...games];
-    for (let w = 1; w <= 14; w++) {
+    for (let w = 1; w <= numWeeks; w++) {
       updatedGames.filter(g => g.week === w).forEach(game => {
         const homeTeam = teams.find(t => t.id === game.homeTeamId);
         const awayTeam = teams.find(t => t.id === game.awayTeamId);
@@ -311,10 +309,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setGames(updatedGames);
     const finalPlayers = recalculateStats(updatedGames, players);
     setPlayers(finalPlayers);
-    setCurrentWeek(14);
+    setCurrentWeek(numWeeks);
     const finalists = getAwardFinalists(finalPlayers);
     setAwardFinalists(finalists as Record<string, Player[]>);
     setIsAwardsPhase(true);
+    setIsSimulating(false);
   };
 
   const resetPredictions = () => {
@@ -365,7 +364,8 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   return (
     <LeagueContext.Provider value={{
       teams, players, games, playoffGames, history, activeTab, setActiveTab,
-      currentWeek, addTeam, updateTeam, deleteTeam, updatePlayer, bulkUpdatePlayers, upgradeStat, addDefaultTeams,
+      currentWeek, numWeeks, setNumWeeks, isSimulating,
+      addTeam, updateTeam, deleteTeam, updatePlayer, bulkUpdatePlayers, upgradeStat, addDefaultTeams,
       createLeague, setCurrentWeek, 
       advanceWeek, simulateGames, resetLeague, saveToSupabase, loadFromSupabase,
       simulateSeason, resetPredictions, 
