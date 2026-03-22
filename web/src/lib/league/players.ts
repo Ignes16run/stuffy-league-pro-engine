@@ -80,7 +80,17 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
       interceptions: 0,
       yards: 0,
       touchdowns: 0
-    }
+    },
+    careerStats: {
+      gamesPlayed: 0,
+      points: 0,
+      assists: 0,
+      tackles: 0,
+      interceptions: 0,
+      yards: 0,
+      touchdowns: 0
+    },
+    awards: []
   };
 }
 
