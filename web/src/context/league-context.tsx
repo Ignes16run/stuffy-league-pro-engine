@@ -5,15 +5,16 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import {
   Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats,
   PlayerAward, NarrativeMemoryEntry, AwardsHistoryEntry,
-  PlayerPosition, PlayerAbility
+  PlayerPosition, PlayerAbility, AwardType
 } from '@/lib/league/types';
 import { generateRoundRobinSchedule, calculateStandings, generateRealisticFootballScore } from '@/lib/league/utils';
 import { supabase } from '@/lib/supabase-client';
 import { useAuth } from '@/context/auth-context';
 import { generateTeamRoster, migratePlayerRatings } from '@/lib/league/players';
 import { selectNarrativeTemplate, generateNarrative } from '@/lib/league/narratives';
-import { AwardType, getAwardFinalists } from '@/lib/league/awards';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
+import { getAwardFinalists, getStatForAward, validateAwardCandidates } from '@/lib/league/awardsEngine';
+import { assignStatsToPlayers } from '@/lib/league/statsEngine';
 
 // Safe UUID generation fallback
 const generateUUID = () => {
@@ -258,10 +259,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
     if (template) {
       const team = teams.find(t => t.id === player.teamId);
-      const isSTPunter = type === 'STPOY' && player.position === 'P';
-      const statKey = type === 'MVP' ? 'passingYards' : type === 'DPOY' ? 'tackles' : type === 'STPOY' ? (isSTPunter ? 'rating' : 'points') : 'yards';
-      const statName = type === 'MVP' ? 'Passing Yards' : type === 'DPOY' ? 'Tackles' : type === 'STPOY' ? (isSTPunter ? 'Punting OVR' : 'Points') : 'Total Yards';
-      const val = (player.stats as any)[statKey] || (player as any)[statKey] || 0;
+      const statName = type === 'MVP' ? 'Passing Yards' : type === 'DPOY' ? 'Tackles' : type === 'STPOY' ? 'Points' : 'Total Yards';
+      const statValue = getStatForAward(player, type);
+      const val = parseInt(statValue.match(/\d+/)?.[0] || "0");
       
       const narrative = generateNarrative(
         player, type, team?.name || 'his team', val, statName, template
@@ -295,28 +295,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           const updatedGame = { ...game, homeScore, awayScore, winnerId, isTie: homeScore === awayScore };
           updatedGamesList.push(updatedGame);
           
-          const gUpdates = currentPlayers.filter(p => p.teamId === home.id || p.teamId === away.id).map(p => {
-             const isHome = p.teamId === home.id;
-             const score = isHome ? homeScore : awayScore;
-             const s = { ...p.stats } as any;
-             s.gamesPlayed = (s.gamesPlayed || 0) + 1;
-             if (p.position === 'QB') {
-               s.passingYards = (s.passingYards || 0) + Math.round(score * 8);
-               s.passingTds = (s.passingTds || 0) + Math.floor(score/7);
-             } else if (['WR','RB','TE'].includes(p.position)) {
-               s.yards = (s.yards || 0) + Math.round(score * 3);
-               s.touchdowns = (s.touchdowns || 0) + Math.floor(score/10);
-             } else if (p.position === 'K') {
-               // Kickers earn points: roughly 1.5 pts per 7 team points (XPs + FGs)
-               s.points = (s.points || 0) + Math.floor(score / 4);
-             } else if (['DL', 'LB', 'EDGE', 'CB', 'S'].includes(p.position)) {
-               s.tackles = (s.tackles || 0) + Math.floor(Math.random()*7);
-               if (Math.random() > 0.9) s.interceptions = (s.interceptions || 0) + 1;
-               if (Math.random() > 0.85) s.sacks = (s.sacks || 0) + 1;
-             }
-             return { ...p, stats: s as PlayerStats };
-          });
-          currentPlayers = currentPlayers.map(p => gUpdates.find(u => u.id === p.id) || p);
+          // Modularized stat engine distribution
+          currentPlayers = assignStatsToPlayers(currentPlayers, home.id, homeScore, awayScore);
+          currentPlayers = assignStatsToPlayers(currentPlayers, away.id, awayScore, homeScore);
        }
     }
 
@@ -418,12 +399,17 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setHistory(prev => [{ year, championId: champId, finalStandings: standings }, ...prev]);
     if (user) supabase.from('league_history').insert({ user_id: user.id, year, champion_id: champId, full_standings: standings }).then();
     
-    const finalists = getAwardFinalists(players);
-    setAwardFinalists(finalists);
+    // Use modular awards engine for finalists
+    const sanitizedFinalists: Record<string, Player[]> = {};
+    (['MVP', 'OPOY', 'DPOY', 'STPOY'] as AwardType[]).forEach(cat => {
+        sanitizedFinalists[cat] = validateAwardCandidates(players, cat);
+    });
+
+    setAwardFinalists(sanitizedFinalists);
     setIsAwardsPhase(true);
     if (!user) {
        localStorage.setItem('stuffy_is_awards_phase', 'true');
-       localStorage.setItem('stuffy_award_finalists', JSON.stringify(finalists));
+       localStorage.setItem('stuffy_award_finalists', JSON.stringify(sanitizedFinalists));
     }
   };
 

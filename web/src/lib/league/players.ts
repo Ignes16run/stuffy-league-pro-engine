@@ -1,8 +1,7 @@
-// Last Updated: 2026-03-21T15:42:00-04:00
-import { Player, PlayerPosition, PlayerAbility } from './types';
+// Last Updated: 2026-03-22T17:35:00Z
+import { Player, PlayerPosition, PlayerAbility, PlayerStats } from './types';
 import { generateWeightedOVR, generateInitialRatings, calculateOVR } from './ratings';
-
-// Use native crypto.randomUUID() for ID generation to avoid external dependencies
+import { POSITION_CONFIGS } from './position-system';
 
 const FIRST_NAMES = [
   "Buster", "Bubbles", "Cuddles", "Duffy", "Fluffy", "Gizmo", "Hugs", "Jiggles",
@@ -27,8 +26,6 @@ const ARCHETYPES = [
   { name: "The Underdog", profile: "Small in stature but big on heart and determination." }
 ];
 
-// Positions definition moved inside generateTeamRoster or unused
-
 export function generateTeamRoster(teamId: string): Player[] {
   const roster: Player[] = [];
   
@@ -47,9 +44,12 @@ export function generateTeamRoster(teamId: string): Player[] {
     { pos: 'LB', count: 2 },
   ];
 
+  // Audit: Only generate players for ENABLED positions
   positions.forEach(({ pos, count }) => {
-    for (let i = 0; i < count; i++) {
-        roster.push(createPlayer(teamId, pos));
+    if (POSITION_CONFIGS[pos]?.isEnabled) {
+        for (let i = 0; i < count; i++) {
+            roster.push(createPlayer(teamId, pos));
+        }
     }
   });
 
@@ -61,7 +61,7 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
   const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
   const archetype = ARCHETYPES[Math.floor(Math.random() * ARCHETYPES.length)];
   
-  const baseRating = generateWeightedOVR(); // Normal distribution logic
+  const baseRating = generateWeightedOVR(); 
   const initialAbilities = generateInitialRatings(position, baseRating);
   const derivedRating = calculateOVR(initialAbilities);
   
@@ -78,18 +78,14 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
     stats: {
       gamesPlayed: 0,
       points: 0,
-      assists: 0,
       tackles: 0,
-      interceptions: 0,
       yards: 0,
       touchdowns: 0
     },
     careerStats: {
       gamesPlayed: 0,
       points: 0,
-      assists: 0,
       tackles: 0,
-      interceptions: 0,
       yards: 0,
       touchdowns: 0
     },
@@ -97,13 +93,9 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
   };
 }
 
-/**
- * Migrates a player to the new 5-rating system if they aren't already
- */
 export function migratePlayerRatings(player: Player): Player {
   if (player.abilities && player.abilities.length === 5) return player;
   
-  // Create fresh ratings mapping to current OVR
   const migratedAbilities = generateInitialRatings(player.position, player.rating);
   return {
     ...player,

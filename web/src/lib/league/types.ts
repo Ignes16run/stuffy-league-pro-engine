@@ -66,8 +66,10 @@ export interface LeagueState {
   recentNarrativesUsed: NarrativeMemoryEntry[];
 }
 
+export type AwardType = 'MVP' | 'OPOY' | 'DPOY' | 'STPOY' | 'CHAMPION';
+
 export interface AwardsHistoryEntry {
-  awardType: 'MVP' | 'OPOY' | 'DPOY' | 'STPOY' | 'CHAMPION';
+  awardType: AwardType;
   seasonId: string; // Year or unique ID
 }
 

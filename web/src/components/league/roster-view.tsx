@@ -31,6 +31,7 @@ import { Player, Team, PlayerStats } from '@/lib/league/types';
 import { uploadFile } from '@/lib/supabase-client';
 import { calculatePlayerRankings } from '@/lib/league/utils';
 import { calculateOVR, POSITION_RATINGS } from '@/lib/league/ratings';
+import { POSITION_GROUPS, POSITION_CONFIGS } from '@/lib/league/position-system';
 
 export default function RosterView() {
   const { teams, players, updatePlayer, bulkUpdatePlayers } = useLeague();
@@ -296,20 +297,34 @@ function PlayerCard({ player, team, rankings, statMode, onUpdate }: {
           <StatBox label="P-Yds" value={displayStats.passingYards || 0} rank={rankings?.passingYards} />
           <StatBox label="P-TD" value={displayStats.passingTds || 0} rank={rankings?.passingTds} />
           <StatBox label="CMP%" value={displayStats.completionPct || 0} suffix="%" rank={rankings?.completionPct} />
-          <StatBox label="INT" value={displayStats.interceptionsThrown || 0} rank={rankings?.interceptionsThrown} />
+          <StatBox label="GP" value={displayStats.gamesPlayed || 0} />
         </>
       ) : ['RB', 'WR', 'TE'].includes(player.position) ? (
         <>
-          <StatBox label="TDs" value={displayStats.touchdowns || 0} />
-          <StatBox label="Yds" value={displayStats.yards || 0} />
-          <StatBox label="Pts" value={displayStats.points || 0} />
+          <StatBox label="Rec-Y" value={displayStats.receivingYards || 0} />
+          <StatBox label="Rush-Y" value={displayStats.rushingYards || 0} />
+          <StatBox label="TDs" value={(displayStats.receivingTds || 0) + (displayStats.rushingTds || 0)} />
+          <StatBox label="GP" value={displayStats.gamesPlayed || 0} />
+        </>
+      ) : player.position === 'K' ? (
+        <>
+          <StatBox label="Points" value={displayStats.points || 0} />
+          <StatBox label="FG%" value={85} suffix="%" /> {/* Placeholder for logic later */}
+          <StatBox label="Long" value={52} />
+          <StatBox label="GP" value={displayStats.gamesPlayed || 0} />
+        </>
+      ) : player.position === 'OL' ? (
+        <>
+          <StatBox label="Rating" value={player.rating} />
+          <StatBox label="P-Blk" value={player.abilities[0]?.value || 0} />
+          <StatBox label="R-Blk" value={player.abilities[1]?.value || 0} />
           <StatBox label="GP" value={displayStats.gamesPlayed || 0} />
         </>
       ) : (
         <>
           <StatBox label="Tkl" value={displayStats.tackles || 0} />
-          <StatBox label="Int" value={displayStats.interceptions || 0} />
           <StatBox label="Sks" value={displayStats.sacks || 0} />
+          <StatBox label="Int" value={displayStats.interceptions || 0} />
           <StatBox label="GP" value={displayStats.gamesPlayed || 0} />
         </>
       )}

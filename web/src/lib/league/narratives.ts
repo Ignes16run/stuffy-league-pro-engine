@@ -1,6 +1,5 @@
-// Last Updated: 2026-03-22T16:20:00Z
-import { Player, AwardsHistoryEntry, NarrativeMemoryEntry, PlayerPosition } from './types';
-import { AwardType } from './awards';
+// Last Updated: 2026-03-22T21:50:00Z
+import { Player, AwardType, AwardsHistoryEntry, NarrativeMemoryEntry, PlayerPosition } from './types';
 
 export type NarrativeTag = 
   | 'first_time' 
@@ -16,13 +15,13 @@ export interface NarrativeTemplate {
   positionGroups?: PlayerPosition[];
   tags: NarrativeTag[];
   content: string; // Has placeholders: {playerName}, {teamName}, {value}, {statName}
-  variations?: string[]; // Multiple versions for the same template ID (Option A)
+  variations?: string[]; 
 }
 
 const PHRASES = {
-  dominant: ["dominant season", "outstanding campaign", "elite performance", "historic run", "masterful display"],
-  lead: ["guiding", "powering", "leading", "driving", "propelling"],
-  earned: ["secured", "earned", "unlocked", "captured", "clinched"]
+  dominant: ["dominant season", "outstanding campaign", "elite performance", "historic run", "masterful display", "unforgettable stretch"],
+  lead: ["guiding", "powering", "leading", "driving", "propelling", "anchoring"],
+  earned: ["secured", "earned", "unlocked", "captured", "clinched", "cemented"]
 };
 
 const getRandomPhrase = (key: keyof typeof PHRASES) => {
@@ -31,58 +30,67 @@ const getRandomPhrase = (key: keyof typeof PHRASES) => {
 };
 
 export const NARRATIVE_BANK: NarrativeTemplate[] = [
-  // MVP - First Time
+  // MVP
   {
     id: 'mvp-breakout',
     awardType: 'MVP',
     tags: ['first_time', 'breakout'],
     content: "{playerName} put together a {phrase_dominant} for {teamName}, {phrase_earned} his first MVP after {phrase_lead} the league with {value} {statName}."
   },
-  // MVP - Back to Back
   {
     id: 'mvp-b2b',
     awardType: 'MVP',
     tags: ['back_to_back', 'repeat_winner'],
     content: "{playerName} continues his dominance, securing back-to-back MVP honors after another {phrase_dominant} with {value} {statName}."
   },
-  // MVP - Repeat (not necessarily b2b)
   {
     id: 'mvp-repeat',
     awardType: 'MVP',
     tags: ['repeat_winner'],
     content: "{playerName} has done it again. The {teamName} star captures his latest MVP trophy after a {phrase_dominant} totaling {value} {statName}."
   },
-  // OPOY - Variety
+  // OPOY
   {
-    id: 'opoy-record',
+    id: 'opoy-generic',
     awardType: 'OPOY',
     tags: ['first_time'],
-    positionGroups: ['QB', 'WR'],
-    content: "{playerName} rewrote the record books this season. His {phrase_dominant} resulted in {value} {statName}, establishing him as the most feared threat in the league."
+    content: "{playerName} defined offensive excellence this season, {phrase_lead} {teamName} with {value} {statName}."
   },
-  // DPOY - Variety
+  {
+    id: 'opoy-passing',
+    awardType: 'OPOY',
+    tags: ['first_time'],
+    positionGroups: ['QB'],
+    content: "The league's most prolific passer, {playerName}, takes home OPOY. His {phrase_dominant} for {teamName} saw him record {value} {statName}."
+  },
+  // DPOY
   {
     id: 'dpoy-shutdown',
     awardType: 'DPOY',
     tags: ['first_time'],
-    positionGroups: ['CB', 'S'],
-    content: "The league's premier lockdown defender, {playerName}, takes home DPOY honors. He made life impossible for receivers, recording {value} {statName} in a {phrase_dominant} campaign."
+    positionGroups: ['CB', 'S', 'LB'],
+    content: "The league's premier lockdown force, {playerName}, takes home DPOY honors. He made life impossible for opponents, recording {value} {statName} in a {phrase_dominant} campaign."
   },
-  // STPOY (Kicker)
   {
-    id: 'stpoy-clutch',
+    id: 'dpoy-power',
+    awardType: 'DPOY',
+    tags: ['first_time'],
+    positionGroups: ['DL', 'EDGE', 'LB'],
+    content: "{playerName} was an unstoppable force on the line, {phrase_earned} DPOY for {teamName} with a {phrase_dominant} of {value} {statName}."
+  },
+  // STPOY
+  {
+    id: 'stpoy-kicker-clutch',
     awardType: 'STPOY',
     tags: ['first_time'],
     positionGroups: ['K'],
     content: "{playerName} was the definition of clutch this year, {phrase_earned} STPOY for {teamName} with {value} total points."
   },
-  // STPOY (Punter)
   {
-    id: 'stpoy-field-position',
+    id: 'stpoy-general',
     awardType: 'STPOY',
     tags: ['first_time'],
-    positionGroups: ['P'],
-    content: "A master of field position, {playerName} {phrase_earned} STPOY honors. His {phrase_dominant} consistently pinned opponents deep, backed by an elite {value} rating."
+    content: "Special teams standout {playerName} {phrase_earned} the STPOY award after a {phrase_dominant} season contributing {value} to the team."
   }
 ];
 
@@ -102,7 +110,8 @@ export function selectNarrativeTemplate(
     tags.push('breakout');
   } else {
     tags.push('repeat_winner');
-    const lastSeasonId = (parseInt(currentSeasonId) - 1).toString();
+    const lastNum = parseInt(currentSeasonId.replace(/[^\d]/g, '')) || 0;
+    const lastSeasonId = (lastNum - 1).toString();
     if (awardMatches.some(h => h.seasonId === lastSeasonId)) {
       tags.push('back_to_back');
     }
@@ -123,8 +132,12 @@ export function selectNarrativeTemplate(
   if (taggedMatches.length > 0) matches = taggedMatches;
 
   // 3. Apply Memory Filter
+  const currentNum = parseInt(currentSeasonId.replace(/[^\d]/g, '')) || 0;
   const recentlyUsedIds = memory
-    .filter(m => parseInt(m.seasonId) >= parseInt(currentSeasonId) - 2)
+    .filter(m => {
+        const mNum = parseInt(m.seasonId.replace(/[^\d]/g, '')) || 0;
+        return mNum >= currentNum - 2;
+    })
     .map(m => m.templateId);
 
   const cleanMatches = matches.filter(m => !recentlyUsedIds.includes(m.id));
@@ -148,7 +161,7 @@ export function generateNarrative(
 ): string {
   let text = template.content;
 
-  // Replace phrases (Option B)
+  // Replace phrases
   text = text.replace('{phrase_dominant}', getRandomPhrase('dominant'));
   text = text.replace('{phrase_lead}', getRandomPhrase('lead'));
   text = text.replace('{phrase_earned}', getRandomPhrase('earned'));
