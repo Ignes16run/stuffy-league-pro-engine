@@ -49,27 +49,39 @@ export function assignStatsToPlayers(
     return results;
   };
 
-  // 3. Score Deconstruction (Ensuring Points Reconciliation)
-  // Logic: 1 TD = 6 pts. 1 XP = 1 pt. 1 FG = 3 pts.
-  const totalTDs = Math.floor(score / 7);
-  const ptsFromTDs = totalTDs * 6;
-  const remainder = score - ptsFromTDs;
-  
-  // XPs usually equal TDs if missed kicks are ignored
-  const xpCount = Math.min(totalTDs, remainder);
-  const fgCount = Math.floor((remainder - xpCount) / 3);
+  // 3. Score Deconstruction (Diophantine Solver for 7x + 3y = score)
+  // We prioritize TDs (7 points incl. XP) as they are the main driver of football stats
+  let totalTDs = Math.floor(score / 7);
+  let fgCount = 0;
+  let remainingPoints = score - (totalTDs * 7);
+
+  // Greedily find if we can fit FGs into the remainder
+  while (totalTDs >= 0) {
+    remainingPoints = score - (totalTDs * 7);
+    if (remainingPoints % 3 === 0) {
+      fgCount = remainingPoints / 3;
+      break;
+    }
+    totalTDs--;
+  }
+
+  // Fallback for scores like 8, 11 etc where 7x+3y doesn't match perfectly
+  if (totalTDs < 0) {
+    totalTDs = Math.floor(score / 7);
+    remainingPoints = score - (totalTDs * 7);
+    fgCount = Math.floor(remainingPoints / 3);
+  }
+
+  const xpCount = totalTDs; // One XP per TD in this model
   
   // 4. Calculate TD Split Pools
   let rushingTdsCount = totalTDs > 0 
     ? Math.floor(totalTDs * (0.2 + Math.random() * 0.3) + (Math.random() < 0.2 ? 1 : 0))
     : 0;
 
-  // Corner case handling for low scoring
-  if (totalTDs === 0 && score >= 6 && Math.random() > 0.6) rushingTdsCount = 1;
-  
-  // Position availability correction
+  // Position availability checks
   if (rbs.length === 0) rushingTdsCount = 0;
-  if (receivers.length === 0) rushingTdsCount = Math.floor(score / 6);
+  if (receivers.length === 0) rushingTdsCount = totalTDs;
   
   rushingTdsCount = Math.min(rushingTdsCount, totalTDs);
   const passingTdsCount = Math.max(0, totalTDs - rushingTdsCount);
@@ -111,7 +123,13 @@ export function assignStatsToPlayers(
         break;
 
       case 'K':
-        s.points = (s.points || 0) + (xpCount * 1) + (fgCount * 3);
+        // Reconcile points: Score = (TD*7) + (FG*3) + ?
+        // We ensure the kicker's points (XPs + FGs) align with the source of truth game score.
+        const kickerXpPoints = xpCount * 1;
+        const kickerFgPoints = fgCount * 3;
+        const totalKickerPoints = kickerXpPoints + kickerFgPoints + (score - (totalTDs * 7) - (fgCount * 3));
+        
+        s.points = (s.points || 0) + totalKickerPoints;
         s.fgMade = (s.fgMade || 0) + fgCount;
         s.xpMade = (s.xpMade || 0) + xpCount;
         break;

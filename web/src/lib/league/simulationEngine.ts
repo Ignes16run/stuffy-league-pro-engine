@@ -34,11 +34,13 @@ export const SimulationEngine = {
         updatedGamesList.push(updatedGame);
         
         // 1. Assign raw stats
+        const preGamePlayers = [...currentPlayers];
         currentPlayers = assignStatsToPlayers(currentPlayers, home.id, homeScore, awayScore);
         currentPlayers = assignStatsToPlayers(currentPlayers, away.id, awayScore, homeScore);
+        const postGamePlayers = [...currentPlayers];
 
-        // 2. Post-game validation and correction
-        const { validatedPlayers } = validateGameStats(updatedGame, currentPlayers);
+        // 2. Post-game validation and correction (Delta-aware)
+        const { validatedPlayers } = validateGameStats(updatedGame, postGamePlayers, preGamePlayers);
         currentPlayers = validatedPlayers;
       }
     }
