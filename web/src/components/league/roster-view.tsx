@@ -11,6 +11,7 @@ import {
   RefreshCw, Settings2
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
+import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -343,7 +344,7 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
   trigger: React.ReactElement,
   onUpdate: (updates: Partial<Player>) => void 
 }) {
-  const { user } = useLeague();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [editData, setEditData] = useState({
     name: player.name,
