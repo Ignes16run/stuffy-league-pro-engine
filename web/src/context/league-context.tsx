@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-21T18:15:00-04:00
+// Last Updated: 2026-03-22T05:30:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
@@ -68,7 +68,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       id: t.id, user_id: user.id, name: t.name, icon: t.icon, 
       primary_color: t.primaryColor, secondary_color: t.secondaryColor,
       offense_rating: t.offenseRating, defense_rating: t.defenseRating, 
-      special_teams_rating: t.special_teams_rating || t.specialTeamsRating, 
+      special_teams_rating: t.specialTeamsRating, 
       stuffy_points: t.stuffyPoints, all_time_wins: t.allTimeWins, 
       championships: t.championships, logo_url: t.logoUrl
     }));
@@ -96,7 +96,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const data = gamesArr.map(g => ({
       id: g.id, user_id: user.id, week: g.week,
-      home_team_id: g.homeTeamId, away_team_id: g.away_team_id,
+      home_team_id: g.homeTeamId, away_team_id: g.awayTeamId,
       winner_id: g.winnerId, is_tie: g.isTie, home_score: g.homeScore, away_score: g.awayScore
     }));
     await supabase.from('games').upsert(data);
@@ -420,7 +420,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     const entry: SeasonHistory = { year, championId, finalStandings: stands };
     
     setHistory(prev => [...prev, entry]);
-    await supabase.from('season_history').insert({ user_id: user?.id, year, champion_id: championId, final_standings: stands });
+    if (user) {
+      await supabase.from('season_history').insert({ user_id: user.id, year, champion_id: championId, final_standings: stands });
+    }
     
     const updatedTeams = teams.map(t => {
       const wins = games.filter(g => g.winnerId === t.id).length;
