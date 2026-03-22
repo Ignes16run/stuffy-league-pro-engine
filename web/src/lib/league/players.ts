@@ -1,5 +1,6 @@
 // Last Updated: 2026-03-21T15:42:00-04:00
 import { Player, PlayerPosition, PlayerAbility } from './types';
+import { generateWeightedOVR, generateInitialRatings, calculateOVR } from './ratings';
 
 // Use native crypto.randomUUID() for ID generation to avoid external dependencies
 
@@ -60,18 +61,20 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
   const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
   const archetype = ARCHETYPES[Math.floor(Math.random() * ARCHETYPES.length)];
   
-  const baseRating = 70 + Math.floor(Math.random() * 20); // 70-90 initial
+  const baseRating = generateWeightedOVR(); // Normal distribution logic
+  const initialAbilities = generateInitialRatings(position, baseRating);
+  const derivedRating = calculateOVR(initialAbilities);
   
   return {
     id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `p-${Math.random().toString(36).substring(2, 11)}`,
     teamId,
     name: `${firstName} ${lastName}`,
     position,
-    rating: baseRating,
+    rating: derivedRating,
     archetype: archetype.name,
     jerseyNumber: Math.floor(Math.random() * 100).toString().padStart(2, '0'),
     profile: archetype.profile,
-    abilities: generateAbilities(position, baseRating),
+    abilities: initialAbilities,
     stats: {
       gamesPlayed: 0,
       points: 0,
@@ -94,42 +97,17 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
   };
 }
 
-function generateAbilities(position: PlayerPosition, baseRating: number): PlayerAbility[] {
-  const abilities: PlayerAbility[] = [];
-  const primaryAbilityVal = Math.min(99, baseRating + 5);
-  const secondaryAbilityVal = Math.min(99, baseRating - 5);
-
-  switch (position) {
-    case 'QB':
-      abilities.push({ name: 'Arm Strength', value: primaryAbilityVal, description: 'Power behind throws' });
-      abilities.push({ name: 'Accuracy', value: secondaryAbilityVal, description: 'Precision passing' });
-      break;
-    case 'WR':
-      abilities.push({ name: 'Speed', value: primaryAbilityVal, description: 'Top end velocity' });
-      abilities.push({ name: 'Hands', value: secondaryAbilityVal, description: 'Catching reliability' });
-      break;
-    case 'RB':
-      abilities.push({ name: 'Agility', value: primaryAbilityVal, description: 'Quick cuts and moves' });
-      abilities.push({ name: 'Stability', value: secondaryAbilityVal, description: 'Balance after contact' });
-      break;
-    case 'CB':
-    case 'S':
-      abilities.push({ name: 'Speed', value: primaryAbilityVal, description: 'Closing speed' });
-      abilities.push({ name: 'Coverage', value: secondaryAbilityVal, description: 'Lockdown ability' });
-      break;
-    case 'EDGE':
-      abilities.push({ name: 'Power', value: primaryAbilityVal, description: 'Pass rush strength' });
-      abilities.push({ name: 'Finesse', value: secondaryAbilityVal, description: 'Shedding blocks' });
-      break;
-    case 'DL':
-    case 'OL':
-      abilities.push({ name: 'Strength', value: primaryAbilityVal, description: 'Pushing power' });
-      abilities.push({ name: 'Stance', value: secondaryAbilityVal, description: 'Leverage' });
-      break;
-    default:
-      abilities.push({ name: 'Motor', value: primaryAbilityVal, description: 'Effort' });
-      abilities.push({ name: 'IQ', value: secondaryAbilityVal, description: 'Game awareness' });
-  }
-
-  return abilities;
+/**
+ * Migrates a player to the new 5-rating system if they aren't already
+ */
+export function migratePlayerRatings(player: Player): Player {
+  if (player.abilities && player.abilities.length === 5) return player;
+  
+  // Create fresh ratings mapping to current OVR
+  const migratedAbilities = generateInitialRatings(player.position, player.rating);
+  return {
+    ...player,
+    abilities: migratedAbilities,
+    rating: calculateOVR(migratedAbilities)
+  };
 }

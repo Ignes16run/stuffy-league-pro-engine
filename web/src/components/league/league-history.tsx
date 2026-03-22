@@ -1,16 +1,18 @@
 "use client";
-// Last Updated: 2026-03-22T15:40:00Z
+// Last Updated: 2026-03-22T17:10:00Z
 
 import React, { useMemo } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Trophy, History, Award, Star, TrendingUp, Users, Target, Zap, Shield
+  Trophy, History, Award, Star, TrendingUp, Users, Target, Zap, Shield, Medal
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { STUFFY_ICONS } from '@/lib/league/constants';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Player, Team, PlayerStats } from '@/lib/league/types';
+import { Player, Team, PlayerStats, SeasonHistory } from '@/lib/league/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export default function LeagueHistory() {
   const { history, teams, players } = useLeague();
@@ -39,6 +41,14 @@ export default function LeagueHistory() {
         .slice(0, 3);
     };
 
+    const getTopAwardWinners = () => {
+       return [...players]
+         .map(p => ({ ...p, careerRecord: (p.awards?.length || 0) }))
+         .sort((a, b) => b.careerRecord - a.careerRecord)
+         .filter(p => p.careerRecord > 0)
+         .slice(0, 5);
+    };
+
     return {
       passingYards: getTopPlayers('passingYards'),
       passingTds: getTopPlayers('passingTds'),
@@ -48,7 +58,8 @@ export default function LeagueHistory() {
       receivingTds: getTopPlayers('receivingTds'),
       tackles: getTopPlayers('tackles'),
       sacks: getTopPlayers('sacks'),
-      interceptions: getTopPlayers('interceptions')
+      interceptions: getTopPlayers('interceptions'),
+      awards: getTopAwardWinners()
     };
   }, [players]);
 
@@ -58,6 +69,7 @@ export default function LeagueHistory() {
         <TabsList className="bg-stone-100 p-1 rounded-2xl">
            <TabsTrigger value="overview" className="rounded-xl px-8 py-2 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white">Record Book</TabsTrigger>
            <TabsTrigger value="players" className="rounded-xl px-8 py-2 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white">Hall of Fame</TabsTrigger>
+           <TabsTrigger value="awards" className="rounded-xl px-8 py-2 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white">Award Archive</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-0 space-y-12">
@@ -81,15 +93,73 @@ export default function LeagueHistory() {
           </div>
         </TabsContent>
 
-        <TabsContent value="players" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-             <PlayerHallOfFameCard title="Passing Yards" players={playerLeaders.passingYards} icon={Target} color="#3b82f6" />
-             <PlayerHallOfFameCard title="Passing TDs" players={playerLeaders.passingTds} icon={Star} color="#f59e0b" />
-             <PlayerHallOfFameCard title="Rushing Yards" players={playerLeaders.rushingYards} icon={Zap} color="#10b981" />
-             <PlayerHallOfFameCard title="Receiving Yards" players={playerLeaders.receivingYards} icon={Target} color="#8b5cf6" />
-             <PlayerHallOfFameCard title="Sacks" players={playerLeaders.sacks} icon={Zap} color="#ef4444" />
-             <PlayerHallOfFameCard title="Interceptions" players={playerLeaders.interceptions} icon={Shield} color="#6366f1" />
+        <TabsContent value="players" className="mt-0 space-y-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+             <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <PlayerHallOfFameCard title="Passing Yards" players={playerLeaders.passingYards} icon={Target} color="#3b82f6" />
+                <PlayerHallOfFameCard title="Passing TDs" players={playerLeaders.passingTds} icon={Star} color="#f59e0b" />
+                <PlayerHallOfFameCard title="Rushing Yards" players={playerLeaders.rushingYards} icon={Zap} color="#10b981" />
+                <PlayerHallOfFameCard title="Receiving Yards" players={playerLeaders.receivingYards} icon={Target} color="#8b5cf6" />
+             </div>
+             <div className="space-y-8">
+                <PlayerHallOfFameCard title="Decorated Legends" players={playerLeaders.awards} icon={Medal} color="#f97316" customLabel="Awards Won" />
+                <PlayerHallOfFameCard title="Sacks" players={playerLeaders.sacks} icon={Zap} color="#ef4444" />
+                <PlayerHallOfFameCard title="Interceptions" players={playerLeaders.interceptions} icon={Shield} color="#6366f1" />
+             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="awards" className="mt-0">
+           <div className="space-y-12">
+              {[...Array(history.length)].map((_, i) => {
+                 const yearNum = history.length - i;
+                 const yearAwards: { player: Player, award: any }[] = [];
+                 players.forEach(p => {
+                    p.awards?.filter(a => a.year === yearNum).forEach(a => {
+                       yearAwards.push({ player: p, award: a });
+                    });
+                 });
+
+                 if (yearAwards.length === 0) return null;
+
+                 return (
+                   <div key={yearNum} className="space-y-6">
+                      <div className="flex items-center gap-4 px-4">
+                         <div className="h-0.5 flex-1 bg-stone-100" />
+                         <span className="font-black text-stone-900 text-lg uppercase tracking-tight italic">Season {yearNum} Honors</span>
+                         <div className="h-0.5 flex-1 bg-stone-100" />
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                         {yearAwards.map(({ player, award }, idx) => (
+                           <Card key={idx} className="rounded-3xl border-stone-100 shadow-lg overflow-hidden border-2 bg-white">
+                              <div className="p-5">
+                                 <div className="flex items-center justify-between mb-4">
+                                    <Badge className="bg-amber-400 text-white border-none py-1 px-3 text-[9px] font-black uppercase tracking-widest">{award.awardType}</Badge>
+                                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                                 </div>
+                                 <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-stone-50 border border-stone-100 flex items-center justify-center shrink-0 overflow-hidden">
+                                       {player.profilePicture ? <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" /> : "🧸"}
+                                    </div>
+                                    <div className="min-w-0">
+                                       <p className="font-black text-stone-900 text-xs truncate leading-none mb-1 uppercase tracking-tighter">{player.name}</p>
+                                       <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest">{player.position}</p>
+                                    </div>
+                                 </div>
+                                 {player.profile && (
+                                   <div className="p-3 bg-stone-50 rounded-xl text-[11px] leading-relaxed text-stone-600 font-medium italic border border-stone-100">
+                                      &quot;{player.profile}&quot;
+                                   </div>
+                                 )}
+                              </div>
+                           </Card>
+                         ))}
+                      </div>
+                   </div>
+                 );
+              })}
+           </div>
         </TabsContent>
       </Tabs>
     </div>
@@ -98,7 +168,7 @@ export default function LeagueHistory() {
 
 function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: string, teams: any[], icon: any, statKey: string, color: string }) {
   return (
-    <Card className="rounded-[2.5rem] border border-stone-100 shadow-xl overflow-hidden min-h-[420px]">
+    <Card className="rounded-[4xl] border border-stone-100 shadow-xl overflow-hidden min-h-[420px]">
        <CardHeader className="bg-stone-50/30 border-b border-stone-100 p-8">
           <div className="w-12 h-12 rounded-[1.25rem] bg-white shadow-sm flex items-center justify-center border border-stone-100 mb-4">
              <Icon className="w-6 h-6" style={{ color }} />
@@ -112,12 +182,12 @@ function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: strin
                <div key={team.id} className="p-6 flex items-center justify-between group hover:bg-stone-50/50 transition-colors">
                   <div className="flex items-center gap-4">
                      <span className="text-sm font-black text-stone-300 w-4">{idx + 1}</span>
-                       <div 
-                          className="w-12 h-12 rounded-xl flex items-center justify-center border-2 shadow-sm text-white"
-                          style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
-                        >
-                           {team.logoUrl ? <img src={team.logoUrl} alt={team.name} className="w-full h-full object-cover" /> : React.createElement(STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS], { className: "w-6 h-6" })}
-                        </div>
+                        <div 
+                           className="w-12 h-12 rounded-xl flex items-center justify-center border-2 shadow-sm text-white"
+                           style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
+                         >
+                            {team.logoUrl ? <img src={team.logoUrl} alt={team.name} className="w-full h-full object-cover" /> : React.createElement(STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS], { className: "w-6 h-6" })}
+                         </div>
                       <div className="text-left">
                          <h4 className="font-black text-stone-900 text-sm leading-tight uppercase tracking-tighter">{team.name}</h4>
                          <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Permanent Program</p>
@@ -134,10 +204,10 @@ function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: strin
   );
 }
 
-function PlayerHallOfFameCard({ title, players, icon: Icon, color }: { title: string, players: any[], icon: any, color: string }) {
+function PlayerHallOfFameCard({ title, players, icon: Icon, color, customLabel }: { title: string, players: any[], icon: any, color: string, customLabel?: string }) {
   const { teams } = useLeague();
   return (
-    <Card className="rounded-[2.5rem] border border-stone-100 shadow-lg overflow-hidden h-full">
+    <Card className="rounded-[4xl] border border-stone-100 shadow-lg overflow-hidden h-full">
        <CardHeader className="bg-stone-50/30 border-b border-stone-100 p-6 flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-xl font-black text-stone-900 leading-tight">{title}</CardTitle>
@@ -152,7 +222,7 @@ function PlayerHallOfFameCard({ title, players, icon: Icon, color }: { title: st
              {players.map((player, idx) => {
                const team = teams.find(t => t.id === player.teamId);
                return (
-                 <div key={player.id} className="p-5 flex items-center justify-between group transition-colors">
+                 <div key={player.id} className="p-5 flex items-center justify-between group transition-colors hover:bg-stone-50/30">
                     <div className="flex items-center gap-4">
                        <span className="text-xs font-black text-stone-200 w-4">#{idx + 1}</span>
                        <div 
@@ -168,7 +238,7 @@ function PlayerHallOfFameCard({ title, players, icon: Icon, color }: { title: st
                     </div>
                     <div className="text-right">
                        <p className="text-lg font-black text-stone-900 leading-none">{player.careerRecord}</p>
-                       <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest">Total</p>
+                       <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest">{customLabel || 'Total'}</p>
                     </div>
                  </div>
                );
@@ -179,13 +249,13 @@ function PlayerHallOfFameCard({ title, players, icon: Icon, color }: { title: st
   );
 }
 
-function SeasonEntry({ entry }: { entry: any }) {
+function SeasonEntry({ entry }: { entry: SeasonHistory }) {
   const { teams } = useLeague();
   const champion = teams.find(t => t.id === entry.championId);
   const IconComp = champion ? STUFFY_ICONS[champion.icon as keyof typeof STUFFY_ICONS] : null;
 
   return (
-    <Card className="rounded-[2rem] border border-stone-100 p-8 space-y-6 hover:shadow-xl hover:-translate-y-1 transition-all">
+    <Card className="rounded-[4xl] border border-stone-100 p-8 space-y-6 hover:shadow-xl hover:-translate-y-1 transition-all">
        <div className="flex items-center justify-between">
           <div className="text-left">
              <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">Established</p>

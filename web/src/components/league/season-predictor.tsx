@@ -145,6 +145,9 @@ export default function SeasonPredictor() {
             
             if (!home || !away) return null;
             
+            const homeStanding = currentStandings.findIndex(s => s.teamId === home.id) + 1;
+            const awayStanding = currentStandings.findIndex(s => s.teamId === away.id) + 1;
+            
             const HomeIcon = STUFFY_ICONS[home.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
             const AwayIcon = STUFFY_ICONS[away.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
 
@@ -176,7 +179,10 @@ export default function SeasonPredictor() {
                     </div>
                     <div className="text-left">
                       <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Away</p>
-                      <span className="font-black text-stone-900 text-sm leading-tight block">{away.name}</span>
+                      <span className="font-black text-stone-900 text-sm leading-tight block">
+                        {awayStanding <= 8 && <span className="text-stone-300 mr-1.5 font-bold text-[10px]">(#{awayStanding})</span>}
+                        {away.name}
+                      </span>
                       <span className="text-[10px] text-stone-400 font-bold">{teamRecords[away.id]}</span>
                     </div>
                   </div>
@@ -211,7 +217,10 @@ export default function SeasonPredictor() {
                   <div className="flex items-center gap-3 text-right">
                     <div className="text-right">
                       <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Home</p>
-                      <span className="font-black text-stone-900 text-sm leading-tight block">{home.name}</span>
+                      <span className="font-black text-stone-900 text-sm leading-tight block text-right">
+                        {homeStanding <= 8 && <span className="text-stone-300 mr-1.5 font-bold text-[10px]">(#{homeStanding})</span>}
+                        {home.name}
+                      </span>
                       <span className="text-[10px] text-stone-400 font-bold">{teamRecords[home.id]}</span>
                     </div>
                     <div 

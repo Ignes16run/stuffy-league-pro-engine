@@ -1,12 +1,14 @@
 "use client";
-// Last Updated: 2026-03-22T15:35:00Z
+// Last Updated: 2026-03-22T16:05:00Z
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, Trophy, Search, 
   Star, Shield, Zap, Target,
-  Camera, Award, UserCog
+  Camera, Award, UserCog,
+  CheckCircle2, AlertTriangle, ChevronRight,
+  RefreshCw, Settings2
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,7 @@ import {
 import { Player, Team, PlayerStats } from '@/lib/league/types';
 import { uploadFile } from '@/lib/supabase-client';
 import { calculatePlayerRankings } from '@/lib/league/utils';
+import { calculateOVR, POSITION_RATINGS } from '@/lib/league/ratings';
 
 export default function RosterView() {
   const { teams, players, updatePlayer } = useLeague();
@@ -44,7 +47,6 @@ export default function RosterView() {
     }).sort((a, b) => b.rating - a.rating);
   }, [players, search, selectedTeam]);
 
-  // Dynamic QB Rankings
   const qbStats = useMemo(() => {
     const qbs = players.filter(p => p.position === 'QB').map(p => ({
         ...p,
@@ -93,17 +95,17 @@ export default function RosterView() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-4xl font-black text-stone-900 tracking-tight flex items-center gap-3">
-            League Roster
+             Personnel
             <Badge className="bg-stone-100 text-stone-600 border-none px-3 font-bold">{players.length}</Badge>
           </h2>
           <p className="text-stone-500 font-medium italic mt-1">Managing {players.length} stuffy athletes across {teams.length} teams</p>
         </div>
         
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
+        <div className="flex items-center flex-wrap gap-3 w-full md:w-auto">
+          <div className="relative flex-1 md:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
             <input 
-              placeholder="Search players..." 
+              placeholder="Filter names..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 h-12 rounded-2xl border-none bg-stone-100/50 text-sm font-bold focus:ring-2 ring-stone-900/5 outline-none transition-all"
@@ -120,7 +122,16 @@ export default function RosterView() {
             ))}
           </select>
 
-          <div className="flex bg-stone-100 p-1 rounded-[1.25rem] shadow-inner gap-0.5">
+          {selectedTeam !== 'all' && (
+            <BulkRatingEditor 
+              teamId={selectedTeam} 
+              onApply={(updatedPlayers) => {
+                updatedPlayers.forEach(p => updatePlayer(p.id, p));
+              }} 
+            />
+          )}
+
+          <div className="flex bg-stone-100 p-1 rounded-[1.25rem] shadow-inner gap-0.5 ml-auto">
              <button 
                onClick={() => setStatMode('season')}
                className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all", statMode === 'season' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400")}
@@ -137,7 +148,7 @@ export default function RosterView() {
         <TabsList className="bg-stone-100/50 p-1.5 rounded-2xl h-auto gap-1">
           <TabsTrigger value="all" className="rounded-xl px-8 py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm font-black text-[10px] uppercase tracking-widest transition-all">
             <Users className="w-3.5 h-3.5 mr-2" />
-            Personnel
+            Roster
           </TabsTrigger>
           <TabsTrigger value="leaders" className="rounded-xl px-8 py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm font-black text-[10px] uppercase tracking-widest transition-all">
             <Trophy className="w-3.5 h-3.5 mr-2" />
@@ -172,7 +183,6 @@ export default function RosterView() {
         </TabsContent>
 
         <TabsContent value="leaders" className="mt-0 space-y-12 pb-12">
-          
           <div className="space-y-6">
             <h3 className="text-2xl font-black text-stone-900 border-b border-stone-200 pb-2">Offensive Leaders ({statMode})</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -195,7 +205,6 @@ export default function RosterView() {
               <LeaderboardCard title="Pass Deflections" players={leaderboards.passDeflections} teams={teams} statKey="passDeflections" statMode={statMode} />
             </div>
           </div>
-
         </TabsContent>
       </Tabs>
     </div>
@@ -215,7 +224,7 @@ function PlayerCard({ player, team, rankings, statMode, onUpdate }: {
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-[2.5rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 group relative overflow-hidden hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)] transition-all duration-300"
+      className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100 group relative overflow-hidden hover:shadow-md transition-all duration-300"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -262,12 +271,11 @@ function PlayerCard({ player, team, rankings, statMode, onUpdate }: {
         />
       </div>
 
-      {/* Primary Stats */}
       <div className="mt-8 grid grid-cols-2 gap-4">
-        {player.abilities.map((ability, idx) => (
+        {player.abilities.slice(0, 5).map((ability, idx) => (
           <div key={idx} className="space-y-1.5">
             <div className="flex justify-between items-center px-0.5">
-              <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest">{ability.name}</span>
+              <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest truncate max-w-[80%]">{ability.name}</span>
               <span className="text-[10px] font-black text-stone-900">{ability.value}</span>
             </div>
             <div className="h-1.5 w-full bg-stone-100/50 rounded-full overflow-hidden">
@@ -283,7 +291,6 @@ function PlayerCard({ player, team, rankings, statMode, onUpdate }: {
         ))}
       </div>
 
-      {/* Stats Summary (Dynamic Mode) */}
       <div className="mt-8 pt-6 border-t border-stone-100 grid grid-cols-4 gap-2">
       {player.position === 'QB' ? (
         <>
@@ -321,7 +328,7 @@ function StatBox({ label, value, rank, suffix = "" }: { label: string, value: nu
       </p>
       {rank && (
         <div className="absolute -top-1 -right-1">
-          <Badge className={`h-4 min-w-[16px] px-1 text-[8px] border-none font-bold ${rank <= 3 ? 'bg-amber-400' : 'bg-stone-200 text-stone-600'}`}>
+          <Badge className={`h-4 min-w-[16px] px-1 text-[8px] border-none font-bold ${rank <= 3 ? 'bg-amber-400 text-white' : 'bg-stone-200 text-stone-600'}`}>
              #{rank}
           </Badge>
         </div>
@@ -346,17 +353,29 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
     abilities: [...player.abilities]
   });
 
+  const ratingCategories = POSITION_RATINGS[player.position] || [];
+
   const handleAbilityChange = (idx: number, val: string) => {
     const newVal = Math.min(99, Math.max(0, parseInt(val) || 0));
     const nextAbilities = [...editData.abilities];
+    
+    // Safety check for category count
+    if (nextAbilities.length < 5) {
+      for (let i = nextAbilities.length; i < 5; i++) {
+        const cat = ratingCategories[i];
+        nextAbilities.push({ name: cat?.name || 'Rating', value: 60, description: cat?.description || '' });
+      }
+    }
+    
     nextAbilities[idx] = { ...nextAbilities[idx], value: newVal };
-    setEditData({ ...editData, abilities: nextAbilities });
+    const ovr = calculateOVR(nextAbilities);
+    setEditData({ ...editData, abilities: nextAbilities, rating: ovr });
   };
 
   const handleSave = () => {
     onUpdate({
       ...editData,
-      rating: Math.round(editData.abilities.reduce((acc, a) => acc + a.value, 0) / editData.abilities.length)
+      rating: calculateOVR(editData.abilities)
     });
     setOpen(false);
   };
@@ -403,63 +422,51 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
         </DialogHeader>
 
         <div className="p-8 space-y-8 bg-white">
-          <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-1 space-y-2">
-              <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Jersey #</label>
-              <Input 
-                value={editData.jerseyNumber}
-                placeholder="00"
-                onChange={(e) => setEditData({ ...editData, jerseyNumber: e.target.value.slice(0, 2) })}
-                className="h-12 rounded-2xl bg-stone-50 border-none font-bold focus:ring-2 ring-stone-900/5 transition-all text-center"
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Full Name</label>
-              <Input 
-                value={editData.name}
-                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                className="h-12 rounded-2xl bg-stone-50 border-none font-bold focus:ring-2 ring-stone-900/5 transition-all"
-              />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Profile Photo URL</label>
-            <Input 
-              value={editData.profilePicture}
-              onChange={(e) => setEditData({ ...editData, profilePicture: e.target.value })}
-              className="h-12 rounded-2xl bg-stone-50 border-none font-bold focus:ring-2 ring-stone-900/5 transition-all"
-              placeholder="https://..."
-            />
+          <div className="flex items-center justify-between">
+              <h4 className="flex items-center gap-2 text-[10px] font-black text-stone-900 uppercase tracking-widest">
+                <Award className="w-4 h-4" />
+                Player Attributes
+              </h4>
+              <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-lg h-8 px-4">
+                OVR: {editData.rating}
+              </Badge>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="flex items-center gap-2 text-[10px] font-black text-stone-900 uppercase tracking-widest">
-              <Award className="w-4 h-4" />
-              Main Attributes
-            </h4>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-              {editData.abilities.map((ability, idx) => (
-                <div key={idx} className="space-y-3">
-                  <div className="flex justify-between items-center">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+            {editData.abilities.slice(0, 5).map((ability, idx) => (
+              <div key={idx} className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex flex-col">
                     <span className="text-xs font-bold text-stone-600">{ability.name}</span>
-                    <input 
-                      type="number"
-                      value={ability.value}
-                      onChange={(e) => handleAbilityChange(idx, e.target.value)}
-                      className="w-10 text-sm font-black text-stone-900 text-right bg-transparent border-b border-stone-200 focus:border-stone-900 outline-none transition-colors"
-                    />
+                    <span className="text-[8px] text-stone-400 font-medium">{ratingCategories[idx]?.description}</span>
                   </div>
-                  <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden">
-                    <motion.div 
-                      layout
-                      className="h-full rounded-full" 
-                      style={{ width: `${ability.value}%`, backgroundColor: team.primaryColor }} 
-                    />
-                  </div>
+                  <input 
+                    type="number"
+                    value={ability.value}
+                    onChange={(e) => handleAbilityChange(idx, e.target.value)}
+                    className="w-10 text-sm font-black text-stone-900 text-right bg-transparent border-b border-stone-200 focus:border-stone-900 outline-none transition-colors"
+                  />
                 </div>
-              ))}
-            </div>
+                <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden">
+                  <motion.div 
+                    layout
+                    className="h-full rounded-full" 
+                    style={{ width: `${ability.value}%`, backgroundColor: team.primaryColor }} 
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-6 pt-4 border-t border-stone-50">
+             <div className="space-y-2">
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Full Name</label>
+                <Input value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="h-12 rounded-2xl bg-stone-50 border-none font-bold" />
+             </div>
+             <div className="space-y-2">
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Jersey #</label>
+                <Input value={editData.jerseyNumber} onChange={(e) => setEditData({ ...editData, jerseyNumber: e.target.value.slice(0,2) })} className="h-12 rounded-2xl bg-stone-50 border-none font-bold text-center" />
+             </div>
           </div>
         </div>
 
@@ -468,7 +475,6 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
             className="w-full h-14 rounded-2xl bg-stone-900 text-white hover:bg-stone-800 font-black text-sm uppercase tracking-widest shadow-xl shadow-stone-900/20"
             onClick={handleSave}
           >
-            <Users className="w-4 h-4 mr-2" />
             Update Athlete Profile
           </Button>
         </DialogFooter>
@@ -477,24 +483,119 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
   );
 }
 
+function BulkRatingEditor({ teamId, onApply }: { teamId: string, onApply: (players: Player[]) => void }) {
+  const { teams, players } = useLeague();
+  const [open, setOpen] = useState(false);
+  const [targetPosition, setTargetPosition] = useState<string>("ALL");
+  const [adjustment, setAdjustment] = useState<number>(0);
+  const [categoryIndex, setCategoryIndex] = useState<number>(0);
+
+  const team = teams.find(t => t.id === teamId)!;
+  const teamPlayers = players.filter(p => p.teamId === teamId);
+  const filteredPlayers = targetPosition === "ALL" 
+    ? teamPlayers 
+    : teamPlayers.filter(p => p.position === targetPosition);
+
+  const previewPlayers = useMemo(() => {
+    return filteredPlayers.map(p => {
+      const nextAbilities = [...p.abilities];
+      if (nextAbilities.length <= categoryIndex) return p;
+      
+      const nextAbility = { ...nextAbilities[categoryIndex] };
+      nextAbility.value = Math.max(0, Math.min(99, nextAbility.value + adjustment));
+      nextAbilities[categoryIndex] = nextAbility;
+      
+      return {
+        ...p,
+        abilities: nextAbilities,
+        rating: calculateOVR(nextAbilities)
+      };
+    });
+  }, [filteredPlayers, categoryIndex, adjustment]);
+
+  const positions = ["ALL", ...Array.from(new Set(teamPlayers.map(p => p.position)))];
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={
+        <Button variant="outline" className="h-12 px-6 rounded-2xl border-none bg-stone-100/50 text-stone-600 font-black text-[10px] uppercase tracking-widest gap-2">
+          <Settings2 className="w-4 h-4" />
+          Bulk
+        </Button>
+      } />
+      <DialogContent className="max-w-2xl rounded-[3rem] p-0 border-none shadow-2xl overflow-hidden">
+        <div className="bg-emerald-600 p-8 text-white">
+          <DialogTitle className="text-2xl font-black">Bulk Adjuster: {team.name}</DialogTitle>
+          <DialogDescription className="text-emerald-100">Apply relative changes to multiple athletes at once.</DialogDescription>
+        </div>
+
+        <div className="p-8 space-y-8 bg-white max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Position Group</label>
+              <select value={targetPosition} onChange={(e) => setTargetPosition(e.target.value)} className="w-full h-12 rounded-2xl bg-stone-50 border-none px-4 font-bold outline-none">
+                {positions.map(pos => <option key={pos} value={pos}>{pos === "ALL" ? "All Players" : `${pos}s`}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Attribute Slot</label>
+              <select value={categoryIndex} onChange={(e) => setCategoryIndex(parseInt(e.target.value))} className="w-full h-12 rounded-2xl bg-stone-50 border-none px-4 font-bold outline-none">
+                <option value={0}>Slot 1 (Prime)</option>
+                <option value={1}>Slot 2</option>
+                <option value={2}>Slot 3</option>
+                <option value={3}>Slot 4</option>
+                <option value={4}>Slot 5 (Base)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Adjustment ({adjustment > 0 ? '+' : ''}{adjustment})</label>
+             <input type="range" min="-20" max="20" value={adjustment} onChange={(e) => setAdjustment(parseInt(e.target.value))} className="w-full h-2 bg-stone-100 rounded-full accent-emerald-500" />
+          </div>
+
+          <div className="space-y-3">
+             <h4 className="text-[10px] font-black text-stone-900 uppercase tracking-widest flex items-center gap-2">
+               <AlertTriangle className="w-4 h-4 text-amber-500" /> Preview Changes
+             </h4>
+             <div className="border border-stone-100 rounded-2xl p-4 bg-stone-50/50 space-y-2">
+                {previewPlayers.slice(0, 4).map(p => {
+                  const original = teamPlayers.find(op => op.id === p.id)!;
+                  return (
+                    <div key={p.id} className="flex justify-between text-xs font-bold">
+                      <span className="text-stone-500">{p.name} ({p.position})</span>
+                      <span className="text-stone-900">{original.rating} → {p.rating}</span>
+                    </div>
+                  );
+                })}
+                <p className="text-[10px] text-stone-300 italic text-center pt-1">Targeting {previewPlayers.length} athletes</p>
+             </div>
+          </div>
+        </div>
+
+        <DialogFooter className="p-8 pt-0">
+           <Button className="w-full h-14 rounded-2xl bg-emerald-500 text-white font-black uppercase text-xs" onClick={() => { onApply(previewPlayers); setOpen(false); }}>
+              Apply Adjustments
+           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function LeaderboardCard({ title, players, teams, statKey, statMode }: { 
   title: string, 
-  players: any[], 
+  players: Player[], 
   teams: Team[], 
   statKey: keyof PlayerStats,
   statMode: 'season' | 'career'
 }) {
   return (
-    <Card className="rounded-[2.5rem] border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden group">
+    <Card className="rounded-[2.5rem] border-none shadow-sm overflow-hidden bg-white">
       <CardHeader className="bg-stone-50/50 pb-6 pt-8 px-8 border-b border-stone-100/50">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-white rounded-2xl shadow-sm border border-stone-100 group-hover:scale-110 transition-transform">
-            {['passingTds', 'rushingTds', 'receivingTds'].includes(statKey) ? <Target className="w-6 h-6 text-emerald-500" /> :
-             ['passingYards', 'rushingYards', 'receivingYards'].includes(statKey) ? <Zap className="w-6 h-6 text-amber-500" /> :
-             ['sacks', 'tacklesForLoss'].includes(statKey) ? <Zap className="w-6 h-6 text-orange-500" /> :
-             ['tackles'].includes(statKey) ? <Shield className="w-6 h-6 text-blue-500" /> :
-             ['interceptions', 'passDeflections'].includes(statKey) ? <Target className="w-6 h-6 text-indigo-500" /> :
-             <Star className="w-6 h-6 text-purple-500" />}
+          <div className="p-3 bg-white rounded-2xl shadow-sm border border-stone-100">
+             <Target className="w-6 h-6 text-emerald-500" />
           </div>
           <CardTitle className="text-2xl font-black text-stone-900 tracking-tight">{title}</CardTitle>
         </div>
@@ -506,27 +607,19 @@ function LeaderboardCard({ title, players, teams, statKey, statMode }: {
             if (!team) return null;
             const stats = statMode === 'career' ? (player.careerStats || player.stats) : player.stats;
             return (
-              <div key={player.id} className="px-8 py-5 flex items-center justify-between hover:bg-stone-50/50 transition-colors group/item">
+              <div key={player.id} className="px-8 py-5 flex items-center justify-between hover:bg-stone-50/50 transition-colors">
                 <div className="flex items-center gap-5">
-                  <span className="text-2xl font-black text-stone-200 group-hover/item:text-stone-300 transition-colors w-10">#{idx + 1}</span>
-                  <div 
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-[10px] font-black border-2 shadow-sm shrink-0"
-                    style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
-                  >
+                  <span className="text-2xl font-black text-stone-200 w-10">#{idx + 1}</span>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-[10px] font-black border-2" style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}>
                     {player.position}
                   </div>
                   <div>
                     <p className="font-black text-stone-900 text-base">{player.name}</p>
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-[0.15em]">{team.name}</p>
+                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{team.name}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-black text-stone-900 leading-none">
-                    {(stats[statKey] as number) || 0}
-                  </p>
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mt-1 opacity-60">
-                    {statKey.replace(/([A-Z])/g, ' $1').trim()}
-                  </p>
+                  <p className="text-2xl font-black text-stone-900 leading-none">{(stats[statKey] as number) || 0}</p>
                 </div>
               </div>
             );

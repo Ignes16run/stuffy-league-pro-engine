@@ -173,37 +173,42 @@ export function generatePlayoffBracket(standings: Standing[], size: 4 | 8): any[
 }
 
 /**
- * Generates a realistic football score using combinations of 
- * TDs (6), XPs (1), 2PCs (2), FGs (3), and Safeties (2).
- * Ensures No Impossible Scores (like 1).
+ * Generates a realistic football outcome between two teams.
  */
-export function generateRealisticFootballScore(intensity: number = 20): number {
-  const tds = Math.floor(Math.random() * (intensity / 7 + 3));
-  const fgs = Math.floor(Math.random() * (intensity / 10 + 2));
-  const safeties = Math.random() > 0.95 ? 1 : 0;
-  
-  let score = 0;
-  
-  // Scoring Each TD
-  for (let i = 0; i < tds; i++) {
-    score += 6;
-    const choice = Math.random();
-    if (choice < 0.90) {
-      score += 1; // Extra Point
-    } else if (choice < 0.95) {
-      score += 2; // Two-Point Conversion
+export function generateRealisticFootballScore(home: Team, away: Team, players: Player[]): { homeScore: number, awayScore: number } {
+  // Calculate team strengths
+  const getTeamOVR = (teamId: string) => {
+    const roster = players.filter(p => p.teamId === teamId);
+    if (roster.length === 0) return 70;
+    return Math.round(roster.reduce((sum, p) => sum + p.rating, 0) / roster.length);
+  };
+
+  const homeOVR = getTeamOVR(home.id);
+  const awayOVR = getTeamOVR(away.id);
+
+  // Home field advantage (approx +3 intensity)
+  const homeIntensity = Math.floor(homeOVR / 4) + (Math.random() * 15) + 3;
+  const awayIntensity = Math.floor(awayOVR / 4) + (Math.random() * 15);
+
+  const getScore = (intensity: number) => {
+    const tds = Math.floor(Math.random() * (intensity / 7 + 3));
+    const fgs = Math.floor(Math.random() * (intensity / 10 + 2));
+    let score = 0;
+    for (let i = 0; i < tds; i++) {
+      score += 6;
+      const choice = Math.random();
+      if (choice < 0.90) score += 1; 
+      else if (choice < 0.95) score += 2;
     }
-    // else 0 (missed extra point)
-  }
-  
-  score += (fgs * 3);
-  score += (safeties * 2);
-  
-  // NFL rules make 1 possible only via a rare safety on an XP/2PC where the scoring team somehow goes minus-99 yards?
-  // Effectively, 1 is the only impossible total score for a team.
-  if (score === 1) score = 0; 
-  
-  return score;
+    score += (fgs * 3);
+    if (score === 1) score = 0;
+    return score;
+  };
+
+  return {
+    homeScore: getScore(homeIntensity),
+    awayScore: getScore(awayIntensity)
+  };
 }
 
 /**

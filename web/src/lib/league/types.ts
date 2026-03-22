@@ -63,17 +63,28 @@ export interface LeagueState {
   playoffGames: PlayoffGame[];
   currentWeek: number;
   history: SeasonHistory[];
+  recentNarrativesUsed: NarrativeMemoryEntry[];
+}
+
+export interface AwardsHistoryEntry {
+  awardType: 'MVP' | 'OPOY' | 'DPOY' | 'STPOY' | 'CHAMPION';
+  seasonId: string; // Year or unique ID
+}
+
+export interface NarrativeMemoryEntry {
+  templateId: string;
+  seasonId: string;
 }
 
 export type PlayerPosition = 'QB' | 'RB' | 'WR' | 'TE' | 'OL' | 'DL' | 'EDGE' | 'CB' | 'S' | 'LB' | 'K' | 'P';
 
 export interface PlayerStats {
   gamesPlayed: number;
-  touchdowns: number;
-  yards: number;
-  tackles: number;
-  interceptions: number;
-  points: number;
+  touchdowns?: number;
+  yards?: number;
+  tackles?: number;
+  interceptions?: number;
+  points?: number;
   assists?: number;
   sacks?: number;
   stuffyPointsEarned?: number;
@@ -125,4 +136,5 @@ export interface Player {
   stats: PlayerStats; // Current season stats
   careerStats?: PlayerStats; // All-time totals
   awards?: PlayerAward[];
+  awardsHistory?: AwardsHistoryEntry[];
 }
