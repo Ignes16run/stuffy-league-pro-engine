@@ -63,6 +63,7 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
     position,
     rating: baseRating,
     archetype: archetype.name,
+    jerseyNumber: Math.floor(Math.random() * 100).toString().padStart(2, '0'),
     profile: archetype.profile,
     abilities: generateAbilities(position, baseRating),
     stats: {

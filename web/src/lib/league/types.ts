@@ -97,6 +97,7 @@ export interface Player {
   profilePicture?: string;
   profile?: string; // Character profile/bio
   archetype?: string; 
+  jerseyNumber?: string;
   position: PlayerPosition;
   rating: number; // 0-100 overall
   abilities: PlayerAbility[];

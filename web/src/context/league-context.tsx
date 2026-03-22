@@ -86,7 +86,8 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         id: p.id, user_id: user.id, team_id: p.teamId,
         name: p.name, position: p.position, rating: p.rating,
         profile_picture: p.profilePicture, profile: p.profile,
-        archetype: p.archetype, abilities: p.abilities, stats: p.stats
+        archetype: p.archetype, abilities: p.abilities, stats: p.stats,
+        jersey_number: p.jerseyNumber
       }));
       await supabase.from('players').upsert(data);
     }
@@ -173,7 +174,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         finalPlayers = dbPlayers.map(p => ({
           id: p.id, teamId: p.team_id, name: p.name, position: p.position,
           rating: p.rating, profilePicture: p.profile_picture, profile: p.profile,
-          archetype: p.archetype, abilities: p.abilities, stats: p.stats as PlayerStats
+          archetype: p.archetype, jerseyNumber: p.jersey_number, abilities: p.abilities, stats: p.stats as PlayerStats
         }));
         setPlayers(finalPlayers);
       } else {

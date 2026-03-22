@@ -193,7 +193,10 @@ function PlayerCard({ player, team, rankings, onUpdate }: {
               </Badge>
               <span className="text-[9px] font-black text-stone-300 uppercase tracking-[0.2em]">{team.name}</span>
             </div>
-            <h3 className="text-xl font-black text-stone-900 leading-tight">{player.name}</h3>
+            <h3 className="text-xl font-black text-stone-900 leading-tight">
+              {player.jerseyNumber && <span className="text-stone-300 mr-1.5 font-bold">#{player.jerseyNumber}</span>}
+              {player.name}
+            </h3>
             <p className="text-[10px] text-stone-400 font-medium italic">{player.archetype}</p>
           </div>
         </div>
@@ -289,6 +292,7 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
   const [editData, setEditData] = useState({
     name: player.name,
     rating: player.rating,
+    jerseyNumber: player.jerseyNumber || "",
     profilePicture: player.profilePicture || "",
     abilities: [...player.abilities]
   });
@@ -350,8 +354,17 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
         </DialogHeader>
 
         <div className="p-8 space-y-8 bg-white">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-6">
+            <div className="col-span-1 space-y-2">
+              <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Jersey #</label>
+              <Input 
+                value={editData.jerseyNumber}
+                placeholder="00"
+                onChange={(e) => setEditData({ ...editData, jerseyNumber: e.target.value.slice(0, 2) })}
+                className="h-12 rounded-2xl bg-stone-50 border-none font-bold focus:ring-2 ring-stone-900/5 transition-all text-center"
+              />
+            </div>
+            <div className="col-span-2 space-y-2">
               <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Full Name</label>
               <Input 
                 value={editData.name}
@@ -359,15 +372,16 @@ function PlayerEditModal({ player, team, trigger, onUpdate }: {
                 className="h-12 rounded-2xl bg-stone-50 border-none font-bold focus:ring-2 ring-stone-900/5 transition-all"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Profile Photo URL</label>
-              <Input 
-                value={editData.profilePicture}
-                onChange={(e) => setEditData({ ...editData, profilePicture: e.target.value })}
-                className="h-12 rounded-2xl bg-stone-50 border-none font-bold focus:ring-2 ring-stone-900/5 transition-all"
-                placeholder="https://..."
-              />
-            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">Profile Photo URL</label>
+            <Input 
+              value={editData.profilePicture}
+              onChange={(e) => setEditData({ ...editData, profilePicture: e.target.value })}
+              className="h-12 rounded-2xl bg-stone-50 border-none font-bold focus:ring-2 ring-stone-900/5 transition-all"
+              placeholder="https://..."
+            />
           </div>
 
           <div className="space-y-4">
