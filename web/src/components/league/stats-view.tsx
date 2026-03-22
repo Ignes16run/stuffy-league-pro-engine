@@ -64,6 +64,7 @@ export default function StatsView() {
       passDeflections: getTop('passDeflections', ['CB', 'S']),
       points: getTop('points', ['K']),
       fgMade: getTop('fgMade' as keyof PlayerStats, ['K']),
+      xpMade: getTop('xpMade' as keyof PlayerStats, ['K']),
     };
   }, [filteredPlayers, statMode]);
 
@@ -200,6 +201,7 @@ export default function StatsView() {
         <TabsContent value="st" className="mt-0 focus-visible:outline-none grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <StatLeaderCard title="Total Points" players={leaderboards.points} statKey="points" statMode={statMode} />
           <StatLeaderCard title="Field Goals Made" players={leaderboards.fgMade} statKey="fgMade" statMode={statMode} />
+          <StatLeaderCard title="Extra Points Made" players={leaderboards.xpMade} statKey="xpMade" statMode={statMode} />
         </TabsContent>
 
         <TabsContent value="team-stats" className="mt-0 focus-visible:outline-none">
@@ -328,6 +330,7 @@ function renderPositionalStats(player: Player) {
     items.push({ label: 'INT', value: s.interceptions });
   } else if (player.position === 'K') {
     items.push({ label: 'FG Made', value: s.fgMade });
+    items.push({ label: 'XP Made', value: s.xpMade });
     items.push({ label: 'Points', value: s.points });
   } else {
     items.push({ label: 'Games', value: s.gamesPlayed });
