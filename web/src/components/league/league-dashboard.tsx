@@ -11,25 +11,23 @@ import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import TeamSetup from './team-setup';
 import SeasonPredictor from './season-predictor';
-import Standings from './standings';
 import PlayoffBracket from './playoff-bracket';
 import TrainingCamp from './training-camp';
 import LeagueHistory from './league-history';
-import RosterView from './roster-view';
 import { AwardsSelection } from './awards-selection';
+import ManagementView from './management-view';
+import StatsView from './stats-view';
 
 export default function LeagueDashboard() {
   const { activeTab, setActiveTab, resetLeague, resetPredictions } = useLeague();
   const { user } = useAuth();
 
   const tabs = [
-    { id: 'setup', label: 'Teams', icon: LayoutGrid },
-    { id: 'players', label: 'Personnel', icon: Users },
     { id: 'season', label: 'Season', icon: PlayCircle },
-    { id: 'standings', label: 'Rankings', icon: BarChart3 },
+    { id: 'stats', label: 'Stats', icon: BarChart3 },
     { id: 'playoffs', label: 'Playoffs', icon: Trophy },
+    { id: 'management', label: 'Management', icon: LayoutGrid },
     { id: 'training', label: 'Camp', icon: Star },
     { id: 'history', label: 'History', icon: History },
   ];
@@ -111,11 +109,10 @@ export default function LeagueDashboard() {
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
-              {activeTab === 'setup' && <TeamSetup />}
-              {activeTab === 'players' && <RosterView />}
               {activeTab === 'season' && <SeasonPredictor />}
-              {activeTab === 'standings' && <Standings />}
+              {activeTab === 'stats' && <StatsView />}
               {activeTab === 'playoffs' && <PlayoffBracket />}
+              {activeTab === 'management' && <ManagementView />}
               {activeTab === 'training' && <TrainingCamp />}
               {activeTab === 'history' && <LeagueHistory />}
             </motion.div>

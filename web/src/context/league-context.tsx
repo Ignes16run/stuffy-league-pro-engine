@@ -58,7 +58,7 @@ const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
 
 export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('setup');
+  const [activeTab, setActiveTab] = useState('season');
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [games, setGames] = useState<Game[]>([]);
