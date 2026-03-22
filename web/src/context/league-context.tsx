@@ -173,7 +173,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         finalPlayers = dbPlayers.map(p => ({
           id: p.id, teamId: p.team_id, name: p.name, position: p.position,
           rating: p.rating, profilePicture: p.profile_picture, profile: p.profile,
-          archetype: p.archetype, abilities: p.abilities, stats: p.stats as any
+          archetype: p.archetype, abilities: p.abilities, stats: p.stats as PlayerStats
         }));
         setPlayers(finalPlayers);
       } else {
@@ -212,7 +212,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
       if (dbHistory && dbHistory.length > 0) {
         setHistory(dbHistory.map(h => ({
-          year: h.year, championId: h.champion_id, finalStandings: h.final_standings as any
+          year: h.year, championId: h.champion_id, finalStandings: h.final_standings as Standing[]
         })));
       }
     } catch (e) {
