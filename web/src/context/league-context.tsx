@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T05:30:00-04:00
+// Last Updated: 2026-03-22T05:38:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Team, Game, PlayoffGame, SeasonHistory, Player } from '@/lib/league/types';
@@ -114,6 +114,12 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const loadData = useCallback(async () => {
     if (!user) {
+      // For anonymous users, ensure default rosters are generated
+      const newPlayers: Player[] = [];
+      DEFAULT_LEAGUE_TEAMS.forEach(team => {
+        newPlayers.push(...generateTeamRoster(team.id));
+      });
+      setPlayers(newPlayers);
       setIsLoaded(true);
       return;
     }
