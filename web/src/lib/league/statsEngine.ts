@@ -1,10 +1,10 @@
-// Last Updated: 2026-03-22T23:15:00Z
+// Last Updated: 2026-03-22T23:20:00Z
 import { Player, PlayerStats } from './types';
 
 /**
  * Assigns statistics to players for a single game based on team score.
  * Fulfills the "Stat Realism" and "Pool-Based Distribution" requirements.
- * Ensures Passing TDs = Receiving TDs and total TDs align with score.
+ * Ensures Score = (TD*6) + (XP*1) + (FG*3).
  */
 export function assignStatsToPlayers(
   players: Player[],
@@ -23,22 +23,25 @@ export function assignStatsToPlayers(
   const distributePool = (subset: Player[], totalValue: number): Record<string, number> => {
     if (subset.length === 0 || totalValue <= 0) return {};
     const results: Record<string, number> = {};
-    const totalRating = subset.reduce((sum, p) => sum + p.rating, 0);
+    const totalRating = subset.reduce((sum, p) => sum + p.rating, 0) || 1;
     
-    // For integer values (TDs), use a stochastic selection to ensure sum matches total
-    if (Number.isInteger(totalValue) && totalValue < 30) {
+    if (Number.isInteger(totalValue) && totalValue < 50) {
       for (let i = 0; i < totalValue; i++) {
         let rand = Math.random() * totalRating;
+        let assigned = false;
         for (const p of subset) {
           rand -= p.rating;
           if (rand <= 0) {
             results[p.id] = (results[p.id] || 0) + 1;
+            assigned = true;
             break;
           }
         }
+        if (!assigned && subset.length > 0) {
+          results[subset[0].id] = (results[subset[0].id] || 0) + 1;
+        }
       }
     } else {
-      // For continuous values (Yards), use fractional shares with rounding
       subset.forEach(p => {
         results[p.id] = Math.round((p.rating / totalRating) * totalValue);
       });
@@ -46,47 +49,50 @@ export function assignStatsToPlayers(
     return results;
   };
 
-  // 3. Calculate Team-Level Stat Pools
-  // Approx 10.5 yards per point scored (avg NFL)
-  const totalPassingYards = Math.round((score * 9.5) + (Math.random() * 60));
-  const totalRushingYards = Math.round((score * 5.5) + (Math.random() * 40));
-  const totalOffensiveTDs = Math.floor(score / 7);
+  // 3. Score Deconstruction (Ensuring Points Reconciliation)
+  // Logic: 1 TD = 6 pts. 1 XP = 1 pt. 1 FG = 3 pts.
+  const totalTDs = Math.floor(score / 7);
+  const ptsFromTDs = totalTDs * 6;
+  const remainder = score - ptsFromTDs;
   
-  // Split TDs: ~35% Rushing, ~65% Passing
-  let rushingTdsCount = totalOffensiveTDs > 0 
-    ? Math.min(totalOffensiveTDs, Math.floor(totalOffensiveTDs * (0.2 + Math.random() * 0.3) + (Math.random() < 0.2 ? 1 : 0)))
+  // XPs usually equal TDs if missed kicks are ignored
+  const xpCount = Math.min(totalTDs, remainder);
+  const fgCount = Math.floor((remainder - xpCount) / 3);
+  
+  // 4. Calculate TD Split Pools
+  let rushingTdsCount = totalTDs > 0 
+    ? Math.floor(totalTDs * (0.2 + Math.random() * 0.3) + (Math.random() < 0.2 ? 1 : 0))
     : 0;
 
-  // Rare case for scores like 6 points (1 TD, 0 XPs)
-  if (totalOffensiveTDs === 0 && score >= 6 && Math.random() > 0.7) {
-    rushingTdsCount = 1;
-  }
+  // Corner case handling for low scoring
+  if (totalTDs === 0 && score >= 6 && Math.random() > 0.6) rushingTdsCount = 1;
   
-  // Final Safety: Total TDs * 6 must never exceed score
-  const passingTdsCount = Math.max(0, totalOffensiveTDs - rushingTdsCount);
-  const totalTDs = rushingTdsCount + passingTdsCount;
-  if (totalTDs * 6 > score) {
-    // Should be impossible given floor(score/7), but for safety:
-    rushingTdsCount = Math.floor(score / 6);
-  }
+  // Position availability correction
+  if (rbs.length === 0) rushingTdsCount = 0;
+  if (receivers.length === 0) rushingTdsCount = Math.floor(score / 6);
+  
+  rushingTdsCount = Math.min(rushingTdsCount, totalTDs);
+  const passingTdsCount = Math.max(0, totalTDs - rushingTdsCount);
 
-  // 4. Distribute Pools to Players (Weighted by Rating)
+  // 5. Calculate Yardage Pools
+  const totalPassingYards = Math.round((score * 9.5) + (Math.random() * 60));
+  const totalRushingYards = Math.round((score * 5.5) + (Math.random() * 40));
+
+  // 6. Distribute Pools to Players
   const rbYardsMap = distributePool(rbs, totalRushingYards);
   const rbTdsMap = distributePool(rbs, rushingTdsCount);
   const recYardsMap = distributePool(receivers, totalPassingYards);
   const recTdsMap = distributePool(receivers, passingTdsCount);
 
-  // 5. Apply to all players
+  // 7. Apply to all players
   return players.map(p => {
     if (p.teamId !== teamId) return p;
 
-    // Deep copy stats
     const s: PlayerStats = { ...(p.stats || { gamesPlayed: 0 }) };
     s.gamesPlayed = (s.gamesPlayed || 0) + 1;
 
     switch (p.position) {
       case 'QB':
-        // QBs take the full team passing pools
         s.passingYards = (s.passingYards || 0) + totalPassingYards;
         s.passingTds = (s.passingTds || 0) + passingTdsCount;
         s.completionPct = 60 + Math.floor(Math.random() * 15);
@@ -105,8 +111,6 @@ export function assignStatsToPlayers(
         break;
 
       case 'K':
-        const xpCount = Math.floor(score / 7);
-        const fgCount = Math.floor((score % 7) / 3);
         s.points = (s.points || 0) + (xpCount * 1) + (fgCount * 3);
         s.fgMade = (s.fgMade || 0) + fgCount;
         s.xpMade = (s.xpMade || 0) + xpCount;
@@ -116,8 +120,7 @@ export function assignStatsToPlayers(
       case 'EDGE':
       case 'LB':
         s.tackles = (s.tackles || 0) + Math.floor(Math.random() * 6) + Math.floor(oppScore / 10);
-        const sackProb = 0.98 - (p.rating / 1000);
-        if (Math.random() > sackProb) s.sacks = (s.sacks || 0) + 1;
+        if (Math.random() > (0.98 - (p.rating / 1000))) s.sacks = (s.sacks || 0) + 1;
         if (Math.random() > 0.95) s.tacklesForLoss = (s.tacklesForLoss || 0) + 1;
         break;
 
