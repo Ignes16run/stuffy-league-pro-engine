@@ -1,18 +1,19 @@
 // Last Updated: 2026-03-23T03:30:00-04:00
 
 import React, { useState, useMemo } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Search, Users, Filter, SlidersHorizontal, Edit2, Shield, Zap, Award, Star, Trophy, Target
+  Search, Users, Filter, SlidersHorizontal, Edit2, Shield, Star, Trophy, Target
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
-import { STUFFY_ICONS } from '@/lib/league/constants';
+import { STUFFY_RENDER_MAP, STADIUM_BG } from '@/lib/league/assetMap';
 import { cn } from '@/lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Player, Team } from '@/lib/league/types';
@@ -118,8 +119,21 @@ export default function RosterView() {
 }
 
 function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Team | undefined, index: number, onEdit: () => void }) {
-  const TeamIcon = team ? (STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : STUFFY_ICONS.TeddyBear;
+  const [rotate, setRotate] = useState({ x: 0, y: 0 });
+  const renderUrl = team ? STUFFY_RENDER_MAP[team.icon] : STUFFY_RENDER_MAP.TeddyBear;
   const rating = player.rating;
+
+  const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget;
+    const box = card.getBoundingClientRect();
+    const x = (e.clientX - box.left) / box.width - 0.5;
+    const y = (e.clientY - box.top) / box.height - 0.5;
+    setRotate({ x: y * -15, y: x * 15 });
+  };
+
+  const onMouseLeave = () => {
+    setRotate({ x: 0, y: 0 });
+  };
   
   const getRatingColor = (v: number) => {
     if (v >= 90) return 'text-amber-500';
@@ -132,106 +146,130 @@ function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Tea
     <motion.div
       layout
       initial={{ opacity: 0, scale: 0.9, y: 20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
+      animate={{ 
+        opacity: 1, 
+        scale: 1, 
+        y: 0,
+        rotateX: rotate.x,
+        rotateY: rotate.y
+      }}
       exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ delay: index * 0.02, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-      whileHover={{ y: -12, scale: 1.02 }}
-      className="group relative"
+      transition={{ 
+        layout: { duration: 0.4, ease: [0.23, 1, 0.32, 1] },
+        rotateX: { type: 'spring', stiffness: 300, damping: 20 },
+        rotateY: { type: 'spring', stiffness: 300, damping: 20 },
+        opacity: { duration: 0.2 },
+        scale: { duration: 0.2 }
+      }}
+      className="group relative perspective-1000"
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
       onClick={onEdit}
     >
       <Card 
-        className="relative h-[420px] rounded-[3rem] border border-white/40 overflow-hidden bg-white/40 backdrop-blur-3xl shadow-2xl transition-all cursor-pointer ring-1 ring-stone-900/5 hover:ring-emerald-500/30"
+        className={cn(
+          "relative h-[480px] rounded-[3rem] border-2 overflow-hidden bg-stone-900 shadow-2xl transition-all cursor-pointer",
+          rating >= 90 ? "border-amber-400/50" : "border-white/10"
+        )}
         style={{ 
-          boxShadow: team ? `0 30px 60px -20px ${team.primaryColor}25` : '0 20px 40px -15px rgba(0,0,0,0.05)'
+          boxShadow: team ? `0 40px 80px -20px ${team.primaryColor}40` : '0 20px 40px -15px rgba(0,0,0,0.2)'
         }}
       >
-        {/* Background Visual Elements */}
-        {team && (
-           <div 
-            className="absolute -bottom-12 -right-12 w-48 h-48 blur-[60px] opacity-[0.15] pointer-events-none transition-all duration-700 group-hover:opacity-40 group-hover:scale-125" 
-            style={{ backgroundColor: team.primaryColor }} 
+        {/* Stadium Background Overlay */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
+           <Image 
+            src={STADIUM_BG} 
+            fill
+            className="object-cover opacity-30 scale-110 group-hover:scale-100 transition-transform duration-1000 saturate-0 group-hover:saturate-100" 
+            alt="Stadium" 
            />
-        )}
-        <div className="absolute top-0 right-0 w-40 h-40 bg-white/40 blur-[80px] -mr-20 -mt-20 pointer-events-none" />
-
-        {/* Header: Identity & Rating */}
-        <div className="p-8 pb-4 relative z-10 flex items-start justify-between">
-            <div className="space-y-1">
-               <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-stone-900 text-white border-0 text-[8px] font-black uppercase h-5 px-2 tracking-tighter">
-                     {player.position}
-                  </Badge>
-                  {rating >= 90 && (
-                    <div className="text-amber-500">
-                      <Star className="w-3 h-3 fill-current" />
-                    </div>
-                  )}
-               </div>
-               <h3 className="text-2xl font-black text-stone-900 leading-[1.1] group-hover:text-emerald-600 transition-colors uppercase tracking-tight break-words">
-                  {player.name}
-               </h3>
-            </div>
-            <div className={cn("text-5xl font-black tracking-tighter italic leading-none drop-shadow-sm", getRatingColor(rating))}>
-               {rating}
-            </div>
+           <div className="absolute inset-0 bg-linear-to-t from-stone-950 via-stone-900/60 to-transparent" />
         </div>
 
-        {/* Team Banner */}
-        <div className="px-8 py-3 relative z-10">
-           <div className="flex items-center gap-3">
-              <div 
-                className="w-10 h-10 rounded-2xl flex items-center justify-center border-2 border-white shadow-xl rotate-3 group-hover:rotate-0 transition-transform duration-500"
-                style={{ backgroundColor: team?.primaryColor || '#cbd5e1', borderColor: team?.secondaryColor || '#fff' }}
-              >
-                {player.profilePicture ? (
-                  <img src={player.profilePicture} className="w-full h-full object-cover rounded-xl" alt={player.name} />
-                ) : (
-                  <TeamIcon className="w-5 h-5 text-white" />
-                )}
-              </div>
-              <div className="flex flex-col">
-                 <span className="text-[9px] font-black text-stone-500 uppercase tracking-[0.2em]">{team?.name || 'Free Agent'}</span>
-                 <span className="text-[8px] font-bold text-stone-300 uppercase tracking-widest">{player.archetype}</span>
-              </div>
-           </div>
+        {/* Character Render (Popping Out) */}
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+           <motion.div 
+             animate={{ 
+               y: rotate.x * 0.5,
+               x: rotate.y * 0.5
+             }}
+             className="relative w-[85%] h-full flex items-center justify-center group-hover:scale-110 transition-all duration-700"
+           >
+              <Image 
+                src={renderUrl}
+                fill
+                className="object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
+                alt={player.name}
+              />
+           </motion.div>
         </div>
 
-        {/* Ability Metrics */}
-        <div className="p-8 pt-4 space-y-6 relative z-10">
-           <div className="space-y-4">
-              {player.abilities.slice(0, 3).map((ability, i) => (
-                <div key={i} className="space-y-2">
-                   <div className="flex items-center justify-between px-1">
-                      <span className="text-[9px] font-black text-stone-400 uppercase tracking-[0.15em]">{ability.name}</span>
-                      <span className="text-[10px] font-bold text-stone-700">{ability.value}</span>
-                   </div>
-                   <div className="h-2 bg-stone-100/50 rounded-full overflow-hidden border border-white/20">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${ability.value}%` }}
-                        transition={{ duration: 1, delay: 0.2 + (i * 0.1) }}
-                        className="h-full rounded-full shadow-inner shadow-black/5"
-                        style={{ backgroundColor: team?.primaryColor || '#10b981' }}
-                      />
+        {/* Foil/Holographic Flash Effect */}
+        <motion.div 
+          className="absolute inset-0 z-30 opacity-0 group-hover:opacity-10 pointer-events-none bg-linear-to-br from-white via-transparent to-transparent blend-soft-light"
+          style={{
+            background: `radial-gradient(circle at ${50 + rotate.y * 2}% ${50 + rotate.x * 2}%, rgba(255,255,255,0.8) 0%, transparent 60%)`
+          }}
+        />
+
+        {/* Premium Frame & HUD */}
+        <div className="absolute inset-0 z-40 p-8 flex flex-col justify-between">
+            {/* Top HUD: Position & Rank */}
+            <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                   <div className="flex items-center gap-2">
+                      <Badge className="bg-amber-400 text-stone-950 border-0 text-[10px] font-black uppercase h-6 px-3 tracking-tighter rounded-lg">
+                         {player.position}
+                      </Badge>
+                      {rating >= 90 && (
+                        <div className="flex gap-0.5">
+                          {[1,2,3].map(i => <Star key={i} className="w-3 h-3 text-amber-400 fill-current opacity-80" />)}
+                        </div>
+                      )}
                    </div>
                 </div>
-              ))}
-           </div>
-           
-           <div className="pt-6 flex items-center justify-between border-t border-stone-100/50">
-              <div className="flex items-center gap-2">
-                 <div className="w-5 h-5 bg-stone-50 rounded-lg flex items-center justify-center">
-                    <Shield className="w-3 h-3 text-stone-300" />
-                 </div>
-                 <span className="text-[10px] font-black text-stone-900 italic tracking-tighter">
-                   #{player.jerseyNumber || (index + 10)}
-                 </span>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-stone-50 border border-stone-100 flex items-center justify-center group-hover:bg-emerald-500 group-hover:border-emerald-400 transition-all duration-500">
-                 <Edit2 className="w-3 h-3 text-stone-400 group-hover:text-white transition-colors" />
-              </div>
-           </div>
+                <div className={cn("text-6xl font-black tracking-tighter italic leading-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]", getRatingColor(rating))}>
+                   {rating}
+                </div>
+            </div>
+
+            {/* Bottom HUD: Dynamic Stats & Name */}
+            <div className="space-y-4 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
+                <div className="space-y-1">
+                   <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] block">
+                      {team?.name || 'Unassigned'}
+                   </span>
+                   <h3 className="text-3xl font-black text-white leading-none uppercase tracking-tight drop-shadow-lg">
+                      {player.name}
+                   </h3>
+                </div>
+
+                <div className="flex items-center gap-4 py-3 px-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10">
+                   {player.abilities.slice(0, 3).map((ability, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center">
+                         <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">{ability.name.slice(0, 3)}</span>
+                         <span className="text-sm font-black text-white">{ability.value}</span>
+                      </div>
+                   ))}
+                </div>
+
+                <div className="flex items-center justify-between px-1">
+                   <div className="flex items-center gap-2 opacity-60">
+                      <Shield className="w-4 h-4 text-white/50" />
+                      <span className="text-xs font-black text-white italic">#{player.jerseyNumber || (index + 10)}</span>
+                   </div>
+                   <div 
+                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-emerald-500 hover:scale-110 transition-all duration-300"
+                    style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
+                   >
+                      <Edit2 className="w-4 h-4 text-white" />
+                   </div>
+                </div>
+            </div>
         </div>
+
+        {/* Gloss Overlay */}
+        <div className="absolute inset-0 z-50 pointer-events-none bg-linear-to-tr from-white/5 to-transparent opacity-20" />
       </Card>
     </motion.div>
   );

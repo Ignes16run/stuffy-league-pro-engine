@@ -1,6 +1,7 @@
 // Last Updated: 2026-03-22T20:30:00-04:00
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, Upload, Trash2, RefreshCw, Settings, Sliders, LayoutGrid
@@ -8,7 +9,8 @@ import {
 import { useLeague } from '@/context/league-context';
 import { useAuth } from '@/context/auth-context';
 import { Team, StuffyIcon } from '@/lib/league/types';
-import { STUFFY_ICONS, ICON_OPTIONS, DEFAULT_COLORS } from '@/lib/league/constants';
+import { ICON_OPTIONS, DEFAULT_COLORS } from '@/lib/league/constants';
+import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -247,19 +249,21 @@ export default function TeamSetup() {
               {/* Icon / Color Identity Pickers would go here... Simplified for porting logic first */}
               <div className="space-y-4">
                 <label className="text-xs font-black uppercase text-stone-400">Select Icon</label>
-                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                <div className="grid grid-cols-4 sm:grid-cols-4 gap-4">
                   {ICON_OPTIONS.map(icon => {
-                    const IconComp = STUFFY_ICONS[icon as keyof typeof STUFFY_ICONS];
+                    const renderUrl = STUFFY_RENDER_MAP[icon as StuffyIcon];
                     return (
                       <button
                         key={icon}
                         onClick={() => setNewTeam({ ...newTeam, icon })}
                         className={cn(
-                          "aspect-square rounded-xl border-2 flex items-center justify-center transition-all",
-                          newTeam.icon === icon ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-stone-100 text-stone-300 hover:border-stone-200"
+                          "relative aspect-square rounded-4xl border-2 transition-all p-2 overflow-hidden",
+                          newTeam.icon === icon ? "border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/20" : "border-stone-100 bg-stone-50/50 hover:border-stone-200"
                         )}
                       >
-                        <IconComp className="w-6 h-6" />
+                        <div className="relative w-full h-full">
+                           <Image src={renderUrl} fill className="object-contain" alt={icon} />
+                        </div>
                       </button>
                     )
                   })}
@@ -299,15 +303,14 @@ export default function TeamSetup() {
             <div className="space-y-6 flex flex-col items-center">
                <label className="text-xs font-black uppercase text-stone-400 w-full">Logo Preview</label>
                <div 
-                 className="w-48 h-48 rounded-4xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center relative overflow-hidden bg-stone-50"
-                 style={{ backgroundColor: newTeam.logoUrl ? 'white' : 'transparent' }}
+                 className="w-48 h-48 rounded-[3rem] border-2 border-dashed border-stone-200 flex flex-col items-center justify-center relative overflow-hidden bg-stone-50 group hover:border-emerald-500/50 transition-colors"
                >
                  {newTeam.logoUrl ? (
-                   <img src={newTeam.logoUrl} className="w-full h-full object-cover" alt="logo" />
+                   <Image src={newTeam.logoUrl} fill className="object-cover" alt="logo" />
                  ) : (
-                   <div className="text-stone-300 text-center">
-                     <Upload className="w-10 h-10 mx-auto mb-2 opacity-20" />
-                     <p className="text-[10px] uppercase font-bold tracking-widest">No Logo</p>
+                   <div className="text-stone-300 text-center relative z-10 p-8">
+                     <Upload className="w-12 h-12 mx-auto mb-4 opacity-10 group-hover:scale-110 group-hover:text-emerald-500 transition-all" />
+                     <p className="text-[10px] uppercase font-black tracking-[0.3em]">Drop Branding Asset</p>
                    </div>
                  )}
                </div>
@@ -343,33 +346,46 @@ export default function TeamSetup() {
             </div>
           )}
           {teams.map(team => {
-            const IconComp = (team.icon && STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS]) ? STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] : STUFFY_ICONS.TeddyBear;
+            const renderUrl = STUFFY_RENDER_MAP[team.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
             return (
               <motion.div layout key={team.id} className="relative group">
-                <Card className="rounded-3xl overflow-hidden border border-stone-100 hover:shadow-xl hover:-translate-y-1 transition-all">
-                   <div className="h-1 w-full flex">
-                      <div className="flex-1 h-full" style={{ backgroundColor: team.primaryColor }} />
-                      <div className="flex-1 h-full" style={{ backgroundColor: team.secondaryColor }} />
-                   </div>
-                   <CardContent className="p-6 flex flex-col items-center gap-4 text-center">
+                <Card className="rounded-[3rem] overflow-hidden border-2 border-stone-100 hover:shadow-2xl hover:-translate-y-2 transition-all bg-white relative">
+                   <div 
+                    className="absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-10 pointer-events-none" 
+                    style={{ backgroundColor: team.primaryColor }} 
+                   />
+                   
+                   <CardContent className="p-8 flex flex-col items-center gap-6 text-center relative z-10">
                       <div 
-                        className="w-20 h-20 rounded-2xl flex items-center justify-center border-2 border-stone-100 shadow-md overflow-hidden"
-                        style={{ backgroundColor: team.primaryColor, color: 'white' }}
+                        className="w-24 h-24 rounded-[2.5rem] flex items-center justify-center border-4 border-white shadow-xl relative overflow-hidden"
+                        style={{ backgroundColor: team.primaryColor }}
                       >
                         {team.logoUrl ? (
-                          <img src={team.logoUrl} className="w-full h-full object-cover" alt={`${team.name} Logo`} />
+                          <Image src={team.logoUrl} fill className="object-cover" alt={`${team.name} Logo`} />
                         ) : (
-                          <IconComp className="w-10 h-10" />
+                          <div className="relative w-[120%] h-[120%] translate-y-2">
+                             <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={team.name} />
+                          </div>
                         )}
                       </div>
                       <div>
-                        <h4 className="font-black text-stone-900 leading-none mb-1">{team.name}</h4>
-                        <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">{team.icon}</p>
+                        <h4 className="text-lg font-black text-stone-900 leading-none mb-2 uppercase tracking-tight">{team.name}</h4>
+                        <p className="text-[9px] text-stone-400 font-extrabold uppercase tracking-[0.2em]">{team.icon}</p>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 w-full pt-4 border-t border-stone-100">
-                         <div className="text-[9px] font-black text-stone-400">OFF <p className="text-stone-900">{team.offenseRating}</p></div>
-                         <div className="text-[9px] font-black text-stone-400">DEF <p className="text-stone-900">{team.defenseRating}</p></div>
-                         <div className="text-[9px] font-black text-stone-400">SPC <p className="text-stone-900">{team.specialTeamsRating}</p></div>
+                      
+                      <div className="flex gap-4 w-full pt-6 border-t border-stone-50">
+                         <div className="flex-1">
+                            <p className="text-[8px] font-black text-stone-300 uppercase mb-1">Offense</p>
+                            <p className="text-sm font-black text-stone-900 italic tracking-tighter">{team.offenseRating}</p>
+                         </div>
+                         <div className="flex-1">
+                            <p className="text-[8px] font-black text-stone-300 uppercase mb-1">Defense</p>
+                            <p className="text-sm font-black text-stone-900 italic tracking-tighter">{team.defenseRating}</p>
+                         </div>
+                         <div className="flex-1">
+                            <p className="text-[8px] font-black text-stone-300 uppercase mb-1">Spec</p>
+                            <p className="text-sm font-black text-stone-900 italic tracking-tighter">{team.specialTeamsRating}</p>
+                         </div>
                       </div>
                    </CardContent>
                 </Card>

@@ -1,16 +1,17 @@
 "use client";
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import Image from 'next/image';
+import { motion } from 'motion/react';
 import { 
   Sword, Shield, Star, Users, Plus
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
-import { STUFFY_ICONS } from '@/lib/league/constants';
+import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Progress } from "@/components/ui/progress";
+import { Card, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { StuffyIcon, Team } from '@/lib/league/types';
 
 export default function TrainingCamp() {
   const { teams, upgradeStat } = useLeague();
@@ -58,55 +59,69 @@ export default function TrainingCamp() {
   );
 }
 
-function TeamCampCard({ team, onUpgrade }: { team: any, onUpgrade: any }) {
+function TeamCampCard({ team, onUpgrade }: { team: Team, onUpgrade: (teamId: string, statId: string) => Promise<void> }) {
   const points = team.stuffyPoints || 0;
-  const IconComp = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS];
+  const renderUrl = STUFFY_RENDER_MAP[team.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
 
   return (
-    <Card className="rounded-[2rem] border border-stone-100 shadow-sm overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all">
-       <div className="bg-stone-50/50 p-6 border-b border-stone-100 flex items-center gap-4">
+    <Card className="rounded-4xl border border-stone-100 shadow-sm overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all group bg-white/60 backdrop-blur-sm">
+       <div className="bg-stone-50/50 p-8 border-b border-stone-100 flex items-center gap-6">
           <div 
-            className="w-16 h-16 rounded-[1.25rem] flex items-center justify-center border-2 shadow-sm text-white"
-            style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
+            className="w-20 h-20 rounded-3xl flex items-center justify-center border-2 border-white shadow-xl relative overflow-hidden group-hover:scale-105 transition-transform duration-500"
+            style={{ backgroundColor: team.primaryColor }}
           >
-             {team.logoUrl ? <img src={team.logoUrl} className="w-full h-full object-cover" /> : <IconComp className="w-8 h-8" />}
+             {team.logoUrl ? (
+               <Image src={team.logoUrl} fill className="object-cover" alt={team.name} />
+             ) : (
+               <div className="relative w-[130%] h-[130%] translate-y-2">
+                 <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={team.name} />
+               </div>
+             )}
           </div>
            <div className="flex-1 min-w-0">
-             <h4 className="font-black text-stone-900 text-lg leading-tight truncate uppercase tracking-tighter">{team.name}</h4>
-             <div className="flex items-center gap-2 mt-1">
-                <Star className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
-                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{points} SP <span className="text-[9px] text-stone-300 font-bold uppercase ml-1">Available</span></span>
+             <h4 className="font-black text-stone-900 text-xl leading-tight truncate uppercase tracking-tighter mb-1">{team.name}</h4>
+             <div className="flex items-center gap-2">
+                <div className="bg-indigo-50 px-3 py-1 rounded-full flex items-center gap-1.5 border border-indigo-100/50">
+                  <Star className="w-3 h-3 text-indigo-500 fill-indigo-500" />
+                  <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">{points} SP</span>
+                </div>
              </div>
           </div>
        </div>
        
-       <CardContent className="p-6 space-y-8">
+       <CardContent className="p-8 space-y-10">
           {[
             { id: 'offenseRating', label: 'Offense', icon: Sword, color: '#f43f5e' },
             { id: 'defenseRating', label: 'Defense', icon: Shield, color: '#3b82f6' },
             { id: 'specialTeamsRating', label: 'Special Teams', icon: Star, color: '#10b981' }
           ].map(stat => {
-            const val = team[stat.id] || 75;
+            const val = (team[stat.id as keyof Team] as number) || 75;
             const canAfford = points >= 50 && val < 99;
             return (
-              <div key={stat.id} className="space-y-3">
+              <div key={stat.id} className="space-y-4">
                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                       <stat.icon className="w-4 h-4 text-stone-300" />
-                       <span className="text-[10px] font-bold uppercase text-stone-400 tracking-[0.2em]">{stat.label}</span>
+                    <div className="flex items-center gap-3">
+                       <div className="w-8 h-8 rounded-xl bg-stone-50 border border-stone-100 flex items-center justify-center group-hover:bg-white transition-colors">
+                          <stat.icon className="w-4 h-4 text-stone-300" />
+                       </div>
+                       <span className="text-[10px] font-black uppercase text-stone-400 tracking-[0.2em]">{stat.label}</span>
                     </div>
-                    <span className="text-lg font-black text-stone-900">{val} / 99</span>
+                    <div className="flex items-end gap-1">
+                      <span className="text-2xl font-black text-stone-900 leading-none">{val}</span>
+                      <span className="text-[10px] font-bold text-stone-300 uppercase pb-0.5">/ 99</span>
+                    </div>
                  </div>
                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-3 bg-stone-100 rounded-full overflow-hidden">
+                    <div className="flex-1 h-2.5 bg-stone-100 rounded-full overflow-hidden">
                        <motion.div initial={{ width: 0 }} animate={{ width: `${(val/99)*100}%` }} className="h-full rounded-full" style={{ backgroundColor: stat.color }} />
                     </div>
                     <Button 
-                      variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl"
+                      variant="outline" size="sm" className="h-10 px-4 rounded-xl border-stone-100 bg-white font-black text-[10px] uppercase tracking-widest gap-2 shadow-sm active:scale-95 transition-all"
                       disabled={!canAfford}
                       onClick={() => onUpgrade(team.id, stat.id)}
                     >
-                       <Plus className={cn("w-4 h-4", canAfford ? "text-indigo-500" : "text-stone-200")} />
+                       <Plus className={cn("w-3.5 h-3.5", canAfford ? "text-indigo-500" : "text-stone-200")} />
+                       Train
                     </Button>
                  </div>
               </div>

@@ -1,14 +1,15 @@
 "use client";
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Trophy, RotateCcw, RefreshCw, Zap, Star
 } from 'lucide-react';
 import { useTournament, TournamentGame } from '@/context/tournament-context';
-import { STUFFY_ICONS } from '@/lib/league/constants';
+import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Team } from '@/lib/league/types';
+import { Team, StuffyIcon } from '@/lib/league/types';
 
 const REGIONS = ['North', 'South', 'East', 'West'];
 
@@ -176,8 +177,8 @@ export default function TournamentBracket() {
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-80 bg-amber-400/20 blur-[100px] pointer-events-none" />
               
               <div className="relative space-y-8">
-                <div 
-                  className="w-40 h-40 mx-auto rounded-[2.5rem] flex items-center justify-center border-8 border-white shadow-2xl transition-all duration-700 hover:rotate-6"
+                 <div 
+                  className="w-40 h-40 mx-auto rounded-[2.5rem] flex items-center justify-center border-8 border-white shadow-2xl transition-all duration-700 hover:rotate-6 relative overflow-hidden"
                   style={{ 
                     backgroundColor: winningTeam.primaryColor, 
                     borderColor: winningTeam.secondaryColor,
@@ -185,9 +186,11 @@ export default function TournamentBracket() {
                   }}
                 >
                    {winningTeam.logoUrl ? (
-                     <img src={winningTeam.logoUrl} className="w-full h-full object-cover rounded-4xl" alt={winningTeam.name} />
+                     <Image src={winningTeam.logoUrl} fill className="object-cover" alt={winningTeam.name} />
                    ) : (
-                     <Trophy className="w-20 h-20 text-white" />
+                     <div className="relative w-[130%] h-[130%] translate-y-4">
+                        <Image src={STUFFY_RENDER_MAP[winningTeam.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear} fill className="object-contain drop-shadow-2xl" alt={winningTeam.name} />
+                     </div>
                    )}
                 </div>
 
@@ -265,9 +268,6 @@ function MatchupCard({ game, teams, delay, onPick }: { game: TournamentGame, tea
   const team1 = teams.find(t => t.id === game.team1Id);
   const team2 = teams.find(t => t.id === game.team2Id);
   
-  const Team1Icon = team1 ? (STUFFY_ICONS[team1.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : null;
-  const Team2Icon = team2 ? (STUFFY_ICONS[team2.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : null;
-
   return (
     <motion.div
       initial={{ opacity: 0, x: -5 }}
@@ -279,7 +279,7 @@ function MatchupCard({ game, teams, delay, onPick }: { game: TournamentGame, tea
          {/* Team 1 Slot */}
          <div 
            className={cn(
-            "p-2.5 flex items-center justify-between transition-all cursor-pointer border-b border-stone-50",
+            "p-2.5 flex items-center justify-between transition-all cursor-pointer border-b border-stone-50 h-[36px]",
             game.winnerId === team1?.id ? "bg-amber-500/10" : "hover:bg-stone-50"
            )}
            onClick={() => team1 && onPick(game.id, team1.id)}
@@ -288,8 +288,8 @@ function MatchupCard({ game, teams, delay, onPick }: { game: TournamentGame, tea
                <span className="text-[9px] font-black text-stone-400 w-4">{game.seed1 || '•'}</span>
                {team1 ? (
                  <>
-                   <div className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: team1.primaryColor }}>
-                     {Team1Icon && <Team1Icon className="w-3.5 h-3.5" />}
+                   <div className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-white relative overflow-hidden" style={{ backgroundColor: team1.primaryColor }}>
+                     <Image src={STUFFY_RENDER_MAP[team1.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear} fill className="object-contain p-0.5" alt={team1.name} />
                    </div>
                    <span className="text-[10px] font-black text-stone-900 uppercase truncate">{team1.name}</span>
                  </>
@@ -305,7 +305,7 @@ function MatchupCard({ game, teams, delay, onPick }: { game: TournamentGame, tea
          {/* Team 2 Slot */}
          <div 
            className={cn(
-            "p-2.5 flex items-center justify-between transition-all cursor-pointer",
+            "p-2.5 flex items-center justify-between transition-all cursor-pointer h-[36px]",
             game.winnerId === team2?.id ? "bg-amber-500/10" : "hover:bg-stone-50"
            )}
            onClick={() => team2 && onPick(game.id, team2.id)}
@@ -314,8 +314,8 @@ function MatchupCard({ game, teams, delay, onPick }: { game: TournamentGame, tea
                <span className="text-[9px] font-black text-stone-400 w-4">{game.seed2 || '•'}</span>
                {team2 ? (
                  <>
-                   <div className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: team2.primaryColor }}>
-                     {Team2Icon && <Team2Icon className="w-3.5 h-3.5" />}
+                   <div className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-white relative overflow-hidden" style={{ backgroundColor: team2.primaryColor }}>
+                     <Image src={STUFFY_RENDER_MAP[team2.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear} fill className="object-contain p-0.5" alt={team2.name} />
                    </div>
                    <span className="text-[10px] font-black text-stone-900 uppercase truncate">{team2.name}</span>
                  </>

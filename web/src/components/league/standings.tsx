@@ -1,12 +1,14 @@
 // Last Updated: 2026-03-23T03:26:00-04:00
 
 import React, { useMemo } from 'react';
+import Image from 'next/image';
 import { Info } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
-import { STUFFY_ICONS } from '@/lib/league/constants';
+import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
 import { calculateGroupedStandings } from '@/lib/league/structureEngine';
 import { cn } from '@/lib/utils';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { StuffyIcon } from '@/lib/league/types';
 
 export default function Standings() {
   const { teams, games } = useLeague();
@@ -51,26 +53,28 @@ export default function Standings() {
                         {divTeams.map((s, idx) => {
                           const team = teams.find(t => t.id === s.teamId);
                           if (!team) return null;
-                          const TeamIcon = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
+                          const renderUrl = STUFFY_RENDER_MAP[team.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
                           
                           return (
                             <div 
                               key={s.teamId}
-                              className="bg-white rounded-2xl p-3 flex items-center justify-between border border-stone-100 shadow-sm shadow-stone-200/50 group hover:border-emerald-200 transition-all"
+                              className="bg-white rounded-2xl p-4 flex items-center justify-between border border-stone-100 shadow-sm shadow-stone-200/50 group hover:border-emerald-200 transition-all active:scale-[0.99]"
                             >
-                              <div className="flex items-center gap-3">
-                                <div className="w-6 text-[10px] font-black text-stone-300">#{idx + 1}</div>
+                              <div className="flex items-center gap-4">
+                                <div className="w-8 text-[11px] font-black text-stone-300">#{idx + 1}</div>
                                 <div 
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center border shadow-xs"
-                                  style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center border-2 border-white shadow-lg relative overflow-hidden group-hover:scale-110 transition-transform duration-500"
+                                  style={{ backgroundColor: team.primaryColor }}
                                 >
                                   {team.logoUrl ? (
-                                    <img src={team.logoUrl} className="w-full h-full object-cover" alt={team.name} />
+                                    <Image src={team.logoUrl} fill className="object-cover" alt={team.name} />
                                   ) : (
-                                    <TeamIcon className="w-4 h-4 text-white" />
+                                    <div className="relative w-[130%] h-[130%] translate-y-2">
+                                       <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={team.name} />
+                                    </div>
                                   )}
                                 </div>
-                                <span className="font-black text-stone-900 text-xs">{team.name}</span>
+                                <span className="font-black text-stone-900 text-sm tracking-tight">{team.name}</span>
                               </div>
                               
                               <div className="flex items-center gap-4">

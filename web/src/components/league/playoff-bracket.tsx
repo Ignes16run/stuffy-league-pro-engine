@@ -2,14 +2,16 @@
 // Last Updated: 2026-03-23T04:20:00-04:00
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Trophy, RotateCcw, Play, CheckCircle2, Star, RefreshCw
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
-import { STUFFY_ICONS } from '@/lib/league/constants';
+import { STUFFY_RENDER_MAP, STADIUM_BG } from '@/lib/league/assetMap';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { StuffyIcon } from '@/lib/league/types';
 
 export default function PlayoffBracket() {
   // Updated: 2026-03-23T10:16:00-04:00
@@ -53,7 +55,7 @@ export default function PlayoffBracket() {
           
           // Scores - Ensure no ties in playoffs
           let s1 = Math.floor(Math.random() * 20) + 10 + (t1P / 10);
-          let s2 = Math.floor(Math.random() * 20) + 10 + (t2P / 10);
+          const s2 = Math.floor(Math.random() * 20) + 10 + (t2P / 10);
           
           if (Math.floor(s1) === Math.floor(s2)) {
              s1 += 1; // Basic no-tie rule for playoffs
@@ -91,54 +93,69 @@ export default function PlayoffBracket() {
   return (
     <div className="max-w-7xl mx-auto space-y-12 pb-20">
       {/* Tournament Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 bg-white/40 backdrop-blur-3xl p-10 rounded-[3.5rem] border border-stone-100 shadow-2xl shadow-stone-200/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 p-10 rounded-[3.5rem] border-2 border-white/20 shadow-2xl relative overflow-hidden bg-stone-900 group">
+        <div className="absolute inset-0 z-0 overflow-hidden opacity-40">
+           <Image src={STADIUM_BG} fill className="object-cover scale-105 group-hover:scale-100 transition-transform duration-1000 saturate-50" alt="Stadium" />
+           <div className="absolute inset-0 bg-linear-to-t from-stone-950 via-stone-900/40 to-transparent" />
+        </div>
         
         <div className="relative z-10 space-y-3">
             <div className="flex items-center gap-5">
-               <div className="w-16 h-16 bg-linear-to-br from-amber-400 to-amber-600 rounded-4xl flex items-center justify-center shadow-2xl shadow-amber-500/40 border-2 border-white/20">
-                  <Trophy className="w-7 h-7 text-white" />
+               <div className="w-16 h-16 bg-linear-to-br from-amber-400 to-amber-600 rounded-4xl flex items-center justify-center shadow-2xl shadow-amber-500/40 border-2 border-white/20 animate-pulse">
+                  <Trophy className="w-7 h-7 text-stone-950" />
                </div>
                <div>
-                  <h2 className="text-4xl font-black text-stone-900 uppercase tracking-tight leading-none">Championship</h2>
-                  <p className="text-stone-400 text-[10px] font-black uppercase tracking-[0.4em] mt-3">Postseason Tournament Matrix</p>
+                  <h2 className="text-4xl font-black text-white uppercase tracking-tight leading-none drop-shadow-lg">Playoff Bracket</h2>
+                  <p className="text-amber-400/60 text-[10px] font-black uppercase tracking-[0.4em] mt-2">Road to the Stuffy Bowl</p>
                </div>
             </div>
         </div>
-        
-        <div className="flex flex-wrap items-center gap-4 relative z-10">
+
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
           <Button 
             variant="outline" 
             onClick={resetPlayoffs}
-            disabled={isSimulating}
-            className="h-16 px-8 rounded-2xl border-stone-100 bg-white/60 text-stone-400 hover:text-rose-500 transition-all font-black text-[10px] uppercase tracking-widest gap-3 shadow-sm group"
+            className="h-14 px-8 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10 transition-all font-black text-[10px] uppercase tracking-widest gap-3 backdrop-blur-md"
           >
-            <RotateCcw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+            <RotateCcw className="w-4 h-4 text-amber-400" />
             Reset Bracket
           </Button>
-
-          {champGame ? (
-            <Button 
-              onClick={() => {
-                completeSeason(champGame.winnerId!);
-                setActiveTab('stats');
-              }}
-              className="h-16 px-12 rounded-2xl bg-emerald-500 border-0 text-white font-black text-[11px] uppercase tracking-[0.25em] shadow-2xl hover:bg-emerald-600 transition-all active:scale-95 gap-3"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Finalize Season
-            </Button>
-          ) : (
-            <Button 
-              onClick={simulatePlayoffRound}
-              disabled={isSimulating || playoffGames.length === 0}
-              className="h-16 px-12 rounded-2xl bg-stone-900 border-0 text-white font-black text-[11px] uppercase tracking-[0.25em] shadow-2xl hover:bg-black transition-all active:scale-95 gap-3"
-            >
-              {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-              {isSimulating ? 'Simulating...' : 'Next Round Cycle'}
-            </Button>
-          )}
+          <Button 
+            onClick={simulatePlayoffRound}
+            disabled={isSimulating}
+            className={cn(
+              "h-14 px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest gap-3 shadow-2xl transition-all active:scale-[0.98]",
+              "bg-amber-400 hover:bg-amber-500 text-stone-950 shadow-amber-400/20"
+            )}
+          >
+            {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {isSimulating ? 'Simulating...' : 'Advance Round'}
+          </Button>
         </div>
+      </div>
+
+      <div className="flex items-center justify-between px-10">
+        {champGame ? (
+          <Button 
+            onClick={() => {
+              completeSeason(champGame.winnerId!);
+              setActiveTab('stats');
+            }}
+            className="h-16 px-12 rounded-2xl bg-emerald-500 border-0 text-white font-black text-[11px] uppercase tracking-[0.25em] shadow-2xl hover:bg-emerald-600 transition-all active:scale-95 gap-3"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            Finalize Season
+          </Button>
+        ) : (
+          <Button 
+            onClick={simulatePlayoffRound}
+            disabled={isSimulating || playoffGames.length === 0}
+            className="h-16 px-12 rounded-2xl bg-stone-900 border-0 text-white font-black text-[11px] uppercase tracking-[0.25em] shadow-2xl hover:bg-black transition-all active:scale-95 gap-3"
+          >
+            {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+            {isSimulating ? 'Simulating...' : 'Next Round Cycle'}
+          </Button>
+        )}
       </div>
 
       {/* Bracket View */}
@@ -208,8 +225,8 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
   const team1 = teams.find(t => t.id === game.team1Id);
   const team2 = teams.find(t => t.id === game.team2Id);
   
-  const Team1Icon = team1 ? (STUFFY_ICONS[team1.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : STUFFY_ICONS.TeddyBear;
-  const Team2Icon = team2 ? (STUFFY_ICONS[team2.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : STUFFY_ICONS.TeddyBear;
+  const render1 = team1 ? STUFFY_RENDER_MAP[team1.icon as StuffyIcon] : STUFFY_RENDER_MAP.TeddyBear;
+  const render2 = team2 ? STUFFY_RENDER_MAP[team2.icon as StuffyIcon] : STUFFY_RENDER_MAP.TeddyBear;
 
   return (
     <motion.div
@@ -218,92 +235,100 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
       transition={{ delay, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
       className="relative group scale-95 origin-center"
     >
-      <div className="bg-white/80 backdrop-blur-2xl rounded-[2.5rem] border border-white/40 shadow-xl overflow-hidden ring-1 ring-stone-900/5 group-hover:shadow-2xl transition-all duration-700">
+      <div className="bg-stone-900/90 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden ring-1 ring-white/10 group-hover:shadow-amber-500/10 transition-all duration-700">
          {/* Team 1 */}
          <div 
            className={cn(
-            "p-4 flex items-center justify-between transition-all duration-500",
-            game.winnerId === team1?.id && !!team1?.id ? "bg-emerald-500/5 cursor-pointer" : "cursor-pointer hover:bg-stone-50/50"
+            "p-5 flex items-center justify-between transition-all duration-500 relative",
+            game.winnerId === team1?.id && !!team1?.id ? "bg-white/5" : "hover:bg-white/5 cursor-pointer"
            )}
            onClick={() => team1 && onPick(game.id, team1.id)}
          >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
                <div 
-                className="w-10 h-10 rounded-xl flex items-center justify-center border shadow-lg transition-all duration-700 group-hover:rotate-6"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center border-2 border-white/10 shadow-2xl relative overflow-hidden transition-all duration-700 group-hover:scale-110"
                 style={{ 
-                  backgroundColor: team1?.primaryColor || '#f3f4f6', 
-                  borderColor: team1?.secondaryColor || '#fff',
-                  boxShadow: team1 ? `0 8px 24px -8px ${team1.primaryColor}40` : 'none'
+                  backgroundColor: team1?.primaryColor || '#1c1917', 
+                  boxShadow: team1 ? `0 8px 32px -8px ${team1.primaryColor}60` : 'none'
                 }}
               >
                 {team1?.logoUrl ? (
-                  <img src={team1.logoUrl} className="w-full h-full object-cover rounded-lg" alt={team1.name} />
+                  <Image src={team1.logoUrl} fill className="object-cover" alt={team1.name} />
                 ) : (
-                  <Team1Icon className="w-5 h-5 text-white" />
+                  <div className="relative w-[130%] h-[130%] translate-y-2">
+                     <Image src={render1} fill className="object-contain drop-shadow-lg" alt={team1?.name || '?'} />
+                  </div>
                 )}
               </div>
               <div className="flex flex-col">
-                 <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1">#{game.seed1 || '?'}</span>
-                 <span className="text-sm font-black text-stone-900 uppercase tracking-tight truncate max-w-[120px] leading-none">{team1?.name || '---'}</span>
+                 <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] leading-none mb-1">{game.seed1 ? `#${game.seed1}` : '--'}</span>
+                 <span className="text-sm font-black text-white uppercase tracking-tighter truncate max-w-[130px] leading-none">{team1?.name || 'Awaiting'}</span>
               </div>
             </div>
-            <div className={cn("text-xl font-black italic tracking-tighter", game.winnerId === team1?.id && !!team1?.id ? "text-emerald-500" : "text-stone-300")}>
+            <div className={cn("text-2xl font-black italic tracking-tighter drop-shadow-lg", game.winnerId === team1?.id && !!team1?.id ? "text-amber-400" : "text-white/20")}>
                {game.team1Score || 0}
             </div>
+            {game.winnerId === team1?.id && (
+               <div className="absolute left-0 top-0 w-1 h-full bg-amber-400" />
+            )}
          </div>
 
          {/* Visual Divider */}
-         <div className="h-px w-full bg-stone-50" />
+         <div className="h-px w-full bg-white/5" />
 
          {/* Team 2 */}
          <div 
            className={cn(
-            "p-4 flex items-center justify-between transition-all duration-500",
-            game.winnerId === team2?.id && !!team2?.id ? "bg-emerald-500/5 cursor-pointer" : "cursor-pointer hover:bg-stone-50/50"
+            "p-5 flex items-center justify-between transition-all duration-500 relative",
+            game.winnerId === team2?.id && !!team2?.id ? "bg-white/5" : "hover:bg-white/5 cursor-pointer"
            )}
            onClick={() => team2 && onPick(game.id, team2.id)}
          >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
                <div 
-                className="w-10 h-10 rounded-xl flex items-center justify-center border shadow-lg transition-all duration-700 group-hover:-rotate-6"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center border-2 border-white/10 shadow-2xl relative overflow-hidden transition-all duration-700 group-hover:scale-110"
                 style={{ 
-                  backgroundColor: team2?.primaryColor || '#f3f4f6', 
-                  borderColor: team2?.secondaryColor || '#fff',
-                  boxShadow: team2 ? `0 8px 24px -8px ${team2.primaryColor}40` : 'none'
+                  backgroundColor: team2?.primaryColor || '#1c1917', 
+                  boxShadow: team2 ? `0 8px 32px -8px ${team2.primaryColor}60` : 'none'
                 }}
               >
                 {team2?.logoUrl ? (
-                  <img src={team2.logoUrl} className="w-full h-full object-cover rounded-lg" alt={team2.name} />
+                  <Image src={team2.logoUrl} fill className="object-cover" alt={team2.name} />
                 ) : (
-                  <Team2Icon className="w-5 h-5 text-white" />
+                  <div className="relative w-[130%] h-[130%] translate-y-2">
+                     <Image src={render2} fill className="object-contain drop-shadow-lg" alt={team2?.name || '?'} />
+                  </div>
                 )}
               </div>
               <div className="flex flex-col">
-                 <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1">#{game.seed2 || '?'}</span>
-                 <span className="text-sm font-black text-stone-900 uppercase tracking-tight truncate max-w-[120px] leading-none">{team2?.name || '---'}</span>
+                 <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] leading-none mb-1">{game.seed2 ? `#${game.seed2}` : '--'}</span>
+                 <span className="text-sm font-black text-white uppercase tracking-tighter truncate max-w-[130px] leading-none">{team2?.name || 'Awaiting'}</span>
               </div>
             </div>
-            <div className={cn("text-xl font-black italic tracking-tighter", game.winnerId === team2?.id && !!team2?.id ? "text-emerald-500" : "text-stone-300")}>
+            <div className={cn("text-2xl font-black italic tracking-tighter drop-shadow-lg", game.winnerId === team2?.id && !!team2?.id ? "text-amber-400" : "text-white/20")}>
                {game.team2Score || 0}
             </div>
+            {game.winnerId === team2?.id && (
+               <div className="absolute left-0 top-0 w-1 h-full bg-amber-400" />
+            )}
          </div>
 
-         {/* Winner Badge */}
+         {/* Winner Badge - Center Overlay */}
          <AnimatePresence>
             {game.winnerId && (
               <motion.div 
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 -mr-2 bg-emerald-500 text-white rounded-full p-1 shadow-2xl shadow-emerald-500/50 border-2 border-white"
+                initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-amber-400 text-stone-950 rounded-lg px-2 py-1 shadow-2xl z-50 transform"
               >
-                 <CheckCircle2 className="w-5 h-5" />
+                 <span className="text-[8px] font-black uppercase tracking-tighter">Winner</span>
               </motion.div>
             )}
          </AnimatePresence>
       </div>
       
       {/* Branch Connectors */}
-      <div className="absolute top-1/2 -right-12 w-12 h-px bg-stone-100 group-hover:bg-emerald-300 transition-colors duration-500" />
+      <div className="absolute top-1/2 -right-12 w-12 h-px bg-white/10 group-hover:bg-amber-400/30 transition-colors duration-500" />
     </motion.div>
   );
 }

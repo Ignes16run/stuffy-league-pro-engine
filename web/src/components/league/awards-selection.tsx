@@ -2,15 +2,16 @@
 // Last Updated: 2026-03-23T04:25:00-04:00
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Trophy, Medal, Star, Target, Shield, Sparkles, Share2, Play, RotateCcw
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
-import { STUFFY_ICONS } from '@/lib/league/constants';
+import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { AwardType, Player, Team } from '@/lib/league/types';
+import { AwardType, Player, Team, StuffyIcon } from '@/lib/league/types';
 
 const AWARD_CONFIG = {
   MVP: { icon: Star, color: 'from-amber-400 to-orange-600', label: 'Most Valuable Stuffy', bg: 'bg-amber-500/10' },
@@ -22,13 +23,13 @@ const AWARD_CONFIG = {
 
 export default function AwardsSelection() {
   const { calculateAwards, teams, players, finalizeSeason } = useLeague();
-  const [awards, setAwards] = useState<Record<AwardType, { winner: Player; narrative: string }>>({} as any);
+  const [awards, setAwards] = useState<Partial<Record<AwardType, { winner: Player; narrative: string }>>>({});
   const [revealingAwards, setRevealingAwards] = useState<AwardType[]>([]);
   const [isCeremonyActive, setIsCeremonyActive] = useState(false);
 
   const startCeremony = () => {
     const results = calculateAwards();
-    setAwards(results as any);
+    setAwards(results);
     setIsCeremonyActive(true);
     setRevealingAwards([]);
     
@@ -86,11 +87,11 @@ export default function AwardsSelection() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                <AnimatePresence>
                   {(['STPOY', 'DPOY', 'OPOY', 'MVP', 'CHAMPION'] as AwardType[]).map((type) => (
-                    revealingAwards.includes(type) && (
+                    revealingAwards.includes(type) && awards[type] && (
                         <AwardRevealCard 
                             key={type}
                             type={type} 
-                            playerId={awards[type].winner.id} 
+                            playerId={awards[type]!.winner.id} 
                             players={players} 
                             teams={teams}
                         />
@@ -146,25 +147,31 @@ function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, 
   const isTeamAward = type === 'CHAMPION';
   const player = isTeamAward ? null : players.find(p => p.id === playerId);
   const team = isTeamAward ? teams.find(t => t.id === playerId) : teams.find(t => t.id === player?.teamId);
-  const TeamIcon = team ? (STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : null;
+  const renderUrl = team ? STUFFY_RENDER_MAP[team.icon as StuffyIcon] : STUFFY_RENDER_MAP.TeddyBear;
 
   return (
     <motion.div
         initial={{ opacity: 0, scale: 0.8, y: 50 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.8 }}
-        className="relative group"
+        className="relative group h-full"
     >
        {/* Spotlight Beam */}
        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-40 h-[600px] bg-white/10 blur-[60px] pointer-events-none -z-10 animate-pulse" />
        
        <div className="relative h-full bg-white rounded-[3.5rem] border border-stone-100 shadow-2xl overflow-hidden group-hover:shadow-3xl transition-all duration-700">
           {/* Accent Header */}
-          <div className={cn("h-40 w-full relative overflow-hidden flex items-center justify-center pt-8 bg-linear-to-br", config.color)}>
-             <div className="absolute inset-0 bg-white/10 noise opacity-20" />
+          <div className={cn("h-48 w-full relative overflow-hidden flex items-center justify-center pt-8 bg-linear-to-br", config.color)}>
+             <div className="absolute inset-0 bg-white/10 opacity-20" />
              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/20 blur-3xl rounded-full" />
-             <div className="relative z-10 p-5 bg-white/20 backdrop-blur-xl rounded-4xl border border-white/30 shadow-2xl group-hover:rotate-12 transition-transform duration-700">
-                <Icon className="w-10 h-10 text-white" />
+             
+             {/* Character Background Glimpse */}
+             <div className="absolute inset-0 flex items-center justify-center opacity-30 mix-blend-overlay scale-150 -translate-y-4">
+                 <Image src={renderUrl} fill className="object-contain" alt="" />
+             </div>
+
+             <div className="relative z-10 p-6 bg-white/20 backdrop-blur-2xl rounded-4xl border border-white/30 shadow-2xl group-hover:scale-110 transition-transform duration-700">
+                <Icon className="w-12 h-12 text-white" />
              </div>
           </div>
 
@@ -180,13 +187,15 @@ function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, 
                 {team && (
                     <div className="flex items-center gap-3 bg-stone-50 px-5 py-3 rounded-2xl border border-stone-100 shadow-sm group-hover:bg-white group-hover:scale-105 transition-all">
                        <div 
-                        className="w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm ring-4 ring-white"
-                        style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm ring-4 ring-white relative overflow-hidden"
+                        style={{ backgroundColor: team.primaryColor }}
                        >
                           {team.logoUrl ? (
-                              <img src={team.logoUrl} className="w-full h-full object-cover rounded-lg" alt={team.id} />
+                              <Image src={team.logoUrl} fill className="object-cover" alt={team.id} />
                           ) : (
-                              TeamIcon && <TeamIcon className="w-4 h-4 text-white" />
+                              <div className="relative w-[130%] h-[130%] translate-y-2">
+                                <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={team.id} />
+                              </div>
                           )}
                        </div>
                        <span className="text-[11px] font-black text-stone-600 uppercase tracking-widest leading-none">{team.name}</span>
@@ -206,7 +215,7 @@ function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, 
                 </div>
                 <div className="text-right">
                    <p className="text-[9px] font-black text-stone-300 uppercase tracking-widest mb-1">Rating</p>
-                   <p className="text-lg font-black text-emerald-500 italic tracking-tighter">{player?.rating || '---'}</p>
+                   <p className="text-lg font-black text-emerald-500 italic tracking-tighter">{player?.rating || team?.offenseRating || '---'}</p>
                 </div>
              </div>
           </div>

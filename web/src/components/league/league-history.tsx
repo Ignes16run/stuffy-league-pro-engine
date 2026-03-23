@@ -2,13 +2,14 @@
 // Last Updated: 2026-03-22T21:50:00-04:00
 
 import React, { useMemo } from 'react';
+import Image from 'next/image';
 import { 
-  Trophy, History, Award, Star, TrendingUp, Users, Target, Zap, Shield, Medal
+  Trophy, History, Award, Star, Target, Zap, Shield, Medal, LucideIcon
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
-import { STUFFY_ICONS } from '@/lib/league/constants';
+import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Player, Team, PlayerStats, SeasonHistory, PlayerAward } from '@/lib/league/types';
+import { Player, Team, PlayerStats, SeasonHistory, PlayerAward, StuffyIcon } from '@/lib/league/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 
@@ -135,15 +136,19 @@ export default function LeagueHistory() {
                                     <Badge className="bg-amber-400 text-white border-none py-1 px-3 text-[9px] font-black uppercase tracking-widest">{award.awardType}</Badge>
                                     <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                                  </div>
-                                 <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 rounded-xl bg-stone-50 border border-stone-100 flex items-center justify-center shrink-0 overflow-hidden">
-                                       {player.profilePicture ? <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" /> : "🧸"}
-                                    </div>
-                                    <div className="min-w-0">
-                                       <p className="font-black text-stone-900 text-xs truncate leading-none mb-1 uppercase tracking-tighter">{player.name}</p>
-                                       <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest">{player.position}</p>
-                                    </div>
-                                 </div>
+                                  <div className="flex items-center gap-3 mb-4">
+                                     <div className="w-10 h-10 rounded-xl bg-stone-50 border border-stone-100 flex items-center justify-center shrink-0 overflow-hidden relative">
+                                        {player.profilePicture ? (
+                                           <Image src={player.profilePicture} fill className="object-cover" alt={player.name} />
+                                        ) : (
+                                           <span className="text-sm">🧸</span>
+                                        )}
+                                     </div>
+                                     <div className="min-w-0">
+                                        <p className="font-black text-stone-900 text-xs truncate leading-none mb-1 uppercase tracking-tighter">{player.name}</p>
+                                        <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest">{player.position}</p>
+                                     </div>
+                                  </div>
                                  {player.profile && (
                                    <div className="p-3 bg-stone-50 rounded-xl text-[11px] leading-relaxed text-stone-600 font-medium italic border border-stone-100">
                                       &quot;{player.profile}&quot;
@@ -163,11 +168,11 @@ export default function LeagueHistory() {
   );
 }
 
-function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: string, teams: Team[], icon: any, statKey: keyof Team, color: string }) {
+function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: string, teams: Team[], icon: LucideIcon, statKey: keyof Team, color: string }) {
   return (
-    <Card className="rounded-[4xl] border border-stone-100 shadow-xl overflow-hidden min-h-[420px]">
+    <Card className="rounded-[4xl] border border-stone-100 shadow-xl overflow-hidden min-h-[420px] bg-white group">
        <CardHeader className="bg-stone-50/30 border-b border-stone-100 p-8">
-          <div className="w-12 h-12 rounded-[1.25rem] bg-white shadow-sm flex items-center justify-center border border-stone-100 mb-4">
+          <div className="w-12 h-12 rounded-[1.25rem] bg-white shadow-sm flex items-center justify-center border border-stone-100 mb-4 group-hover:scale-110 transition-transform">
              <Icon className="w-6 h-6" style={{ color }} />
           </div>
           <CardTitle className="text-2xl font-black text-stone-900 uppercase tracking-widest">{title}</CardTitle>
@@ -175,67 +180,86 @@ function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: strin
        </CardHeader>
        <CardContent className="p-0">
           <div className="divide-y divide-stone-50">
-             {teams.map((team, idx) => (
-               <div key={team.id} className="p-6 flex items-center justify-between group hover:bg-stone-50/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                     <span className="text-sm font-black text-stone-300 w-4">{idx + 1}</span>
-                        <div 
-                           className="w-12 h-12 rounded-xl flex items-center justify-center border-2 shadow-sm text-white"
-                           style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
-                         >
-                            {team.logoUrl ? <img src={team.logoUrl} alt={team.name} className="w-full h-full object-cover" /> : React.createElement(STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS], { className: "w-6 h-6" })}
-                         </div>
-                      <div className="text-left">
-                         <h4 className="font-black text-stone-900 text-sm leading-tight uppercase tracking-tighter">{team.name}</h4>
-                         <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Permanent Program</p>
-                      </div>
-                  </div>
-                  <div className="text-2xl font-black text-stone-900 pr-2">
-                     {team[statKey] as number || 0}
-                  </div>
-               </div>
-             ))}
+             {teams.map((team, idx) => {
+               const renderUrl = STUFFY_RENDER_MAP[team.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
+               return (
+                 <div key={team.id} className="p-6 flex items-center justify-between group/row hover:bg-stone-50/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                       <span className="text-sm font-black text-stone-300 w-4">{idx + 1}</span>
+                       <div 
+                          className="w-14 h-14 rounded-2xl flex items-center justify-center border-2 border-white shadow-lg relative overflow-hidden group-hover/row:scale-110 transition-transform duration-500"
+                          style={{ backgroundColor: team.primaryColor }}
+                        >
+                           {team.logoUrl ? (
+                             <Image src={team.logoUrl} fill className="object-cover" alt={team.name} />
+                           ) : (
+                             <div className="relative w-[130%] h-[130%] translate-y-2">
+                               <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={team.name} />
+                             </div>
+                           )}
+                        </div>
+                        <div className="text-left">
+                           <h4 className="font-black text-stone-900 text-sm leading-tight uppercase tracking-tighter mb-0.5">{team.name}</h4>
+                           <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest bg-stone-100/50 px-2 py-0.5 rounded-full inline-block">Permanent Program</p>
+                        </div>
+                    </div>
+                    <div className="text-3xl font-black text-stone-900 pr-2 tabular-nums italic">
+                       {team[statKey] as number || 0}
+                    </div>
+                 </div>
+               );
+             })}
           </div>
        </CardContent>
     </Card>
   );
 }
 
-function PlayerHallOfFameCard({ title, players, icon: Icon, color, customLabel }: { title: string, players: (Player & { careerRecord: number })[], icon: any, color: string, customLabel?: string }) {
+function PlayerHallOfFameCard({ title, players, icon: Icon, color, customLabel }: { title: string, players: (Player & { careerRecord: number })[], icon: LucideIcon, color: string, customLabel?: string }) {
   const { teams } = useLeague();
   return (
-    <Card className="rounded-[4xl] border border-stone-100 shadow-lg overflow-hidden h-full">
-       <CardHeader className="bg-stone-50/30 border-b border-stone-100 p-6 flex flex-row items-center justify-between">
+    <Card className="rounded-[4xl] border border-stone-100 shadow-lg overflow-hidden h-full bg-white group">
+       <CardHeader className="bg-stone-50/30 border-b border-stone-100 p-8 flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-xl font-black text-stone-900 leading-tight">{title}</CardTitle>
-            <CardDescription className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Lifetime Records</CardDescription>
+            <CardTitle className="text-2xl font-black text-stone-900 uppercase tracking-tighter leading-tight">{title}</CardTitle>
+            <CardDescription className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Lifetime Hall of Fame Records</CardDescription>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-stone-100">
-             <Icon className="w-5 h-5" style={{ color }} />
+          <div className="w-12 h-12 rounded-[1.25rem] bg-stone-50 shadow-sm flex items-center justify-center border border-stone-100 group-hover:rotate-12 transition-transform">
+             <Icon className="w-6 h-6" style={{ color }} />
           </div>
        </CardHeader>
        <CardContent className="p-0">
           <div className="divide-y divide-stone-50">
              {players.map((player, idx) => {
                const team = teams.find(t => t.id === player.teamId);
+               const renderUrl = team ? STUFFY_RENDER_MAP[team.icon as StuffyIcon] : STUFFY_RENDER_MAP.TeddyBear;
                return (
-                 <div key={player.id} className="p-5 flex items-center justify-between group transition-colors hover:bg-stone-50/30">
-                    <div className="flex items-center gap-4">
+                 <div key={player.id} className="p-6 flex items-center justify-between group/row transition-colors hover:bg-stone-50/50">
+                    <div className="flex items-center gap-5">
                        <span className="text-xs font-black text-stone-200 w-4">#{idx + 1}</span>
                        <div 
-                          className="w-10 h-10 rounded-lg flex items-center justify-center border shadow-sm text-white relative overflow-hidden"
-                          style={{ backgroundColor: team?.primaryColor || '#000', borderColor: team?.secondaryColor }}
+                          className="w-12 h-12 rounded-xl flex items-center justify-center border-2 border-white shadow-xl relative overflow-hidden group-hover/row:scale-110 transition-transform duration-500"
+                          style={{ backgroundColor: team?.primaryColor || '#000' }}
                         >
-                           {player.profilePicture ? <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" /> : <Users className="w-5 h-5 opacity-20" />}
+                           {player.profilePicture ? (
+                             <Image src={player.profilePicture} fill className="object-cover" alt={player.name} />
+                           ) : (
+                             <div className="relative w-[130%] h-[130%] translate-y-2">
+                               <Image src={renderUrl} fill className="object-contain drop-shadow-md" alt={player.name} />
+                             </div>
+                           )}
                         </div>
                         <div className="text-left">
-                           <h4 className="font-black text-stone-900 text-xs leading-none mb-1">{player.name}</h4>
-                           <p className="text-[9px] text-stone-400 font-bold uppercase tracking-wider">{team?.name || 'Retired'}</p>
+                           <h4 className="font-black text-stone-900 text-sm leading-tight uppercase mb-1 tracking-tighter">{player.name}</h4>
+                           <div className="flex items-center gap-1.5">
+                              <span className="text-[8px] font-black uppercase bg-stone-900 text-white px-1.5 py-0.5 rounded-sm">POS: {player.position}</span>
+                              <span className="text-[8px] font-bold text-stone-400 uppercase tracking-wider">{team?.name || 'Retired'}</span>
+                           </div>
                         </div>
                     </div>
                     <div className="text-right">
-                       <p className="text-lg font-black text-stone-900 leading-none">{player.careerRecord}</p>
-                       <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest">{customLabel || 'Total'}</p>
+                       <p className="text-2xl font-black text-stone-900 leading-none italic">{player.careerRecord}</p>
+                       <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest mt-1">{customLabel || 'Total'}</p>
                     </div>
                  </div>
                );
@@ -249,41 +273,46 @@ function PlayerHallOfFameCard({ title, players, icon: Icon, color, customLabel }
 function SeasonEntry({ entry }: { entry: SeasonHistory }) {
   const { teams } = useLeague();
   const champion = teams.find(t => t.id === entry.championId);
-  const IconComp = champion ? STUFFY_ICONS[champion.icon as keyof typeof STUFFY_ICONS] : null;
+  const renderUrl = champion ? STUFFY_RENDER_MAP[champion.icon as StuffyIcon] : STUFFY_RENDER_MAP.TeddyBear;
 
   return (
-    <Card className="rounded-[4xl] border border-stone-100 p-8 space-y-6 hover:shadow-xl hover:-translate-y-1 transition-all">
+    <Card className="rounded-[4xl] border border-stone-100 p-8 space-y-6 hover:shadow-2xl hover:-translate-y-2 transition-all group bg-white">
        <div className="flex items-center justify-between">
           <div className="text-left">
-             <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">Established</p>
-             <h4 className="text-2xl font-black text-stone-900 leading-none">{entry.year}</h4>
+             <p className="text-[10px] font-black text-stone-300 uppercase tracking-[0.3em] leading-none mb-2">Established</p>
+             <h4 className="text-3xl font-black text-stone-900 leading-none tracking-tighter">{entry.year}</h4>
           </div>
-          <div className="w-12 h-12 bg-yellow-50 rounded-2xl flex items-center justify-center">
-             <Trophy className="w-6 h-6 text-yellow-500" />
+          <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center border border-amber-100 group-hover:rotate-12 transition-transform">
+             <Trophy className="w-8 h-8 text-amber-500" />
           </div>
        </div>
 
        <div className="space-y-4">
-          <div className="flex items-center gap-4 bg-stone-50 rounded-2xl p-4 border border-stone-100">
+          <div className="flex items-center gap-5 bg-stone-50 rounded-3xl p-5 border border-stone-100 group-hover:bg-white transition-colors duration-500">
              <div 
-                className="w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-sm text-white"
-                style={{ backgroundColor: champion?.primaryColor || '#e5e7eb', borderColor: champion?.secondaryColor || '#d1d5db' }}
+                className="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-white shadow-xl relative overflow-hidden group-hover:scale-110 transition-transform duration-500"
+                style={{ backgroundColor: champion?.primaryColor || '#e5e7eb' }}
               >
-                 {champion?.logoUrl ? <img src={champion.logoUrl} alt={champion.name} className="w-full h-full object-cover" /> : (IconComp && <IconComp className="w-6 h-6" />)}
+                 {champion?.logoUrl ? (
+                   <Image src={champion.logoUrl} fill className="object-cover" alt={champion.name} />
+                 ) : (
+                   <div className="relative w-[130%] h-[130%] translate-y-2">
+                     <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={champion?.name || 'Retired'} />
+                   </div>
+                 )}
               </div>
               <div className="min-w-0">
-                 <p className="text-[9px] font-black text-yellow-600 uppercase tracking-widest leading-none mb-1">Champion</p>
-                 <h5 className="font-black text-stone-900 text-sm leading-tight truncate uppercase tracking-tighter">{champion?.name || 'Retired Program'}</h5>
+                 <p className="text-[9px] font-black text-amber-600 uppercase tracking-[0.3em] leading-none mb-2">Champion</p>
+                 <h5 className="font-black text-stone-900 text-base leading-tight truncate uppercase tracking-tighter">{champion?.name || 'Retired Program'}</h5>
               </div>
           </div>
        </div>
 
-       <div className="pt-4 border-t border-stone-50">
-          <div className="flex items-center justify-between text-[10px] font-black text-stone-400 uppercase tracking-widest">
-             <span>Top Performance</span>
-             <TrendingUp className="w-3 h-3 text-stone-300" />
+       <div className="pt-6 border-t border-stone-50 flex items-center justify-between">
+          <div className="text-[9px] font-black text-stone-300 uppercase tracking-widest">
+             Performance Archive
           </div>
-          <p className="text-stone-700 font-bold text-sm mt-1">Standings Archived</p>
+          <Badge variant="outline" className="text-[8px] border-emerald-100 text-emerald-600 font-black uppercase px-2">Verified</Badge>
        </div>
     </Card>
   );

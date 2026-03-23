@@ -1,9 +1,11 @@
 "use client";
 // Last Updated: 2026-03-23T04:00:00-04:00
 import React, { useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useLeague } from '@/context/league-context';
-import { Player, PlayerStats, PlayerPosition } from '@/lib/league/types';
+import { Player, PlayerStats, PlayerPosition, StuffyIcon } from '@/lib/league/types';
 import { Target, Search, Users, Filter, X } from 'lucide-react';
+import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -365,40 +367,61 @@ function StatLeaderCard({ title, players, statKey, statMode }: {
   const { teams } = useLeague();
   
   return (
-    <Card className="rounded-3xl border-none shadow-sm overflow-hidden bg-white">
-      <CardHeader className="bg-stone-50/50 pb-4 pt-6 px-6 border-b border-stone-100/50">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-xl shadow-xs border border-stone-100">
+    <Card className="rounded-[2rem] border border-stone-100 shadow-xl overflow-hidden bg-white group/card hover:border-emerald-200 transition-all duration-500">
+      <CardHeader className="bg-stone-50/30 pb-4 pt-6 px-6 border-b border-stone-100/50 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-3xl -mr-12 -mt-12" />
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="w-10 h-10 bg-white rounded-xl shadow-lg shadow-stone-200/50 border border-stone-100 flex items-center justify-center group-hover/card:scale-110 transition-transform">
              <Target className="w-5 h-5 text-emerald-500" />
           </div>
-          <CardTitle className="text-sm font-black text-stone-900 tracking-tight uppercase leading-none">{title}</CardTitle>
+          <CardTitle className="text-sm font-black text-stone-900 tracking-[0.1em] uppercase leading-none">{title}</CardTitle>
         </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className="divide-y divide-stone-50">
           {players.length === 0 ? (
-            <div className="px-6 py-10 text-center">
-              <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest">No players found</p>
+            <div className="px-6 py-12 text-center">
+              <p className="text-[10px] font-black text-stone-300 uppercase tracking-[0.3em]">Awaiting Metrics</p>
             </div>
           ) : players.map((player, idx) => {
             const team = teams.find(t => t.id === player.teamId);
             if (!team) return null;
             const stats = statMode === 'career' ? (player.careerStats || player.stats) : player.stats;
+            const renderUrl = STUFFY_RENDER_MAP[team.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
+            
             return (
-              <div key={player.id} className="px-5 py-2.5 flex items-center justify-between hover:bg-stone-50/30 transition-colors group">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <span className="text-xl font-black text-stone-100 w-6 shrink-0 group-hover:text-emerald-500/20 transition-colors">#{idx + 1}</span>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[8px] font-black border group-hover:scale-110 transition-transform shrink-0" style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}>
-                    {player.position}
+              <div key={player.id} className="px-6 py-4 flex items-center justify-between hover:bg-emerald-50/30 transition-all group overflow-hidden relative">
+                <div className="flex items-center gap-4 overflow-hidden relative z-10">
+                  <span className="text-2xl font-black text-stone-100 w-8 shrink-0 group-hover:text-emerald-500/20 transition-colors italic tracking-tighter">#{idx + 1}</span>
+                  
+                  <div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white border-2 border-white shadow-xl relative overflow-hidden group-hover:scale-110 transition-all duration-500 shrink-0" 
+                    style={{ backgroundColor: team.primaryColor }}
+                  >
+                    {team.logoUrl ? (
+                      <Image src={team.logoUrl} fill className="object-cover" alt={team.name} />
+                    ) : (
+                      <div className="relative w-[135%] h-[135%] translate-y-2">
+                        <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={player.name} />
+                      </div>
+                    )}
                   </div>
+                  
                   <div className="min-w-0 pr-2">
-                    <p className="font-black text-stone-900 text-xs leading-none mb-1 truncate">{player.name}</p>
-                    <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest truncate">{team.name}</p>
+                    <p className="font-black text-stone-900 text-sm leading-none mb-1.5 truncate uppercase tracking-tighter italic">{player.name}</p>
+                    <div className="flex items-center gap-2">
+                       <span className="px-1.5 py-0.5 rounded-md bg-stone-900 text-white text-[8px] font-black uppercase leading-none">{player.position}</span>
+                       <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest truncate">{team.name}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-stone-900 leading-none font-mono">{(stats[statKey] as number) || 0}</p>
+                <div className="text-right shrink-0 relative z-10">
+                  <p className="text-lg font-black text-stone-900 leading-none italic tracking-tighter tabular-nums group-hover:text-emerald-500 transition-colors">{(stats[statKey] as number) || 0}</p>
                 </div>
+                
+                {idx === 0 && (
+                   <div className="absolute right-0 top-0 h-full w-24 bg-linear-to-l from-emerald-500/5 to-transparent pointer-events-none" />
+                )}
               </div>
             );
           })}

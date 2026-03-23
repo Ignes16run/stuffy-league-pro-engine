@@ -1,12 +1,14 @@
 // Last Updated: 2026-03-23T03:26:00-04:00
 
 import React from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   RefreshCw, Trash2, Trophy, History, PlayCircle, Star, LayoutDashboard, LayoutGrid, BarChart3, User as UserIcon
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { useAuth } from '@/context/auth-context';
+import { STADIUM_BG } from '@/lib/league/assetMap';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -32,9 +34,17 @@ export default function LeagueDashboard() {
 
   return (
     <div className="min-h-screen bg-[#fafaf9] text-stone-900 font-sans selection:bg-emerald-100 selection:text-emerald-900 scroll-smooth antialiased relative overflow-hidden">
-      {/* Background Decorative Pattern */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03] z-0" 
-           style={{ backgroundImage: `radial-gradient(#10b981 0.5px, transparent 0.5px)`, backgroundSize: '24px 24px' }} />
+      {/* Premium Stadium Background Layer */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+         <Image 
+           src={STADIUM_BG} 
+           fill 
+           className="object-cover opacity-[0.03] saturate-0" 
+           alt="" 
+           priority
+         />
+         <div className="absolute inset-0 bg-linear-to-b from-stone-50/20 via-[#fafaf9] to-[#fafaf9]" />
+      </div>
       
       {/* Premium Header */}
       <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-stone-100 shadow-sm shadow-stone-100/50">

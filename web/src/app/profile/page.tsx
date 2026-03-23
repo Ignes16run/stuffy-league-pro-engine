@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { motion } from 'motion/react';
 import { useAuth } from '@/context/auth-context';
 import { useLeague } from '@/context/league-context';
@@ -40,9 +41,11 @@ export default function ProfilePage() {
       <header className="flex items-center justify-between">
          <div className="flex items-center gap-8">
             <div className="w-24 h-24 bg-white rounded-[2rem] shadow-2xl shadow-stone-200/50 flex items-center justify-center border border-stone-100 overflow-hidden relative">
-               {profile?.avatar_url ? (
-                 <img src={profile.avatar_url} className="w-full h-full object-cover" alt="Avatar" />
-               ) : (
+                {profile?.avatar_url ? (
+                  <div className="relative w-full h-full">
+                    <Image src={profile.avatar_url} fill className="object-cover" alt="Avatar" />
+                  </div>
+                ) : (
                  <UserIcon className="w-10 h-10 text-stone-200" />
                )}
             </div>

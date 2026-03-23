@@ -2,7 +2,7 @@
 import { Team, Player, Game, SeasonHistory, PlayoffGame, PlayerStats } from './types';
 import { syncTeamStructures } from './structureEngine';
 
-export const CURRENT_DATA_VERSION = 2;
+export const CURRENT_DATA_VERSION = 3;
 
 export interface PersistedData {
   version?: number;
@@ -59,13 +59,20 @@ function migratePlayerStats(stats: Partial<PlayerStats>): PlayerStats {
  * Incremental migrations should be added here as the DATA_VERSION increases.
  */
 export function migrateData(data: any): PersistedData {
-  let migratedData = { ...data };
+  if (!data) return {
+    teams: [], players: [], games: [], playoffGames: [],
+    currentWeek: 1, numWeeks: 14, history: [],
+    isAwardsPhase: false, awardFinalists: {}, selectedAwards: {}, awardResults: {}
+  };
+
+  const migratedData = { ...data };
   const version = migratedData.version || 0;
 
+  console.log(`Checking data migration. Current version: ${version}, Target version: ${CURRENT_DATA_VERSION}`);
+
+  // Migration to Version 1: Ensure Player Stats exist
   if (version < 1) {
     console.log(`Migrating data from version ${version} to 1...`);
-    
-    // 1. Ensure players have all necessary stats fields
     if (migratedData.players && Array.isArray(migratedData.players)) {
       migratedData.players = migratedData.players.map((p: Player) => ({
         ...p,
@@ -73,14 +80,10 @@ export function migrateData(data: any): PersistedData {
         careerStats: migratePlayerStats(p.careerStats || {}),
       }));
     }
-
-    // 2. Default awards phase states if missing
     if (migratedData.isAwardsPhase === undefined) migratedData.isAwardsPhase = false;
     if (!migratedData.awardFinalists) migratedData.awardFinalists = {};
     if (!migratedData.selectedAwards) migratedData.selectedAwards = {};
     if (!migratedData.awardResults) migratedData.awardResults = {};
-
-    // 3. Set version
     migratedData.version = 1;
   }
 
@@ -91,6 +94,26 @@ export function migrateData(data: any): PersistedData {
       migratedData.teams = syncTeamStructures(migratedData.teams);
     }
     migratedData.version = 2;
+  }
+
+  // Migration to Version 3: Visual Overhaul Audit & Deep Stats Sync
+  if (version < 3) {
+    console.log(`Migrating data from version ${version} to 3 (Visual Overhaul & Stats Check)...`);
+    
+    // Ensure all players (new and old) have updated stats schema for things like pressures
+    if (migratedData.players && Array.isArray(migratedData.players)) {
+      migratedData.players = migratedData.players.map((p: Player) => ({
+        ...p,
+        stats: migratePlayerStats(p.stats || {}),
+        careerStats: migratePlayerStats(p.careerStats || {}),
+      }));
+    }
+
+    // Default any missing top-level arrays/objects
+    if (!migratedData.history) migratedData.history = [];
+    if (!migratedData.playoffGames) migratedData.playoffGames = [];
+    
+    migratedData.version = 3;
   }
 
   return migratedData as PersistedData;

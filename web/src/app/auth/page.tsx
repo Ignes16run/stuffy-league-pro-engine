@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase-client';
 import { useAuth } from '@/context/auth-context';
@@ -56,7 +57,7 @@ export default function AuthPage() {
                 variant="outline" 
                 className="w-full h-14 rounded-2xl border-2 border-stone-100 font-bold text-stone-700 hover:bg-stone-50 transition-all flex items-center justify-center gap-3"
               >
-                <img src="https://www.google.com/favicon.ico" className="w-4 h-4 grayscale opacity-70 group-hover:grayscale-0 transition-all" alt="Google" />
+                <Image src="https://www.google.com/favicon.ico" width={16} height={16} className="grayscale opacity-70 group-hover:grayscale-0 transition-all" alt="Google" />
                 Sign in with Google
               </Button>
               <div className="relative py-4 flex items-center">
