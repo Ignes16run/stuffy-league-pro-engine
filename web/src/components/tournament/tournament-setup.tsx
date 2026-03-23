@@ -1,17 +1,20 @@
 "use client";
 import React, { useState } from 'react';
 import { 
-  Trophy, Users, LayoutGrid, AlertCircle, ShieldCheck, Shuffle
+  Trophy, Users, LayoutGrid, ShieldCheck, Shuffle
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { useTournament } from '@/context/tournament-context';
 import { Button } from '@/components/ui/button';
 import { STUFFY_ICONS } from '@/lib/league/constants';
+import { TOURNAMENT_BONUS_TEAMS } from '@/lib/league/tournament-bonus-teams';
 import { cn } from '@/lib/utils';
 
 export default function TournamentSetup() {
   const { teams: leagueTeams } = useLeague();
   const { initTournament } = useTournament();
+  
+  const allAvailableTeams = [...leagueTeams, ...TOURNAMENT_BONUS_TEAMS];
   
   const [bracketSize, setBracketSize] = useState(32);
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
@@ -25,16 +28,16 @@ export default function TournamentSetup() {
     );
   };
 
-  const handleAutoFill = () => {
-    const sorted = [...leagueTeams].sort((a, b) => ((b.overallRating || 0) - (a.overallRating || 0)));
+   const handleAutoFill = () => {
+    const sorted = [...allAvailableTeams].sort((a, b) => ((b.overallRating || 0) - (a.overallRating || 0)));
     setSelectedTeamIds(sorted.slice(0, bracketSize).map(t => t.id));
   };
 
   const isValid = selectedTeamIds.length === bracketSize;
 
-  const handleStart = () => {
+   const handleStart = () => {
     if (!isValid) return;
-    let teams = selectedTeamIds.map(id => leagueTeams.find(t => t.id === id)!);
+    let teams = selectedTeamIds.map(id => allAvailableTeams.find(t => t.id === id)!);
     
     if (useSeeding) {
        // Sort by rating for seeded advancement
@@ -136,14 +139,8 @@ export default function TournamentSetup() {
             </Button>
           </div>
 
-          {leagueTeams.length === 0 ? (
-             <div className="p-12 text-center bg-stone-50 rounded-3xl border-2 border-dashed border-stone-200">
-                <AlertCircle className="w-10 h-10 text-stone-300 mx-auto mb-4" />
-                <p className="text-stone-400 font-bold uppercase tracking-widest text-[10px]">Initialize teams in League mode first.</p>
-             </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
-              {leagueTeams.map(team => {
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
+              {allAvailableTeams.map(team => {
                 const isSelected = selectedTeamIds.includes(team.id);
                 const TeamIcon = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
                 
@@ -177,7 +174,6 @@ export default function TournamentSetup() {
                 );
               })}
             </div>
-          )}
 
           <div className="pt-6 border-t border-stone-100">
              <Button 

@@ -82,12 +82,15 @@ export function generatePlayoffBracket(standings: Standing[], size: 4 | 8): any[
 }
 
 export function generateRealisticFootballScore(home: Team, away: Team, players: Player[]): { homeScore: number, awayScore: number } {
-  const getTeamOVR = (teamId: string) => {
-    const roster = players.filter(p => p.teamId === teamId);
-    return roster.length === 0 ? 70 : Math.round(roster.reduce((sum, p) => sum + p.rating, 0) / roster.length);
+  const getTeamOVR = (team: Team) => {
+    const roster = players.filter(p => p.teamId === team.id);
+    if (roster.length > 0) {
+      return Math.round(roster.reduce((sum, p) => sum + p.rating, 0) / roster.length);
+    }
+    return team.overallRating || 70;
   };
-  const homeOVR = getTeamOVR(home.id);
-  const awayOVR = getTeamOVR(away.id);
+  const homeOVR = getTeamOVR(home);
+  const awayOVR = getTeamOVR(away);
   const homeIntensity = Math.floor(homeOVR / 4) + (Math.random() * 15) + 3;
   const awayIntensity = Math.floor(awayOVR / 4) + (Math.random() * 15);
   const getScore = (intensity: number) => {
