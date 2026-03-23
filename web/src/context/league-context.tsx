@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-23T01:20:00Z
+// Last Updated: 2026-03-22T20:25:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -43,7 +43,7 @@ interface LeagueContextType {
   updatePlayer: (playerId: string, updates: Partial<Player>) => Promise<void>;
   bulkUpdatePlayers: (playerUpdates: { id: string, updates: Partial<Player> }[]) => Promise<void>;
   upgradeStat: (teamId: string, statId: string) => Promise<void>;
-  addDefaultTeams: () => Promise<{ nextTeams: Team[]; nextPlayers: Player[]; }>;
+  addDefaultTeams: () => Promise<{ nextTeams: Team[]; nextPlayers: Player[]; nextGames: Game[]; }>;
   createLeague: (name: string) => Promise<void>;
   setCurrentWeek: (week: number) => void;
   advanceWeek: () => void;
@@ -82,7 +82,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [numWeeks, setNumWeeks] = useState(14);
   const [isSimulating, setIsSimulating] = useState(false);
   const [history, setHistory] = useState<SeasonHistory[]>([]);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('season');
   const [recentNarrativesUsed, setRecentNarrativesUsed] = useState<NarrativeMemoryEntry[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -192,11 +192,16 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setTeams(prev => [...prev, ...nextTeams]);
     setPlayers(prev => [...prev, ...nextPlayers]);
 
+    // AUTO-GENERATE SCHEDULE AFTER INITIALIZING TEAMS
+    const newGames = generateRoundRobinSchedule(nextTeams, numWeeks);
+    setGames(newGames);
+
     if (user) {
         await PersistenceEngine.saveTeams(nextTeams, user.id);
         await PersistenceEngine.savePlayers(nextPlayers, user.id);
+        await PersistenceEngine.saveGames(newGames, user.id);
     }
-    return { nextTeams, nextPlayers };
+    return { nextTeams, nextPlayers, nextGames: newGames };
   };
 
   const updatePlayer = async (playerId: string, updates: Partial<Player>) => {

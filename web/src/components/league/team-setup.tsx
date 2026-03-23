@@ -1,4 +1,4 @@
-"use client";
+// Last Updated: 2026-03-22T20:30:00-04:00
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,7 +34,6 @@ export default function TeamSetup() {
   const [isBulkNamesOpen, setIsBulkNamesOpen] = useState(false);
   const [bulkNamesText, setBulkNamesText] = useState('');
 
-  const generateId = () => crypto.randomUUID();
 
   const handleAddOrUpdate = () => {
     if (!newTeam.name) return;
@@ -358,7 +357,7 @@ export default function TeamSetup() {
                         style={{ backgroundColor: team.primaryColor, color: 'white' }}
                       >
                         {team.logoUrl ? (
-                          <img src={team.logoUrl} className="w-full h-full object-cover" />
+                          <img src={team.logoUrl} className="w-full h-full object-cover" alt={`${team.name} Logo`} />
                         ) : (
                           <IconComp className="w-10 h-10" />
                         )}
