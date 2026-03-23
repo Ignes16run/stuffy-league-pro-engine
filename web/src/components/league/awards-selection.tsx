@@ -171,12 +171,12 @@ export function AwardsSelection() {
 
           {isResultsStep && (
             <div className="space-y-8 py-4">
-              <div className="text-center mb-10">
-                <div className="inline-block p-4 bg-amber-100 rounded-full mb-4">
-                  <Trophy className="w-10 h-10 text-amber-600" />
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center gap-3 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-100 mb-2">
+                  <Trophy className="w-5 h-5 text-amber-600" />
+                  <h3 className="text-lg font-black text-stone-900 uppercase italic leading-none">Season Awards Ceremony</h3>
                 </div>
-                <h3 className="text-3xl font-black text-stone-900 uppercase italic">Season Awards Summary</h3>
-                <p className="text-stone-500 font-bold uppercase text-[10px] tracking-widest mt-2 px-10">Review the narratives and impact of this year&apos;s award winners before moving to the next season.</p>
+                <p className="text-stone-400 font-bold uppercase text-[8px] tracking-widest mt-1">Presenting this year&apos;s most impactful stuffies.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

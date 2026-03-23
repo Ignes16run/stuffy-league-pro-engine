@@ -53,7 +53,25 @@ export const SimulationEngine = {
    */
   resetSeason(games: Game[], players: Player[]): { resetPlayers: Player[], resetGames: Game[] } {
     const resetGames = games.map(g => ({ ...g, homeScore: undefined, awayScore: undefined, winnerId: undefined, isTie: false }));
-    const resetPlayers = players.map(p => ({ ...p, stats: { gamesPlayed: 0 } as PlayerStats }));
+    const resetPlayers = players.map(p => ({ 
+      ...p, 
+      stats: { 
+        gamesPlayed: 0, 
+        points: 0, 
+        tackles: 0, 
+        yards: 0, 
+        touchdowns: 0, 
+        passingYards: 0,
+        passingTds: 0,
+        rushingYards: 0,
+        rushingTds: 0,
+        receivingYards: 0,
+        receivingTds: 0,
+        pressures: 0,
+        tacklesForLoss: 0,
+        interceptions: 0
+      } as PlayerStats 
+    }));
     return { resetPlayers, resetGames };
   },
 
@@ -92,7 +110,22 @@ export const SimulationEngine = {
       return { 
           ...p, 
           careerStats: oldCareer as unknown as PlayerStats, 
-          stats: { gamesPlayed: 0 } as PlayerStats, 
+          stats: { 
+            gamesPlayed: 0, 
+            points: 0, 
+            tackles: 0, 
+            yards: 0, 
+            touchdowns: 0, 
+            passingYards: 0,
+            passingTds: 0,
+            rushingYards: 0,
+            rushingTds: 0,
+            receivingYards: 0,
+            receivingTds: 0,
+            pressures: 0,
+            tacklesForLoss: 0,
+            interceptions: 0
+          } as PlayerStats, 
           awards: newAwards,
           awardsHistory: newAwardsHistory,
           profile: narrativeText || p.profile 
