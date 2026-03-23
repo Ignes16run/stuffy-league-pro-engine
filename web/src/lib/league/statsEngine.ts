@@ -1,4 +1,4 @@
-// Last Updated: 2026-03-22T23:58:00Z
+// Last Updated: 2026-03-22T20:58:00-04:00
 import { Player, PlayerStats } from './types';
 
 /**
@@ -54,12 +54,10 @@ export function assignStatsToPlayers(
 
   // 3. Score Deconstruction (Diophantine Solver)
   let totalTDs = Math.floor(score / 7);
-  let fgCount = 0;
   
   while (totalTDs >= 0) {
     const rem = score - (totalTDs * 7);
     if (rem % 3 === 0) {
-      fgCount = rem / 3;
       break;
     }
     totalTDs--;
@@ -67,7 +65,6 @@ export function assignStatsToPlayers(
 
   if (totalTDs < 0) {
     totalTDs = Math.floor(score / 7);
-    fgCount = Math.floor((score - totalTDs * 7) / 3);
   }
 
   // 4. Extra Points Logic (Accounting for misses)
@@ -138,11 +135,13 @@ export function assignStatsToPlayers(
       case 'LB':
         s.tackles = (s.tackles || 0) + Math.floor(random() * 6) + Math.floor(oppScore / 10);
         if (random() > (0.98 - (p.rating / 1000))) s.sacks = (s.sacks || 0) + 1;
+        if (random() > 0.94) s.tacklesForLoss = (s.tacklesForLoss || 0) + 1;
         break;
       case 'CB':
       case 'S':
         s.tackles = (s.tackles || 0) + Math.floor(random() * 4) + Math.floor(oppScore / 15);
         if (random() > 0.98) s.interceptions = (s.interceptions || 0) + 1;
+        if (random() > 0.92) s.passDeflections = (s.passDeflections || 0) + 1;
         break;
     }
 

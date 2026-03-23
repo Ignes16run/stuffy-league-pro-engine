@@ -1,11 +1,10 @@
 "use client";
-// Last Updated: 2026-03-22T20:25:00-04:00
+// Last Updated: 2026-03-22T20:58:00-04:00
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import {
   Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats,
-  PlayerAward, NarrativeMemoryEntry, AwardsHistoryEntry,
-  PlayerPosition, PlayerAbility, AwardType
+  NarrativeMemoryEntry, AwardType
 } from '@/lib/league/types';
 import { 
   generateRoundRobinSchedule, 
@@ -14,16 +13,13 @@ import {
   generateUUID,
   createSeededRandom 
 } from '@/lib/league/utils';
-import { supabase } from '@/lib/supabase-client';
 import { useAuth } from '@/context/auth-context';
-import { generateTeamRoster, migratePlayerRatings } from '@/lib/league/players';
+import { generateTeamRoster } from '@/lib/league/players';
 import { selectNarrativeTemplate, generateNarrative, NARRATIVE_BANK } from '@/lib/league/narratives';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { getStatForAward, getAwardFinalists } from '@/lib/league/awardsEngine';
 import { PersistenceEngine } from '@/lib/league/persistenceEngine';
-import { SimulationEngine } from '@/lib/league/simulationEngine';
 import { assignStatsToPlayers } from '@/lib/league/statsEngine';
-import { validateGameStats } from '@/lib/league/validationEngine';
 
 interface LeagueContextType {
   teams: Team[];
@@ -44,7 +40,7 @@ interface LeagueContextType {
   bulkUpdatePlayers: (playerUpdates: { id: string, updates: Partial<Player> }[]) => Promise<void>;
   upgradeStat: (teamId: string, statId: string) => Promise<void>;
   addDefaultTeams: () => Promise<{ nextTeams: Team[]; nextPlayers: Player[]; nextGames: Game[]; }>;
-  createLeague: (name: string) => Promise<void>;
+  createLeague: () => Promise<void>;
   setCurrentWeek: (week: number) => void;
   advanceWeek: () => void;
   simulateGames: (week: number) => void;
@@ -68,6 +64,7 @@ interface LeagueContextType {
   awardResults: Record<string, any>;
   completeSeason: (championId: string) => void;
   finalizeSeason: () => void;
+  setIsAwardsPhase: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -251,7 +248,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     if (user) await PersistenceEngine.clearAll(user.id);
   };
 
-  const createLeague = async (name: string) => {
+  const createLeague = async () => {
     await resetLeague();
     const { nextTeams } = await addDefaultTeams();
     const newGames = generateRoundRobinSchedule(nextTeams, numWeeks);
@@ -280,10 +277,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const advanceWeek = () => {
     if (currentWeek < numWeeks) {
       setCurrentWeek(prev => prev + 1);
-    } else {
-      const finalists = getAwardFinalists(players);
-      setAwardFinalists(finalists as Record<string, Player[]>);
-      setIsAwardsPhase(true);
     }
   };
 
@@ -309,7 +302,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const simulateSeason = () => {
     setIsSimulating(true);
-    let updatedGames = [...games];
+    const updatedGames = [...games];
     for (let w = 1; w <= numWeeks; w++) {
       updatedGames.filter(g => g.week === w).forEach(game => {
         const homeTeam = teams.find(t => t.id === game.homeTeamId);
@@ -330,9 +323,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     const finalPlayers = recalculateStats(updatedGames, players);
     setPlayers(finalPlayers);
     setCurrentWeek(numWeeks);
-    const finalists = getAwardFinalists(finalPlayers);
-    setAwardFinalists(finalists as Record<string, Player[]>);
-    setIsAwardsPhase(true);
     setIsSimulating(false);
   };
 
@@ -416,14 +406,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         setGames(ng); setPlayers(prev => recalculateStats(ng, prev));
       },
       setPlayers, setGames, setPlayoffGames,
-      syncPlayoffGames: async (bracket) => {
+      syncPlayoffGames: async (bracket: PlayoffGame[]) => {
         setPlayoffGames(bracket);
         if (user) await PersistenceEngine.savePlayoffGames(bracket, user.id);
       },
-      setHistory,
       isLoaded: !isInitializing,
-      isAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, awardResults, 
-      completeSeason, finalizeSeason
+      setHistory,
+      isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner,
+      selectedAwards, awardResults, completeSeason, finalizeSeason
     }}>
       {children}
     </LeagueContext.Provider>

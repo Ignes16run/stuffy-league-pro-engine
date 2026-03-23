@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T17:00:00Z
+// Last Updated: 2026-03-22T20:55:00-04:00
 
 import React, { useState } from 'react';
 import { useLeague } from '@/context/league-context';
@@ -10,13 +10,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Star, Shield, Zap, Target, ArrowRight } from 'lucide-react';
+import { Trophy, Star, Shield, Zap, Target, ArrowRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 export function AwardsSelection() {
   const { 
-    isAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, awardResults, finalizeSeason 
+    isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, awardResults, finalizeSeason 
   } = useLeague();
   
   const [currentStep, setCurrentStep] = useState(0);
@@ -34,10 +34,10 @@ export function AwardsSelection() {
   if (!isAwardsPhase) return null;
 
   return (
-    <Dialog open={isAwardsPhase} onOpenChange={() => {}}>
+    <Dialog open={isAwardsPhase} onOpenChange={setIsAwardsPhase}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-[3rem] border-none shadow-2xl p-0">
         <div className="bg-stone-50/50 p-8">
-          <DialogHeader className="mb-8">
+          <DialogHeader className="mb-8 relative pr-12">
             <div className="flex items-center gap-4 mb-2">
               <div className="p-3 bg-amber-100 rounded-2xl">
                 <Trophy className="w-8 h-8 text-amber-600" />
@@ -52,6 +52,15 @@ export function AwardsSelection() {
               </div>
             </div>
             
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsAwardsPhase(false)}
+                className="absolute right-0 top-0 rounded-full hover:bg-stone-200"
+              >
+                <X className="w-5 h-5 text-stone-500" />
+            </Button>
+
             <div className="flex gap-2 mt-6">
               {categories.map((cat, idx) => (
                 <div 
@@ -106,11 +115,11 @@ export function AwardsSelection() {
                         >
                           <CardContent className="p-4 flex items-center gap-6">
                              <div className="w-16 h-16 rounded-2xl bg-stone-100 flex items-center justify-center text-3xl shrink-0 overflow-hidden">
-                                  {player.profilePicture ? (
-                                    <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="text-stone-300">🧸</div>
-                                  )}
+                                   {player.profilePicture ? (
+                                     <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" />
+                                   ) : (
+                                     <div className="text-stone-300">🧸</div>
+                                   )}
                              </div>
                              <div className="flex-1">
                                 <div className="flex items-center gap-2">
@@ -141,10 +150,10 @@ export function AwardsSelection() {
                       ))
                     ) : (
                       <div className="text-center py-12 bg-stone-50 rounded-3xl border border-stone-100">
-                        <p className="text-stone-400 font-bold uppercase text-[10px]">No valid candidates found for this category</p>
-                        <Button variant="ghost" className="mt-4 text-stone-600 font-black h-12 rounded-2xl" onClick={() => setCurrentStep(prev => prev + 1)}>
-                          Skip Category
-                        </Button>
+                         <p className="text-stone-400 font-bold uppercase text-[10px]">No valid candidates found for this category</p>
+                         <Button variant="ghost" className="mt-4 text-stone-600 font-black h-12 rounded-2xl" onClick={() => setCurrentStep(prev => prev + 1)}>
+                           Skip Category
+                         </Button>
                       </div>
                     )}
                   </motion.div>
@@ -200,16 +209,25 @@ export function AwardsSelection() {
             </div>
           )}
 
-          <DialogFooter className="mt-8 pt-6 border-t border-stone-100">
+          <DialogFooter className="mt-8 pt-6 border-t border-stone-100 flex items-center justify-between">
             {!isResultsStep ? (
-              <Button 
-                onClick={handleNext}
-                disabled={!currentCategory || !selectedAwards[currentCategory]}
-                className="bg-stone-900 text-white hover:bg-stone-800 rounded-2xl h-14 px-10 font-black text-lg gap-2 transition-all w-full md:w-auto"
-              >
-                Next Award
-                <ArrowRight className="w-5 h-5" />
-              </Button>
+              <>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setIsAwardsPhase(false)}
+                  className="rounded-2xl h-14 px-8 font-black text-stone-500 hover:bg-stone-100"
+                >
+                  Save & Exit
+                </Button>
+                <Button 
+                  onClick={handleNext}
+                  disabled={!currentCategory || !selectedAwards[currentCategory]}
+                  className="bg-stone-900 text-white hover:bg-stone-800 rounded-2xl h-14 px-10 font-black text-lg gap-2 transition-all"
+                >
+                  Next Award
+                  <ArrowRight className="w-5 h-5" />
+                </Button>
+              </>
             ) : (
               <Button 
                 onClick={finalizeSeason}
