@@ -1,7 +1,8 @@
 // Last Updated: 2026-03-23T10:20:00-04:00
 import { Team, Player, Game, SeasonHistory, PlayoffGame, PlayerStats } from './types';
+import { syncTeamStructures } from './structureEngine';
 
-export const CURRENT_DATA_VERSION = 1;
+export const CURRENT_DATA_VERSION = 2;
 
 export interface PersistedData {
   version?: number;
@@ -83,8 +84,14 @@ export function migrateData(data: any): PersistedData {
     migratedData.version = 1;
   }
 
-  // Future migrations go here:
-  // if (version < 2) { ... }
+  // Migration to Version 2: Add Conference/Division support
+  if (version < 2) {
+    console.log(`Migrating data from version ${version} to 2 (Conferences/Divisions)...`);
+    if (migratedData.teams && Array.isArray(migratedData.teams)) {
+      migratedData.teams = syncTeamStructures(migratedData.teams);
+    }
+    migratedData.version = 2;
+  }
 
   return migratedData as PersistedData;
 }

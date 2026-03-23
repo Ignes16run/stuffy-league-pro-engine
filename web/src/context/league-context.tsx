@@ -7,13 +7,16 @@ import {
   NarrativeMemoryEntry, AwardType
 } from '@/lib/league/types';
 import {
-  generateRoundRobinSchedule,
   calculateStandings,
   generateRealisticFootballScore,
   generateUUID,
   createSeededRandom
 } from '@/lib/league/utils';
-import { generateDivisionSchedule, generateConferencePlayoffs } from '@/lib/league/structureEngine';
+import { 
+  generateDivisionSchedule, 
+  generateConferencePlayoffs,
+  syncTeamStructures 
+} from '@/lib/league/structureEngine';
 import { useAuth } from '@/context/auth-context';
 import { generateTeamRoster } from '@/lib/league/players';
 import { selectNarrativeTemplate, generateNarrative, NARRATIVE_BANK } from '@/lib/league/narratives';
@@ -125,7 +128,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
             const rawData = JSON.parse(saved);
             const data = migrateData(rawData);
             
-            setTeams(data.teams || []);
+            setTeams(syncTeamStructures(data.teams || []));
             setPlayers(data.players || []);
             setGames(data.games || []);
             setPlayoffGames(data.playoffGames || []);
@@ -206,7 +209,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setPlayers(prev => [...prev, ...nextPlayers]);
 
     // AUTO-GENERATE SCHEDULE AFTER INITIALIZING TEAMS
-    const newGames = generateRoundRobinSchedule(nextTeams, numWeeks);
+    const newGames = generateDivisionSchedule(nextTeams, numWeeks);
     setGames(newGames);
 
     if (user) {
@@ -266,7 +269,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const createLeague = async () => {
     await resetLeague();
     const { nextTeams } = await addDefaultTeams();
-    const newGames = generateRoundRobinSchedule(nextTeams, numWeeks);
+    const newGames = generateDivisionSchedule(nextTeams, numWeeks);
     setGames(newGames);
     if (user) await PersistenceEngine.saveGames(newGames, user.id);
   };

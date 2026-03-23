@@ -1,5 +1,6 @@
 import { Team, Game, Standing, PlayoffGame } from './types';
 import { calculateStandings, generateUUID } from './utils';
+import { DEFAULT_LEAGUE_TEAMS } from './constants';
 
 /**
  * Generates a schedule that prioritizes intra-division matchups.
@@ -195,11 +196,9 @@ export function generateConferencePlayoffs(teams: Team[], games: Game[]): Playof
   const playoffs: PlayoffGame[] = [];
   
   // Seed 1 vs Seed 4 in each conference (Quarterfinals)
-  // Seed 2 vs Seed 3 in each conference
-  
   // AFC Side (Matchup indices 0, 1)
   playoffs.push({
-    id: generateUUID(),
+    id: 'q1',
     round: 1,
     matchupIndex: 0,
     team1Id: afcSeeds[0]?.teamId,
@@ -209,7 +208,7 @@ export function generateConferencePlayoffs(teams: Team[], games: Game[]): Playof
   });
   
   playoffs.push({
-    id: generateUUID(),
+    id: 'q2',
     round: 1,
     matchupIndex: 1,
     team1Id: afcSeeds[1]?.teamId,
@@ -220,7 +219,7 @@ export function generateConferencePlayoffs(teams: Team[], games: Game[]): Playof
 
   // NFC Side (Matchup indices 2, 3)
   playoffs.push({
-    id: generateUUID(),
+    id: 'q3',
     round: 1,
     matchupIndex: 2,
     team1Id: nfcSeeds[0]?.teamId,
@@ -230,7 +229,7 @@ export function generateConferencePlayoffs(teams: Team[], games: Game[]): Playof
   });
   
   playoffs.push({
-    id: generateUUID(),
+    id: 'q4',
     round: 1,
     matchupIndex: 3,
     team1Id: nfcSeeds[1]?.teamId,
@@ -239,12 +238,32 @@ export function generateConferencePlayoffs(teams: Team[], games: Game[]): Playof
     seed2: 3
   });
 
-  // Semifinals (Matchup indices 4, 5)
-  playoffs.push({ id: generateUUID(), round: 2, matchupIndex: 4 }); // AFC Champ
-  playoffs.push({ id: generateUUID(), round: 2, matchupIndex: 5 }); // NFC Champ
+  // Semifinals (Round 2)
+  playoffs.push({ id: 's1', round: 2, matchupIndex: 0 }); // AFC Champ
+  playoffs.push({ id: 's2', round: 2, matchupIndex: 1 }); // NFC Champ
 
-  // Finals (Matchup index 6)
-  playoffs.push({ id: generateUUID(), round: 3, matchupIndex: 6 });
+  // Finals (Round 3)
+  playoffs.push({ id: 'f1', round: 3, matchupIndex: 0 });
 
   return playoffs;
+}
+
+/**
+ * Ensures existing teams have their conference and division assignments.
+ */
+export function syncTeamStructures(teams: Team[]): Team[] {
+  return teams.map(t => {
+    // Try by ID first, then by Name
+    const defaultTeam = DEFAULT_LEAGUE_TEAMS.find(dt => dt.id === t.id) || 
+                       DEFAULT_LEAGUE_TEAMS.find(dt => dt.name === t.name);
+                       
+    if (defaultTeam) {
+      return {
+        ...t,
+        conferenceId: t.conferenceId || defaultTeam.conferenceId,
+        divisionId: t.divisionId || defaultTeam.divisionId
+      };
+    }
+    return t;
+  });
 }
