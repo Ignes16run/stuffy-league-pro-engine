@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-23T01:15:00Z
+// Last Updated: 2026-03-23T01:20:00Z
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -43,7 +43,7 @@ interface LeagueContextType {
   updatePlayer: (playerId: string, updates: Partial<Player>) => Promise<void>;
   bulkUpdatePlayers: (playerUpdates: { id: string, updates: Partial<Player> }[]) => Promise<void>;
   upgradeStat: (teamId: string, statId: string) => Promise<void>;
-  addDefaultTeams: () => Promise<void>;
+  addDefaultTeams: () => Promise<{ nextTeams: Team[]; nextPlayers: Player[]; }>;
   createLeague: (name: string) => Promise<void>;
   setCurrentWeek: (week: number) => void;
   advanceWeek: () => void;
