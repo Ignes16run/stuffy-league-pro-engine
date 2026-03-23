@@ -1,18 +1,16 @@
 // Last Updated: 2026-03-23T03:26:00-04:00
 
 import React, { useMemo } from 'react';
-import { motion } from 'motion/react';
 import { Info } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { STUFFY_ICONS } from '@/lib/league/constants';
-import { calculateStandings } from '@/lib/league/utils';
+import { calculateGroupedStandings } from '@/lib/league/structureEngine';
 import { cn } from '@/lib/utils';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 export default function Standings() {
   const { teams, games } = useLeague();
-  const standings = useMemo(() => calculateStandings(teams, games), [teams, games]);
+  const groupedStandings = useMemo(() => calculateGroupedStandings(teams, games), [teams, games]);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -33,70 +31,71 @@ export default function Standings() {
         </CardHeader>
         
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-stone-50 hover:bg-transparent">
-                <TableHead className="w-16 px-6 text-[10px] font-black uppercase tracking-widest text-stone-400">Rank</TableHead>
-                <TableHead className="px-6 text-[10px] font-black uppercase tracking-widest text-stone-400">Team</TableHead>
-                <TableHead className="text-center px-6 text-[10px] font-black uppercase tracking-widest text-stone-400">W-L-T</TableHead>
-                <TableHead className="text-center px-6 text-[10px] font-black uppercase tracking-widest text-stone-400">Win %</TableHead>
-                <TableHead className="text-center px-6 text-[10px] font-black uppercase tracking-widest text-stone-400">Streak</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {standings.map((s, idx) => {
-                const team = teams.find(t => t.id === s.teamId);
-                if (!team) return null;
-                const TeamIcon = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
-                return (
-                  <motion.tr
-                    key={s.teamId}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="hover:bg-stone-50/50 transition-colors border-b border-stone-50 group cursor-default"
-                  >
-                    <TableCell className="px-6 py-4">
-                      <div className={cn(
-                        "w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black transition-transform group-hover:scale-110",
-                        idx === 0 ? "bg-yellow-400 text-white shadow-lg shadow-yellow-400/20" : 
-                        idx === 1 ? "bg-stone-200 text-stone-600 shadow-md shadow-stone-200/20" :
-                        idx === 2 ? "bg-orange-300 text-white shadow-md shadow-orange-300/20" : "text-stone-400 bg-stone-50"
-                      )}>
-                        {idx + 1}
+          <div className="space-y-8 p-6">
+            {Object.entries(groupedStandings).map(([confName, divisions]) => (
+              <div key={confName} className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-2xl font-black text-stone-900 tracking-tighter uppercase">{confName}</h3>
+                  <div className="h-1 flex-1 bg-stone-100 rounded-full" />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {Object.entries(divisions).map(([divName, divTeams]) => (
+                    <div key={divName} className="bg-stone-50/30 rounded-3xl border border-stone-100/50 p-4">
+                      <h4 className="text-xs font-black text-emerald-600 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        {divName}
+                      </h4>
+                      
+                      <div className="space-y-2">
+                        {divTeams.map((s, idx) => {
+                          const team = teams.find(t => t.id === s.teamId);
+                          if (!team) return null;
+                          const TeamIcon = STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
+                          
+                          return (
+                            <div 
+                              key={s.teamId}
+                              className="bg-white rounded-2xl p-3 flex items-center justify-between border border-stone-100 shadow-sm shadow-stone-200/50 group hover:border-emerald-200 transition-all"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-6 text-[10px] font-black text-stone-300">#{idx + 1}</div>
+                                <div 
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center border shadow-xs"
+                                  style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
+                                >
+                                  {team.logoUrl ? (
+                                    <img src={team.logoUrl} className="w-full h-full object-cover" alt={team.name} />
+                                  ) : (
+                                    <TeamIcon className="w-4 h-4 text-white" />
+                                  )}
+                                </div>
+                                <span className="font-black text-stone-900 text-xs">{team.name}</span>
+                              </div>
+                              
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <div className="text-[10px] font-black text-stone-900">{s.wins}-{s.losses}-{s.ties}</div>
+                                  <div className="text-[8px] font-bold text-stone-400">{(s.winPct * 100).toFixed(0)}%</div>
+                                </div>
+                                <span className={cn(
+                                  "px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest",
+                                  s.streak.startsWith('W') ? "bg-emerald-500/10 text-emerald-600" : 
+                                  s.streak.startsWith('T') ? "bg-stone-200 text-stone-600" : "bg-rose-500/10 text-rose-600"
+                                )}>
+                                  {s.streak}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 font-black">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center border-2 shadow-sm overflow-hidden transition-transform group-hover:scale-105"
-                          style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
-                        >
-                          {team.logoUrl ? (
-                            <img src={team.logoUrl} className="w-full h-full object-cover" alt={team.name} />
-                          ) : (
-                            <TeamIcon className="w-5 h-5 text-white" />
-                          )}
-                        </div>
-                        <span className="text-stone-900 group-hover:text-emerald-600 transition-colors">{team.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 text-center font-black text-stone-700">{s.wins}-{s.losses}-{s.ties}</TableCell>
-                    <TableCell className="px-6 text-center font-mono text-stone-500 font-bold">{(s.winPercentage * 100).toFixed(1)}%</TableCell>
-                    <TableCell className="px-6 text-center">
-                      <span className={cn(
-                        "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] shadow-sm inline-block transition-transform group-hover:scale-110",
-                        s.streak.startsWith('W') ? "bg-emerald-500 text-white shadow-emerald-500/20" : 
-                        s.streak.startsWith('T') ? "bg-stone-400 text-white shadow-stone-400/20" : "bg-rose-500 text-white shadow-rose-500/20"
-                      )}>
-                        {s.streak}
-                      </span>
-                    </TableCell>
-                  </motion.tr>
-                )
-              })}
-            </TableBody>
-          </Table>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </div>
     </div>

@@ -17,6 +17,8 @@ export interface Team {
   allTimeWins?: number;
   championships?: number;
   rivalTeamIds?: string[];
+  conferenceId?: string;
+  divisionId?: string;
 }
 
 export interface Game {
@@ -35,9 +37,16 @@ export interface Standing {
   wins: number;
   losses: number;
   ties: number;
-  winPercentage: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  pointDiff: number;
+  winPct: number;
   streak: string;
   rank: number;
+  conferenceId?: string;
+  divisionId?: string;
+  divisionWins?: number;
+  divisionLosses?: number;
 }
 
 export interface PlayoffGame {

@@ -55,7 +55,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     offenseRating: 85,
     defenseRating: 87,
     specialTeamsRating: 90,
-    rivalTeamIds: ['paella-tech']
+    rivalTeamIds: ['paella-tech'],
+    conferenceId: 'AFC',
+    divisionId: 'AFC North'
   },
   {
     id: 'paella-tech',
@@ -66,7 +68,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     offenseRating: 81,
     defenseRating: 83,
     specialTeamsRating: 80,
-    rivalTeamIds: ['bocadilla-univ']
+    rivalTeamIds: ['bocadilla-univ'],
+    conferenceId: 'AFC',
+    divisionId: 'AFC North'
   },
   {
     id: 'cafe-con-leche',
@@ -77,7 +81,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     offenseRating: 83,
     defenseRating: 79,
     specialTeamsRating: 78,
-    rivalTeamIds: ['kentucky-fried-college']
+    rivalTeamIds: ['kentucky-fried-college'],
+    conferenceId: 'NFC',
+    divisionId: 'NFC North'
   },
   {
     id: 'alabama-univ',
@@ -87,7 +93,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#141414',
     offenseRating: 82,
     defenseRating: 82,
-    specialTeamsRating: 80
+    specialTeamsRating: 80,
+    conferenceId: 'AFC',
+    divisionId: 'AFC South'
   },
   {
     id: 'xbox-state',
@@ -98,7 +106,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     offenseRating: 83,
     defenseRating: 84,
     specialTeamsRating: 81,
-    rivalTeamIds: ['college-taco-bell']
+    rivalTeamIds: ['college-taco-bell'],
+    conferenceId: 'NFC',
+    divisionId: 'NFC South'
   },
   {
     id: 'college-taco-bell',
@@ -109,7 +119,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     offenseRating: 89,
     defenseRating: 77,
     specialTeamsRating: 77,
-    rivalTeamIds: ['xbox-state']
+    rivalTeamIds: ['xbox-state'],
+    conferenceId: 'AFC',
+    divisionId: 'AFC South'
   },
   {
     id: 'yale-jr',
@@ -120,7 +132,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     offenseRating: 81,
     defenseRating: 92,
     specialTeamsRating: 78,
-    rivalTeamIds: ['hershey-univ']
+    rivalTeamIds: ['hershey-univ'],
+    conferenceId: 'AFC',
+    divisionId: 'AFC North'
   },
   {
     id: 'hershey-univ',
@@ -131,7 +145,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     offenseRating: 90,
     defenseRating: 85,
     specialTeamsRating: 80,
-    rivalTeamIds: ['yale-jr']
+    rivalTeamIds: ['yale-jr'],
+    conferenceId: 'AFC',
+    divisionId: 'AFC North'
   },
   {
     id: 'bean-bag-univ',
@@ -141,7 +157,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#141414',
     offenseRating: 80,
     defenseRating: 82,
-    specialTeamsRating: 81
+    specialTeamsRating: 81,
+    conferenceId: 'NFC',
+    divisionId: 'NFC South'
   },
   {
     id: 'yorks-state',
@@ -151,7 +169,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#141414',
     offenseRating: 85,
     defenseRating: 84,
-    specialTeamsRating: 81
+    specialTeamsRating: 81,
+    conferenceId: 'AFC',
+    divisionId: 'AFC South'
   },
   {
     id: 'blankie-college',
@@ -161,7 +181,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#141414',
     offenseRating: 87,
     defenseRating: 80,
-    specialTeamsRating: 78
+    specialTeamsRating: 78,
+    conferenceId: 'NFC',
+    divisionId: 'NFC South'
   },
   {
     id: 'kentucky-fried-college',
@@ -172,7 +194,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     offenseRating: 88,
     defenseRating: 86,
     specialTeamsRating: 40,
-    rivalTeamIds: ['cafe-con-leche']
+    rivalTeamIds: ['cafe-con-leche'],
+    conferenceId: 'NFC',
+    divisionId: 'NFC North'
   },
   {
     id: 'target-univ',
@@ -182,7 +206,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#FFFFFF',
     offenseRating: 83,
     defenseRating: 86,
-    specialTeamsRating: 80
+    specialTeamsRating: 80,
+    conferenceId: 'NFC',
+    divisionId: 'NFC South'
   },
   {
     id: 'kitchen-state',
@@ -192,7 +218,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#141414',
     offenseRating: 79,
     defenseRating: 86,
-    specialTeamsRating: 84
+    specialTeamsRating: 84,
+    conferenceId: 'AFC',
+    divisionId: 'AFC South'
   },
   {
     id: 'maine-state',
@@ -202,7 +230,9 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#1E293B',
     offenseRating: 84,
     defenseRating: 86,
-    specialTeamsRating: 82
+    specialTeamsRating: 82,
+    conferenceId: 'NFC',
+    divisionId: 'NFC North'
   },
   {
     id: 'mercadona-college',
@@ -212,7 +242,8 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#F59E0B',
     offenseRating: 88,
     defenseRating: 82,
-    specialTeamsRating: 85
+    specialTeamsRating: 85,
+    conferenceId: 'NFC',
+    divisionId: 'NFC North'
   }
 ];
-

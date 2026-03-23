@@ -13,6 +13,7 @@ import {
   generateUUID,
   createSeededRandom
 } from '@/lib/league/utils';
+import { generateDivisionSchedule, generateConferencePlayoffs } from '@/lib/league/structureEngine';
 import { useAuth } from '@/context/auth-context';
 import { generateTeamRoster } from '@/lib/league/players';
 import { selectNarrativeTemplate, generateNarrative, NARRATIVE_BANK } from '@/lib/league/narratives';
@@ -371,73 +372,37 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    setGames(updatedGames);
-    if (pointsMap.size > 0) {
-      setTeams(prev => prev.map(t => ({
-        ...t,
-        stuffyPoints: (t.stuffyPoints || 0) + (pointsMap.get(t.id) || 0)
-      })));
-    }
-    const finalPlayers = recalculateStats(updatedGames, players);
-    setPlayers(finalPlayers);
-    setCurrentWeek(numWeeks);
-    setIsSimulating(false);
-
-    // Automatically Seed Playoffs if regular season is done
-    const allGamesFinished = updatedGames.length > 0 && updatedGames.every(g => g.homeScore !== undefined);
-    if (allGamesFinished) {
-        console.log("Season finished - Seeding Playoffs...");
-        const standings = calculateStandings(teams, updatedGames);
-        const top8 = standings.slice(0, 8);
-
-        // Quarter Finals (Round 1) - 1v8, 4v5, 2v7, 3v6
-        const newPlayoffGames: PlayoffGame[] = [
-            { id: 'q1', round: 1, matchupIndex: 0, team1Id: top8[0].teamId, seed1: 1, team2Id: top8[7].teamId, seed2: 8 },
-            { id: 'q2', round: 1, matchupIndex: 1, team1Id: top8[3].teamId, seed1: 4, team2Id: top8[4].teamId, seed2: 5 },
-            { id: 'q3', round: 1, matchupIndex: 2, team1Id: top8[1].teamId, seed1: 2, team2Id: top8[6].teamId, seed2: 7 },
-            { id: 'q4', round: 1, matchupIndex: 3, team1Id: top8[2].teamId, seed1: 3, team2Id: top8[5].teamId, seed2: 6 },
-
-            // Semis (Round 2)
-            { id: 's1', round: 2, matchupIndex: 0 },
-            { id: 's2', round: 2, matchupIndex: 1 },
-
-            // Finals (Round 3)
-            { id: 'f1', round: 3, matchupIndex: 0 }
-        ];
-
-        setPlayoffGames(newPlayoffGames);
-        await syncPlayoffGames(newPlayoffGames);
-
-        // TRIGGER AWARDS PHASE using finalPlayers
-        const finalists = getAwardFinalists(finalPlayers);
-        setAwardFinalists(finalists as Record<string, Player[]>);
-        setIsAwardsPhase(true);
-    }
+        setGames(updatedGames);
+        if (pointsMap.size > 0) {
+          setTeams(prev => prev.map(t => ({
+            ...t,
+            stuffyPoints: (t.stuffyPoints || 0) + (pointsMap.get(t.id) || 0)
+          })));
+        }
+        const finalPlayers = recalculateStats(updatedGames, players);
+        setPlayers(finalPlayers);
+        setCurrentWeek(numWeeks);
+        setIsSimulating(false);
+    
+        // Automatically Seed Playoffs if regular season is done
+        const allGamesFinished = updatedGames.length > 0 && updatedGames.every(g => g.homeScore !== undefined);
+        if (allGamesFinished) {
+            console.log("Season finished - Seeding Conference Playoffs...");
+            const newPlayoffGames = generateConferencePlayoffs(teams, updatedGames);
+            setPlayoffGames(newPlayoffGames);
+            await syncPlayoffGames(newPlayoffGames);
+    
+            // TRIGGER AWARDS PHASE using finalPlayers
+            const finalists = getAwardFinalists(finalPlayers);
+            setAwardFinalists(finalists as Record<string, Player[]>);
+            setIsAwardsPhase(true);
+        }
   };
 
   // Updated: 2026-03-23T10:15:00-04:00
   const generatePlayoffs = useCallback(async () => {
-    const standings = calculateStandings(teams, games);
-    const top8 = standings.slice(0, 8);
-    
-    // Safety check for team IDs and seeds
-    const getTeam = (index: number) => top8[index] ? top8[index].teamId : undefined;
-    const getSeed = (index: number) => top8[index] ? index + 1 : undefined;
-
-    const newPlayoffGames: PlayoffGame[] = [
-      { id: 'q1', round: 1, matchupIndex: 0, team1Id: getTeam(0), seed1: getSeed(0), team2Id: getTeam(7), seed2: getSeed(7) },
-      { id: 'q2', round: 1, matchupIndex: 1, team1Id: getTeam(3), seed1: getSeed(3), team2Id: getTeam(4), seed2: getSeed(4) },
-      { id: 'q3', round: 1, matchupIndex: 2, team1Id: getTeam(1), seed1: getSeed(1), team2Id: getTeam(6), seed2: getSeed(6) },
-      { id: 'q4', round: 1, matchupIndex: 3, team1Id: getTeam(2), seed1: getSeed(2), team2Id: getTeam(5), seed2: getSeed(5) },
-      
-      // Semis (Round 2)
-      { id: 's1', round: 2, matchupIndex: 0 },
-      { id: 's2', round: 2, matchupIndex: 1 },
-      
-      // Finals (Round 3)
-      { id: 'f1', round: 3, matchupIndex: 0 }
-    ];
-
+    const newPlayoffGames = generateConferencePlayoffs(teams, games);
+    setPlayoffGames(newPlayoffGames);
     await syncPlayoffGames(newPlayoffGames);
 
     // Also trigger awards phase here for manual seeding
@@ -526,7 +491,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
     // 3. Auto-Generate New Schedule
     if (teams.length > 1) {
-      const newGames = generateRoundRobinSchedule(teams, numWeeks);
+      const newGames = generateDivisionSchedule(teams, numWeeks);
       setGames(newGames);
     }
 
