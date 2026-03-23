@@ -14,7 +14,7 @@ import SeasonPredictor from './season-predictor';
 import PlayoffBracket from './playoff-bracket';
 import TrainingCamp from './training-camp';
 import LeagueHistory from './league-history';
-import { AwardsSelection } from './awards-selection';
+import AwardsSelection from './awards-selection';
 import ManagementView from './management-view';
 import StatsView from './stats-view';
 
