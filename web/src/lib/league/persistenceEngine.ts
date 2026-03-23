@@ -202,7 +202,8 @@ export const PersistenceEngine = {
       })) as Game[],
       playoffGames: (dbPlayoffs || []).map((g: any) => ({
         id: g.id, round: g.round, matchupIndex: g.matchup_index,
-        team1Id: g.team1_id, team2Id: g.team2_id, winnerId: g.winner_id, seed1: g.seed1, seed2: g.seed2
+        team1Id: g.team1_id, team2Id: g.team2_id, winnerId: g.winner_id,
+        seed1: g.seed1, seed2: g.seed2, team1Score: g.team1_score, team2Score: g.team2_score
       })) as PlayoffGame[],
       history: (dbHistory || []).map((h: any) => ({
         year: h.year, championId: h.champion_id, finalStandings: h.full_standings || []
