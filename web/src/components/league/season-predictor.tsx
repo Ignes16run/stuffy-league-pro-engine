@@ -13,6 +13,7 @@ import {
 import { useLeague } from '@/context/league-context';
 import { STUFFY_ICONS } from '@/lib/league/constants';
 import { calculateStandings } from '@/lib/league/utils';
+import { generateGameStorylines, GameStoryline } from '@/lib/league/storylineEngine';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function SeasonPredictor() {
-  const { teams, games, simulateSeason, handlePick, isSimulating, numWeeks, setNumWeeks } = useLeague();
+  const { teams, games, simulateSeason, handlePick, isSimulating, numWeeks, setNumWeeks, history } = useLeague();
   const [activeWeek, setActiveWeek] = useState(1);
 
   const maxWeek = useMemo(() => Math.max(...games.map(g => g.week), 0), [games]);
@@ -151,90 +152,112 @@ export default function SeasonPredictor() {
             const HomeIcon = STUFFY_ICONS[home.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
             const AwayIcon = STUFFY_ICONS[away.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear;
 
+            const storylines = generateGameStorylines(game, teams, currentStandings, history);
+
             return (
               <motion.div 
                 layout
                 key={game.id} 
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-[2rem] p-4 shadow-sm border border-stone-100 flex flex-col sm:flex-row items-center gap-4 relative overflow-hidden"
+                className="bg-white rounded-[2rem] p-4 shadow-sm border border-stone-100 flex flex-col gap-4 relative overflow-hidden"
               >
-                <button 
-                  onClick={() => handlePick(game.id, away.id)}
-                  className={cn(
-                    "flex-1 flex items-center justify-between gap-4 p-4 rounded-2xl transition-all border-2 group",
-                    game.winnerId === away.id ? "border-emerald-500 bg-emerald-50/50" : "border-transparent hover:bg-stone-50"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md border-2"
-                      style={{ backgroundColor: away.primaryColor, borderColor: away.secondaryColor }}
-                    >
-                      {away.logoUrl ? (
-                         <img src={away.logoUrl} alt={away.name} className="w-full h-full object-cover" />
-                      ) : (
-                         <AwayIcon className="w-6 h-6" />
-                      )}
-                    </div>
-                    <div className="text-left">
-                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Away</p>
-                      <span className="font-black text-stone-900 text-sm leading-tight block">
-                        {awayStanding <= 8 && <span className="text-stone-300 mr-1.5 font-bold text-[10px]">(#{awayStanding})</span>}
-                        {away.name}
+                {/* Storyline Badges */}
+                {storylines.length > 0 && (
+                  <div className="flex flex-wrap gap-2 px-1">
+                    {storylines.map((s, i) => (
+                      <span 
+                        key={`${game.id}-${i}`}
+                        className={cn(
+                          "px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5",
+                          s.color
+                        )}
+                      >
+                        <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
+                        {s.label}
                       </span>
-                      <span className="text-[10px] text-stone-400 font-bold">{teamRecords[away.id]}</span>
-                    </div>
+                    ))}
                   </div>
-                  {game.awayScore !== undefined && (
-                    <span className="text-2xl font-black text-stone-900">{game.awayScore}</span>
-                  )}
-                </button>
+                )}
 
-                <div className="flex flex-col items-center gap-1">
-                  <button
-                    onClick={() => handlePick(game.id, 'tie')}
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <button 
+                    onClick={() => handlePick(game.id, away.id)}
                     className={cn(
-                      "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border",
-                      game.isTie ? "bg-emerald-500 text-white border-emerald-500" : "bg-stone-50 text-stone-400 border-stone-100 hover:bg-stone-100"
+                      "flex-1 flex items-center justify-between gap-4 p-4 rounded-2xl transition-all border-2 group",
+                      game.winnerId === away.id ? "border-emerald-500 bg-emerald-50/50" : "border-transparent hover:bg-stone-50"
                     )}
                   >
-                    Tie
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md border-2"
+                        style={{ backgroundColor: away.primaryColor, borderColor: away.secondaryColor }}
+                      >
+                        {away.logoUrl ? (
+                          <img src={away.logoUrl} alt={away.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <AwayIcon className="w-6 h-6" />
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Away</p>
+                        <span className="font-black text-stone-900 text-sm leading-tight block">
+                          {awayStanding <= 8 && <span className="text-stone-300 mr-1.5 font-bold text-[10px]">(#{awayStanding})</span>}
+                          {away.name}
+                        </span>
+                        <span className="text-[10px] text-stone-400 font-bold">{teamRecords[away.id]}</span>
+                      </div>
+                    </div>
+                    {game.awayScore !== undefined && (
+                      <span className="text-2xl font-black text-stone-900">{game.awayScore}</span>
+                    )}
                   </button>
-                  <div className="text-[9px] font-black text-stone-300 italic">VS</div>
-                </div>
 
-                <button 
-                  onClick={() => handlePick(game.id, home.id)}
-                  className={cn(
-                    "flex-1 flex items-center justify-between gap-4 p-4 rounded-2xl transition-all border-2 group",
-                    game.winnerId === home.id ? "border-emerald-500 bg-emerald-50/50" : "border-transparent hover:bg-stone-50"
-                  )}
-                >
-                  {game.homeScore !== undefined && (
-                    <span className="text-2xl font-black text-stone-900">{game.homeScore}</span>
-                  )}
-                  <div className="flex items-center gap-3 text-right">
-                    <div className="text-right">
-                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Home</p>
-                      <span className="font-black text-stone-900 text-sm leading-tight block text-right">
-                        {homeStanding <= 8 && <span className="text-stone-300 mr-1.5 font-bold text-[10px]">(#{homeStanding})</span>}
-                        {home.name}
-                      </span>
-                      <span className="text-[10px] text-stone-400 font-bold">{teamRecords[home.id]}</span>
-                    </div>
-                    <div 
-                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md border-2"
-                      style={{ backgroundColor: home.primaryColor, borderColor: home.secondaryColor }}
-                    >
-                      {home.logoUrl ? (
-                        <img src={home.logoUrl} alt={home.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <HomeIcon className="w-6 h-6" />
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      onClick={() => handlePick(game.id, 'tie')}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border",
+                        game.isTie ? "bg-emerald-500 text-white border-emerald-500" : "bg-stone-50 text-stone-400 border-stone-100 hover:bg-stone-100"
                       )}
-                    </div>
+                    >
+                      Tie
+                    </button>
+                    <div className="text-[9px] font-black text-stone-300 italic">VS</div>
                   </div>
-                </button>
+
+                  <button 
+                    onClick={() => handlePick(game.id, home.id)}
+                    className={cn(
+                      "flex-1 flex items-center justify-between gap-4 p-4 rounded-2xl transition-all border-2 group",
+                      game.winnerId === home.id ? "border-emerald-500 bg-emerald-50/50" : "border-transparent hover:bg-stone-50"
+                    )}
+                  >
+                    {game.homeScore !== undefined && (
+                      <span className="text-2xl font-black text-stone-900">{game.homeScore}</span>
+                    )}
+                    <div className="flex items-center gap-3 text-right">
+                      <div className="text-right">
+                        <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Home</p>
+                        <span className="font-black text-stone-900 text-sm leading-tight block text-right">
+                          {homeStanding <= 8 && <span className="text-stone-300 mr-1.5 font-bold text-[10px]">(#{homeStanding})</span>}
+                          {home.name}
+                        </span>
+                        <span className="text-[10px] text-stone-400 font-bold">{teamRecords[home.id]}</span>
+                      </div>
+                      <div 
+                        className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md border-2"
+                        style={{ backgroundColor: home.primaryColor, borderColor: home.secondaryColor }}
+                      >
+                        {home.logoUrl ? (
+                          <img src={home.logoUrl} alt={home.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <HomeIcon className="w-6 h-6" />
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </div>
               </motion.div>
             );
           })}

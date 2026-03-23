@@ -54,7 +54,8 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#78350F',
     offenseRating: 85,
     defenseRating: 87,
-    specialTeamsRating: 90
+    specialTeamsRating: 90,
+    rivalTeamIds: ['paella-tech']
   },
   {
     id: 'paella-tech',
@@ -64,7 +65,8 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#7F1D1D',
     offenseRating: 81,
     defenseRating: 83,
-    specialTeamsRating: 80
+    specialTeamsRating: 80,
+    rivalTeamIds: ['bocadilla-univ']
   },
   {
     id: 'cafe-con-leche',
@@ -74,7 +76,8 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#141414',
     offenseRating: 83,
     defenseRating: 79,
-    specialTeamsRating: 78
+    specialTeamsRating: 78,
+    rivalTeamIds: ['kentucky-fried-college']
   },
   {
     id: 'alabama-univ',
@@ -94,7 +97,8 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#141414',
     offenseRating: 83,
     defenseRating: 84,
-    specialTeamsRating: 81
+    specialTeamsRating: 81,
+    rivalTeamIds: ['college-taco-bell']
   },
   {
     id: 'college-taco-bell',
@@ -104,7 +108,8 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#141414',
     offenseRating: 89,
     defenseRating: 77,
-    specialTeamsRating: 77
+    specialTeamsRating: 77,
+    rivalTeamIds: ['xbox-state']
   },
   {
     id: 'yale-jr',
@@ -114,7 +119,8 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#1E293B',
     offenseRating: 81,
     defenseRating: 92,
-    specialTeamsRating: 78
+    specialTeamsRating: 78,
+    rivalTeamIds: ['hershey-univ']
   },
   {
     id: 'hershey-univ',
@@ -124,7 +130,8 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#FFFFFF',
     offenseRating: 90,
     defenseRating: 85,
-    specialTeamsRating: 80
+    specialTeamsRating: 80,
+    rivalTeamIds: ['yale-jr']
   },
   {
     id: 'bean-bag-univ',
@@ -164,7 +171,8 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     secondaryColor: '#FFFFFF',
     offenseRating: 88,
     defenseRating: 86,
-    specialTeamsRating: 40
+    specialTeamsRating: 40,
+    rivalTeamIds: ['cafe-con-leche']
   },
   {
     id: 'target-univ',

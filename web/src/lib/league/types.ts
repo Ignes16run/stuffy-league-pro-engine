@@ -16,6 +16,7 @@ export interface Team {
   stuffyPoints?: number;
   allTimeWins?: number;
   championships?: number;
+  rivalTeamIds?: string[];
 }
 
 export interface Game {
