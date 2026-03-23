@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T18:50:00Z
+// Last Updated: 2026-03-22T21:15:00-04:00
 import React, { useMemo, useState } from 'react';
 import { useLeague } from '@/context/league-context';
 import { Player, PlayerStats, PlayerPosition } from '@/lib/league/types';
@@ -60,6 +60,7 @@ export default function StatsView() {
       tackles: getTop('tackles', ['DL', 'LB', 'EDGE', 'CB', 'S']),
       tacklesForLoss: getTop('tacklesForLoss', ['DL', 'LB', 'EDGE']),
       sacks: getTop('sacks', ['DL', 'LB', 'EDGE']),
+      pressures: getTop('pressures', ['DL', 'LB', 'EDGE']),
       interceptions: getTop('interceptions', ['CB', 'S', 'LB']),
       passDeflections: getTop('passDeflections', ['CB', 'S']),
       points: getTop('points', ['K']),
@@ -194,6 +195,7 @@ export default function StatsView() {
           <StatLeaderCard title="Tackles" players={leaderboards.tackles} statKey="tackles" statMode={statMode} />
           <StatLeaderCard title="Tackles for Loss" players={leaderboards.tacklesForLoss} statKey="tacklesForLoss" statMode={statMode} />
           <StatLeaderCard title="Sacks" players={leaderboards.sacks} statKey="sacks" statMode={statMode} />
+          <StatLeaderCard title="Pressures" players={leaderboards.pressures} statKey="pressures" statMode={statMode} />
           <StatLeaderCard title="Interceptions" players={leaderboards.interceptions} statKey="interceptions" statMode={statMode} />
           <StatLeaderCard title="Pass Deflections" players={leaderboards.passDeflections} statKey="passDeflections" statMode={statMode} />
         </TabsContent>
@@ -326,7 +328,9 @@ function renderPositionalStats(player: Player) {
     items.push({ label: 'Rec TD', value: s.receivingTds });
   } else if (['DL', 'LB', 'EDGE', 'CB', 'S'].includes(player.position)) {
     items.push({ label: 'Tackles', value: s.tackles });
+    items.push({ label: 'TFL', value: s.tacklesForLoss });
     items.push({ label: 'Sacks', value: s.sacks });
+    items.push({ label: 'Pressures', value: s.pressures });
     items.push({ label: 'INT', value: s.interceptions });
   } else if (player.position === 'K') {
     items.push({ label: 'FG Made', value: s.fgMade });

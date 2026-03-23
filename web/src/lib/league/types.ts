@@ -107,6 +107,7 @@ export interface PlayerStats {
   receptions?: number;
 
   // Defensive Specific (DL, LB, DB)
+  pressures?: number;
   tacklesForLoss?: number;
   passDeflections?: number;
   fgMade?: number;

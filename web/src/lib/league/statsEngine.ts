@@ -1,4 +1,4 @@
-// Last Updated: 2026-03-22T20:58:00-04:00
+// Last Updated: 2026-03-22T21:05:00-04:00
 import { Player, PlayerStats } from './types';
 
 /**
@@ -22,13 +22,19 @@ export function assignStatsToPlayers(
   const receivers = teamPlayers.filter(p => p.position === 'WR' || p.position === 'TE');
   const kicker = teamPlayers.find(p => p.position === 'K');
   
+  // Defensive Groups
+  const dLine = teamPlayers.filter(p => p.position === 'DL' || p.position === 'EDGE');
+  const lbs = teamPlayers.filter(p => p.position === 'LB');
+  const dbs = teamPlayers.filter(p => p.position === 'CB' || p.position === 'S');
+  
   // 2. Statistical Distribution Logic
   const distributePool = (subset: Player[], totalValue: number): Record<string, number> => {
     if (subset.length === 0 || totalValue <= 0) return {};
     const results: Record<string, number> = {};
     const totalRating = subset.reduce((sum, p) => sum + p.rating, 0) || 1;
     
-    if (Number.isInteger(totalValue) && totalValue < 50) {
+    // For small integer values, use weighted random selection for better variance
+    if (Number.isInteger(totalValue) && totalValue < 30) {
       for (let i = 0; i < totalValue; i++) {
         let randVal = random() * totalRating;
         let assigned = false;
@@ -82,7 +88,7 @@ export function assignStatsToPlayers(
   const finalXpCount = Math.min(xpMade, kickerPointsPool);
   const finalFgCount = Math.floor((kickerPointsPool - finalXpCount) / 3);
 
-  // 5. Calculate TD Split Pools
+  // 5. Calculate Offensive TD Split Pools
   let rushingTdsCount = totalTDs > 0 
     ? Math.floor(totalTDs * (0.2 + random() * 0.3) + (random() < 0.2 ? 1 : 0))
     : 0;
@@ -96,13 +102,50 @@ export function assignStatsToPlayers(
   const totalPassingYards = Math.round((score * 9.5) + (random() * 60));
   const totalRushingYards = Math.round((score * 5.5) + (random() * 40));
 
-  // 7. Distribute
+  // 7. Defensive Event Generation (Realism Enhancement)
+  // Pressures: 8-18 per game (Boosted for leader targets)
+  const totalPressures = 8 + Math.floor(random() * 11);
+  
+  // Conversion rules: Portion of pressures convert to sacks and TFLs
+  const totalSacks = Math.min(totalPressures, Math.floor(totalPressures * (0.15 + random() * 0.15)));
+  const totalTFLs = Math.min(totalPressures, 4 + Math.floor(random() * 6)); // User range 4-8
+  
+  // Interceptions: 0-3 per game (Rare but possible for league leader targets)
+  const totalInterceptions = random() < 0.2 ? 0 : (random() < 0.6 ? 1 : (random() < 0.9 ? 2 : 3));
+  
+  // Pass Deflections: 4-10 per game
+  const totalPassDeflections = 4 + Math.floor(random() * 7);
+
+  // 8. Distribute Pools
   const rbYardsMap = distributePool(rbs, totalRushingYards);
   const rbTdsMap = distributePool(rbs, rushingTdsCount);
   const recYardsMap = distributePool(receivers, totalPassingYards);
   const recTdsMap = distributePool(receivers, passingTdsCount);
 
-  // 8. Apply
+  // Defensive Distribution Matrices
+  // Pressures: DL/EDGE (80%), LB (18%), DB (2% rare)
+  const dLinePressureMap = distributePool(dLine, Math.floor(totalPressures * 0.80));
+  const lbPressureMap = distributePool(lbs, Math.floor(totalPressures * 0.18));
+  
+  // Sacks Distribution (Strictly following pressures)
+  const dLineSackMap = distributePool(dLine, Math.floor(totalSacks * 0.85));
+  const lbSackMap = distributePool(lbs, Math.floor(totalSacks * 0.15));
+  
+  // TFL Distribution
+  const dLineTflMap = distributePool(dLine, Math.floor(totalTFLs * 0.65));
+  const lbTflMap = distributePool(lbs, Math.floor(totalTFLs * 0.30));
+  const dbTflMap = distributePool(dbs, Math.floor(totalTFLs * 0.05));
+  
+  // Interception Distribution: CB (80%), S (15%), LB (5%)
+  const cbGroup = dbs.filter(p => p.position === 'CB');
+  const sGroup = dbs.filter(p => p.position === 'S');
+  
+  const cbIntMap = distributePool(cbGroup, Math.floor(totalInterceptions * 0.80));
+  const sIntMap = distributePool(sGroup, Math.floor(totalInterceptions * 0.15));
+  const lbIntMap = distributePool(lbs, Math.floor(totalInterceptions * 0.05));
+  const dLineIntMap = distributePool(dLine, 0); // Simplified for calculation
+
+  // 9. Apply
   return players.map(p => {
     if (p.teamId !== teamId) return p;
 
@@ -118,6 +161,7 @@ export function assignStatsToPlayers(
       case 'RB':
         s.rushingYards = (s.rushingYards || 0) + (rbYardsMap[p.id] || 0);
         s.rushingTds = (s.rushingTds || 0) + (rbTdsMap[p.id] || 0);
+        s.carries = (s.carries || 0) + 8 + Math.floor(random() * 12);
         break;
       case 'WR':
       case 'TE':
@@ -132,16 +176,27 @@ export function assignStatsToPlayers(
         break;
       case 'DL':
       case 'EDGE':
+        s.tackles = (s.tackles || 0) + 1 + Math.floor(random() * 4);
+        s.pressures = (s.pressures || 0) + (dLinePressureMap[p.id] || 0);
+        s.sacks = (s.sacks || 0) + (dLineSackMap[p.id] || 0);
+        s.tacklesForLoss = (s.tacklesForLoss || 0) + (dLineTflMap[p.id] || 0);
+        s.interceptions = (s.interceptions || 0) + (dLineIntMap[p.id] || 0);
+        break;
       case 'LB':
-        s.tackles = (s.tackles || 0) + Math.floor(random() * 6) + Math.floor(oppScore / 10);
-        if (random() > (0.98 - (p.rating / 1000))) s.sacks = (s.sacks || 0) + 1;
-        if (random() > 0.94) s.tacklesForLoss = (s.tacklesForLoss || 0) + 1;
+        s.tackles = (s.tackles || 0) + 4 + Math.floor(random() * 6) + Math.floor(oppScore / 10);
+        s.pressures = (s.pressures || 0) + (lbPressureMap[p.id] || 0);
+        s.sacks = (s.sacks || 0) + (lbSackMap[p.id] || 0);
+        s.tacklesForLoss = (s.tacklesForLoss || 0) + (lbTflMap[p.id] || 0);
+        s.interceptions = (s.interceptions || 0) + (lbIntMap[p.id] || 0);
         break;
       case 'CB':
       case 'S':
-        s.tackles = (s.tackles || 0) + Math.floor(random() * 4) + Math.floor(oppScore / 15);
-        if (random() > 0.98) s.interceptions = (s.interceptions || 0) + 1;
-        if (random() > 0.92) s.passDeflections = (s.passDeflections || 0) + 1;
+        s.tackles = (s.tackles || 0) + 2 + Math.floor(random() * 4) + Math.floor(oppScore / 15);
+        s.interceptions = (s.interceptions || 0) + (cbIntMap[p.id] || sIntMap[p.id] || 0);
+        s.passDeflections = (s.passDeflections || 0) + Math.round((totalPassDeflections / dbs.length) * (p.rating / 80));
+        s.tacklesForLoss = (s.tacklesForLoss || 0) + (dbTflMap[p.id] || 0);
+        // Rare pressure for DBs
+        if (random() > 0.97) s.pressures = (s.pressures || 0) + 1;
         break;
     }
 

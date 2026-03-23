@@ -1,5 +1,5 @@
-// Last Updated: 2026-03-22T17:35:00Z
-import { Player, PlayerPosition, PlayerAbility, PlayerStats } from './types';
+// Last Updated: 2026-03-22T21:10:00-04:00
+import { Player, PlayerPosition } from './types';
 import { generateWeightedOVR, generateInitialRatings, calculateOVR } from './ratings';
 import { POSITION_CONFIGS } from './position-system';
 
@@ -80,14 +80,20 @@ function createPlayer(teamId: string, position: PlayerPosition): Player {
       points: 0,
       tackles: 0,
       yards: 0,
-      touchdowns: 0
+      touchdowns: 0,
+      pressures: 0,
+      tacklesForLoss: 0,
+      interceptions: 0
     },
     careerStats: {
       gamesPlayed: 0,
       points: 0,
       tackles: 0,
       yards: 0,
-      touchdowns: 0
+      touchdowns: 0,
+      pressures: 0,
+      tacklesForLoss: 0,
+      interceptions: 0
     },
     awards: []
   };
