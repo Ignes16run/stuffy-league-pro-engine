@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Trophy, Medal, Star, Target, Shield, Sparkles, Share2, Play
+  Trophy, Medal, Star, Target, Shield, Sparkles, Share2, Play, RotateCcw
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { STUFFY_ICONS } from '@/lib/league/constants';
@@ -21,14 +21,14 @@ const AWARD_CONFIG = {
 };
 
 export default function AwardsSelection() {
-  const { calculateAwards, teams, players } = useLeague();
-  const [awards, setAwards] = useState<Record<AwardType, string>>({} as Record<AwardType, string>);
+  const { calculateAwards, teams, players, finalizeSeason } = useLeague();
+  const [awards, setAwards] = useState<Record<AwardType, { winner: Player; narrative: string }>>({} as any);
   const [revealingAwards, setRevealingAwards] = useState<AwardType[]>([]);
   const [isCeremonyActive, setIsCeremonyActive] = useState(false);
 
   const startCeremony = () => {
     const results = calculateAwards();
-    setAwards(results);
+    setAwards(results as any);
     setIsCeremonyActive(true);
     setRevealingAwards([]);
     
@@ -90,7 +90,7 @@ export default function AwardsSelection() {
                         <AwardRevealCard 
                             key={type}
                             type={type} 
-                            playerId={awards[type]} 
+                            playerId={awards[type].winner.id} 
                             players={players} 
                             teams={teams}
                         />
@@ -114,6 +114,26 @@ export default function AwardsSelection() {
                   Close Ceremony Hall
                </Button>
             </motion.div>
+            <div className="flex flex-col items-center gap-10 mt-20">
+               {revealingAwards.includes('CHAMPION') && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 1 }}
+                  >
+                    <Button 
+                      onClick={finalizeSeason}
+                      className="h-20 px-20 rounded-[2.5rem] bg-emerald-600 text-white font-black text-lg uppercase tracking-[0.2em] shadow-3xl hover:bg-emerald-700 transition-all active:scale-95 gap-4"
+                    >
+                      <RotateCcw className="w-6 h-6" />
+                      Start Next Season (2027)
+                    </Button>
+                    <p className="text-center text-stone-400 text-xs font-bold uppercase tracking-widest mt-6">
+                       All stats will be archived to players&apos; career records
+                    </p>
+                  </motion.div>
+               )}
+            </div>
         </div>
       )}
     </div>

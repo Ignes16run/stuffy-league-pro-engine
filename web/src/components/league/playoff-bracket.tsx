@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 export default function PlayoffBracket() {
-  const { teams, playoffGames, setPlayoffGames, syncPlayoffGames, completeSeason } = useLeague();
+  const { teams, playoffGames, setPlayoffGames, syncPlayoffGames, completeSeason, handlePick, setActiveTab } = useLeague();
   const [isSimulating, setIsSimulating] = useState(false);
 
   const resetPlayoffs = async () => {
@@ -48,9 +48,13 @@ export default function PlayoffBracket() {
           const t1P = (t1.offenseRating || 72) + (t1.defenseRating || 72);
           const t2P = (t2.offenseRating || 72) + (t2.defenseRating || 72);
           
-          // Scores
-          const s1 = Math.floor(Math.random() * 20) + 10 + (t1P / 10);
-          const s2 = Math.floor(Math.random() * 20) + 10 + (t2P / 10);
+          // Scores - Ensure no ties in playoffs
+          let s1 = Math.floor(Math.random() * 20) + 10 + (t1P / 10);
+          let s2 = Math.floor(Math.random() * 20) + 10 + (t2P / 10);
+          
+          if (Math.floor(s1) === Math.floor(s2)) {
+             s1 += 1; // Basic no-tie rule for playoffs
+          }
           
           game.team1Score = Math.floor(s1);
           game.team2Score = Math.floor(s2);
@@ -112,7 +116,10 @@ export default function PlayoffBracket() {
 
           {champGame ? (
             <Button 
-              onClick={() => completeSeason(champGame.winnerId!)}
+              onClick={() => {
+                completeSeason(champGame.winnerId!);
+                setActiveTab('stats');
+              }}
               className="h-16 px-12 rounded-2xl bg-emerald-500 border-0 text-white font-black text-[11px] uppercase tracking-[0.25em] shadow-2xl hover:bg-emerald-600 transition-all active:scale-95 gap-3"
             >
               <CheckCircle2 className="w-4 h-4" />
@@ -140,14 +147,16 @@ export default function PlayoffBracket() {
               title="Quarter" 
               games={playoffGames.filter(g => g.round === 1)} 
               teams={teams}
+              onPick={handlePick}
             />
             
             {/* Round 2 */}
             <RoundColumn 
               round={2} 
-              title="Semis" 
+              title="Semi" 
               games={playoffGames.filter(g => g.round === 2)} 
               teams={teams}
+              onPick={handlePick}
             />
  
             {/* Finals */}
@@ -156,6 +165,7 @@ export default function PlayoffBracket() {
               title="Final" 
               games={playoffGames.filter(g => g.round === 3)} 
               teams={teams}
+              onPick={handlePick}
             />
          </div>
       </div>
@@ -165,7 +175,7 @@ export default function PlayoffBracket() {
 
 import { Team, PlayoffGame } from '@/lib/league/types';
 
-function RoundColumn({ round, title, games, teams }: { round: number, title: string, games: PlayoffGame[], teams: Team[] }) {
+function RoundColumn({ round, title, games, teams, onPick }: { round: number, title: string, games: PlayoffGame[], teams: Team[], onPick: (gameId: string, winnerId: string) => void }) {
   return (
     <div className="flex-1 min-w-[280px] space-y-6">
       <div className="text-center space-y-1 relative">
@@ -178,7 +188,7 @@ function RoundColumn({ round, title, games, teams }: { round: number, title: str
       
       <div className={cn("flex flex-col justify-around gap-8 min-h-full py-6")}>
         {games.map((game, idx) => (
-          <MatchupCard key={game.id} game={game} teams={teams} delay={idx * 0.05} />
+          <MatchupCard key={game.id} game={game} teams={teams} delay={idx * 0.05} onPick={onPick} />
         ))}
         {games.length === 0 && (
           <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-stone-200/50 rounded-[2.5rem] text-stone-300 space-y-4 bg-stone-50/30">
@@ -191,7 +201,7 @@ function RoundColumn({ round, title, games, teams }: { round: number, title: str
   );
 }
 
-function MatchupCard({ game, teams, delay }: { game: PlayoffGame, teams: Team[], delay: number }) {
+function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams: Team[], delay: number, onPick: (gameId: string, winnerId: string) => void }) {
   const team1 = teams.find(t => t.id === game.team1Id);
   const team2 = teams.find(t => t.id === game.team2Id);
   
@@ -207,10 +217,13 @@ function MatchupCard({ game, teams, delay }: { game: PlayoffGame, teams: Team[],
     >
       <div className="bg-white/80 backdrop-blur-2xl rounded-[2.5rem] border border-white/40 shadow-xl overflow-hidden ring-1 ring-stone-900/5 group-hover:shadow-2xl transition-all duration-700">
          {/* Team 1 */}
-         <div className={cn(
-           "p-4 flex items-center justify-between transition-all duration-500",
-           game.winnerId === team1?.id && !!team1?.id ? "bg-emerald-500/5" : ""
-         )}>
+         <div 
+           className={cn(
+            "p-4 flex items-center justify-between transition-all duration-500",
+            game.winnerId === team1?.id && !!team1?.id ? "bg-emerald-500/5 cursor-pointer" : "cursor-pointer hover:bg-stone-50/50"
+           )}
+           onClick={() => team1 && onPick(game.id, team1.id)}
+         >
             <div className="flex items-center gap-3">
                <div 
                 className="w-10 h-10 rounded-xl flex items-center justify-center border shadow-lg transition-all duration-700 group-hover:rotate-6"
@@ -240,10 +253,13 @@ function MatchupCard({ game, teams, delay }: { game: PlayoffGame, teams: Team[],
          <div className="h-px w-full bg-stone-50" />
 
          {/* Team 2 */}
-         <div className={cn(
-           "p-4 flex items-center justify-between transition-all duration-500",
-           game.winnerId === team2?.id && !!team2?.id ? "bg-emerald-500/5" : ""
-         )}>
+         <div 
+           className={cn(
+            "p-4 flex items-center justify-between transition-all duration-500",
+            game.winnerId === team2?.id && !!team2?.id ? "bg-emerald-500/5 cursor-pointer" : "cursor-pointer hover:bg-stone-50/50"
+           )}
+           onClick={() => team2 && onPick(game.id, team2.id)}
+         >
             <div className="flex items-center gap-3">
                <div 
                 className="w-10 h-10 rounded-xl flex items-center justify-center border shadow-lg transition-all duration-700 group-hover:-rotate-6"

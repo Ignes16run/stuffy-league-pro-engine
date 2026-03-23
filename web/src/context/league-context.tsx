@@ -6,12 +6,12 @@ import {
   Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats,
   NarrativeMemoryEntry, AwardType
 } from '@/lib/league/types';
-import { 
-  generateRoundRobinSchedule, 
-  calculateStandings, 
-  generateRealisticFootballScore, 
+import {
+  generateRoundRobinSchedule,
+  calculateStandings,
+  generateRealisticFootballScore,
   generateUUID,
-  createSeededRandom 
+  createSeededRandom
 } from '@/lib/league/utils';
 import { useAuth } from '@/context/auth-context';
 import { generateTeamRoster } from '@/lib/league/players';
@@ -67,7 +67,7 @@ interface LeagueContextType {
   finalizeSeason: () => void;
   setIsAwardsPhase: (active: boolean) => void;
   simulateAwards: () => void;
-  calculateAwards: () => Record<AwardType, string>;
+  calculateAwards: () => Record<AwardType, { winner: Player; narrative: string }>;
   generatePlayoffs: () => void;
 }
 
@@ -150,9 +150,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   // Persistence effect
   useEffect(() => {
     if (!isInitializing) {
-      const data = { 
+      const data = {
         teams, players, games, playoffGames, currentWeek, numWeeks, history,
-        isAwardsPhase, awardFinalists, selectedAwards, awardResults 
+        isAwardsPhase, awardFinalists, selectedAwards, awardResults
       };
       localStorage.setItem('stuffy_league_data', JSON.stringify(data));
     }
@@ -161,10 +161,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const addTeam = async (team: Omit<Team, 'id'>) => {
     const newTeam = { ...team, id: generateUUID() };
     const newRoster = generateTeamRoster(newTeam.id);
-    
+
     setTeams(prev => [...prev, newTeam]);
     setPlayers(prev => [...prev, ...newRoster]);
-    
+
     if (user) {
       await PersistenceEngine.saveTeams([newTeam], user.id);
       await PersistenceEngine.savePlayers(newRoster, user.id);
@@ -301,7 +301,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         const gameIndex = updatedGames.findIndex(g => g.id === game.id);
         const isTie = score.homeScore === score.awayScore;
         const winnerId = isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId);
-        
+
         updatedGames[gameIndex] = {
           ...game, homeScore: score.homeScore, awayScore: score.awayScore,
           winnerId,
@@ -375,29 +375,29 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setPlayers(finalPlayers);
     setCurrentWeek(numWeeks);
     setIsSimulating(false);
-    
+
     // Automatically Seed Playoffs if regular season is done
     const allGamesFinished = updatedGames.length > 0 && updatedGames.every(g => g.homeScore !== undefined);
     if (allGamesFinished) {
         console.log("Season finished - Seeding Playoffs...");
         const standings = calculateStandings(teams, updatedGames);
         const top8 = standings.slice(0, 8);
-        
+
         // Quarter Finals (Round 1) - 1v8, 4v5, 2v7, 3v6
         const newPlayoffGames: PlayoffGame[] = [
             { id: 'q1', round: 1, matchupIndex: 0, team1Id: top8[0].teamId, seed1: 1, team2Id: top8[7].teamId, seed2: 8 },
             { id: 'q2', round: 1, matchupIndex: 1, team1Id: top8[3].teamId, seed1: 4, team2Id: top8[4].teamId, seed2: 5 },
             { id: 'q3', round: 1, matchupIndex: 2, team1Id: top8[1].teamId, seed1: 2, team2Id: top8[6].teamId, seed2: 7 },
             { id: 'q4', round: 1, matchupIndex: 3, team1Id: top8[2].teamId, seed1: 3, team2Id: top8[5].teamId, seed2: 6 },
-            
+
             // Semis (Round 2)
             { id: 's1', round: 2, matchupIndex: 0 },
             { id: 's2', round: 2, matchupIndex: 1 },
-            
+
             // Finals (Round 3)
             { id: 'f1', round: 3, matchupIndex: 0 }
         ];
-        
+
         setPlayoffGames(newPlayoffGames);
         await syncPlayoffGames(newPlayoffGames);
 
@@ -454,7 +454,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setRecentNarrativesUsed(prev => [...prev, { templateId: template.id, seasonId: (history.length + 1).toString() }]);
     setAwardResults(prev => ({ ...prev, [category]: { winner, statName, statValue, narrative } }));
   };
-  
+
   const simulateAwards = () => {
     Object.entries(awardFinalists).forEach(([category, finalists]) => {
       if (finalists.length > 0) {
@@ -466,7 +466,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const completeSeason = (championId: string) => {
     // 1. Calculate Standings for the History entry
     const standings = calculateStandings(teams, games);
-    
+
     // 2. Update Team All-Time Stats
     const updatedTeams = teams.map(t => {
       const teamStanding = standings.find(s => s.teamId === t.id);
@@ -485,9 +485,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       championId,
       finalStandings: standings
     };
-    
+
     setHistory(prev => [newHistory, ...prev]);
-    
+
     // 4. Trigger Awards Phase
     if (!isAwardsPhase) {
       const finalists = getAwardFinalists(players);
@@ -501,24 +501,24 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     // Awards apply to the season that just finished (entry in history at [0])
     const finishedYearNum = history[0]?.year || (2026 + history.length - 1);
     const { finalPlayers } = SimulationEngine.finalizeSeason(players, awardResults, finishedYearNum);
-    
+
     // 2. Full State Reset for Season (N+1)
     setPlayers(finalPlayers);
     setPlayoffGames([]);
     setCurrentWeek(1);
-    
+
     // 3. Auto-Generate New Schedule
     if (teams.length > 1) {
       const newGames = generateRoundRobinSchedule(teams, numWeeks);
       setGames(newGames);
     }
-    
+
     // 4. Reset Award States
     setAwardFinalists({});
     setSelectedAwards({});
     setAwardResults({});
     setIsAwardsPhase(false);
-    
+
     // 5. Persistence Hint
     console.log(`Season ending ${finishedYearNum} finalized. Next season will be ${finishedYearNum + 1}.`);
   };
@@ -528,21 +528,38 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       teams, players, games, playoffGames, history, activeTab, setActiveTab,
       currentWeek, numWeeks, setNumWeeks, isSimulating,
       addTeam, updateTeam, deleteTeam, updatePlayer, bulkUpdatePlayers, upgradeStat, addDefaultTeams,
-      createLeague, setCurrentWeek, 
+      createLeague, setCurrentWeek,
       advanceWeek, simulateGames, resetLeague, saveToSupabase, loadFromSupabase,
-      simulateSeason, resetPredictions, 
+      simulateSeason, resetPredictions,
       handlePick: (gameId, winnerId) => {
         // Playoff Game Progression
         if (gameId.startsWith('q') || gameId.startsWith('s') || gameId.startsWith('f')) {
-          const finalWinnerId = winnerId === 'tie' ? undefined : (winnerId || undefined);
           const currentGames = [...playoffGames];
           const gameIndex = currentGames.findIndex(g => g.id === gameId);
           if (gameIndex === -1) return;
 
-          currentGames[gameIndex] = { ...currentGames[gameIndex], winnerId: finalWinnerId };
+          const finalWinnerId = winnerId === 'tie' ? undefined : winnerId; // Treat 'tie' as no winner for playoffs
+          let s1 = 0, s2 = 0;
 
-          // Advance winner to next round
           if (finalWinnerId) {
+            const game = currentGames[gameIndex];
+            const t1 = teams.find(t => t.id === game.team1Id);
+            const t2 = teams.find(t => t.id === game.team2Id);
+            const isT1 = finalWinnerId === game.team1Id;
+            const score = generateRealisticFootballScore(isT1 ? t1! : t2!, isT1 ? t2! : t1!, players);
+
+            // Ensure no ties and winner has higher score
+            s1 = isT1 ? Math.max(score.homeScore, score.awayScore + 3) : Math.min(score.homeScore, score.awayScore - 3);
+            s2 = isT1 ? Math.min(score.awayScore, score.homeScore - 3) : Math.max(score.awayScore, score.homeScore + 3);
+
+            currentGames[gameIndex] = {
+              ...currentGames[gameIndex],
+              winnerId: finalWinnerId,
+              team1Score: s1,
+              team2Score: s2
+            };
+
+            // Advance winner to next round
             if (gameId === 'q1') { const i = currentGames.findIndex(g => g.id === 's1'); if (i !== -1) currentGames[i].team1Id = finalWinnerId; }
             if (gameId === 'q2') { const i = currentGames.findIndex(g => g.id === 's1'); if (i !== -1) currentGames[i].team2Id = finalWinnerId; }
             if (gameId === 'q3') { const i = currentGames.findIndex(g => g.id === 's2'); if (i !== -1) currentGames[i].team1Id = finalWinnerId; }
@@ -550,7 +567,8 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
             if (gameId === 's1') { const i = currentGames.findIndex(g => g.id === 'f1'); if (i !== -1) currentGames[i].team1Id = finalWinnerId; }
             if (gameId === 's2') { const i = currentGames.findIndex(g => g.id === 'f1'); if (i !== -1) currentGames[i].team2Id = finalWinnerId; }
           } else {
-            // If winner removed, remove from next round too
+            // Remove winner and scores
+            currentGames[gameIndex] = { ...currentGames[gameIndex], winnerId: undefined, team1Score: undefined, team2Score: undefined };
             if (gameId === 'q1') { const i = currentGames.findIndex(g => g.id === 's1'); if (i !== -1) { currentGames[i].team1Id = undefined; currentGames[i].winnerId = undefined; } }
             if (gameId === 'q2') { const i = currentGames.findIndex(g => g.id === 's1'); if (i !== -1) { currentGames[i].team2Id = undefined; currentGames[i].winnerId = undefined; } }
             if (gameId === 'q3') { const i = currentGames.findIndex(g => g.id === 's2'); if (i !== -1) { currentGames[i].team1Id = undefined; currentGames[i].winnerId = undefined; } }
@@ -605,24 +623,31 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       selectedAwards, awardResults, completeSeason, finalizeSeason, simulateAwards,
       calculateAwards: () => {
         const finalists = getAwardFinalists(players);
-        const winners: Record<string, string> = {};
+        const winners: Record<AwardType, { winner: Player; narrative: string }> = {} as Record<AwardType, { winner: Player; narrative: string }>;
+
         Object.entries(finalists).forEach(([category, list]) => {
           if (list.length > 0) {
-            winners[category as AwardType] = list[0].id;
+            const winner = list[0];
+            // Match the SimulationEngine's expected format for finalizeSeason
+            winners[category as AwardType] = {
+              winner,
+              narrative: `${winner.name} had a legendary season at ${winner.position}.`
+            };
           }
         });
-        
+
         // Add Champion
         const champGame = playoffGames.find(g => g.round === 3 && g.winnerId);
         if (champGame?.winnerId) {
-          winners['CHAMPION'] = champGame.winnerId;
-        } else {
-          const standings = calculateStandings(teams, games);
-          if (standings.length > 0) {
-            winners['CHAMPION'] = standings[0].teamId;
-          }
+          const champT = teams.find(t => t.id === champGame.winnerId);
+          winners['CHAMPION'] = {
+            winner: { id: champGame.winnerId, name: champT?.name || 'Unknown' } as Player,
+            narrative: `The ${champT?.name} were crowned Stuffy League Champions!`
+          };
         }
-        return winners as Record<AwardType, string>;
+
+        setAwardResults(winners as any);
+        return winners;
       },
       generatePlayoffs
     }}>
