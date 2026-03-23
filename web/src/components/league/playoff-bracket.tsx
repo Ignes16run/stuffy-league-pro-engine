@@ -12,12 +12,15 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 export default function PlayoffBracket() {
-  const { teams, playoffGames, setPlayoffGames, syncPlayoffGames, completeSeason, handlePick, setActiveTab } = useLeague();
+  // Updated: 2026-03-23T10:16:00-04:00
+  const { 
+    teams, playoffGames, setPlayoffGames, syncPlayoffGames, 
+    completeSeason, handlePick, setActiveTab, generatePlayoffs 
+  } = useLeague();
   const [isSimulating, setIsSimulating] = useState(false);
 
   const resetPlayoffs = async () => {
-    setPlayoffGames([]);
-    await syncPlayoffGames([]);
+    await generatePlayoffs();
   };
 
   const simulatePlayoffRound = async () => {
