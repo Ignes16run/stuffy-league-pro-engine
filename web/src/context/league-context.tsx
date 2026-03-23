@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T22:20:00-04:00
+// Last Updated: 2026-03-22T22:30:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import {
@@ -303,12 +303,12 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
         // Award SP
         if (isTie) {
-          pointsMap.set(game.homeTeamId, (pointsMap.get(game.homeTeamId) || 0) + 20);
-          pointsMap.set(game.awayTeamId, (pointsMap.get(game.awayTeamId) || 0) + 20);
+          pointsMap.set(game.homeTeamId, (pointsMap.get(game.homeTeamId) || 0) + 25);
+          pointsMap.set(game.awayTeamId, (pointsMap.get(game.awayTeamId) || 0) + 25);
         } else {
-          pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 50);
+          pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 10);
           const loserId = winnerId === game.homeTeamId ? game.awayTeamId : game.homeTeamId;
-          pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 10);
+          pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 50);
         }
       }
     });
@@ -344,14 +344,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
             isTie
           };
 
-          // Award SP
+          // Award SP (Catch-up Mechanic: Loser gets more SP)
           if (isTie) {
-            pointsMap.set(game.homeTeamId, (pointsMap.get(game.homeTeamId) || 0) + 20);
-            pointsMap.set(game.awayTeamId, (pointsMap.get(game.awayTeamId) || 0) + 20);
+            pointsMap.set(game.homeTeamId, (pointsMap.get(game.homeTeamId) || 0) + 25);
+            pointsMap.set(game.awayTeamId, (pointsMap.get(game.awayTeamId) || 0) + 25);
           } else {
-            pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 50);
+            pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 10);
             const loserId = winnerId === game.homeTeamId ? game.awayTeamId : game.homeTeamId;
-            pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 10);
+            pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 50);
           }
         }
       });
@@ -493,13 +493,13 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
             setGames(dg); setPlayers(prev => recalculateStats(dg, prev));
             return;
         }
-        // Award SP if game was unplayed
+        // Award SP if game was unplayed (Catch-up Mechanic: Loser gets more SP)
         if (gameToUpdate.winnerId === undefined && !gameToUpdate.isTie) {
           setTeams(prev => prev.map(t => {
             if (t.id === gameToUpdate.homeTeamId || t.id === gameToUpdate.awayTeamId) {
-              let spToAdd = 10; // Loss default
-              if (winnerId === 'tie') spToAdd = 20;
-              else if (winnerId === t.id) spToAdd = 50;
+              let spToAdd = 10; // Win default
+              if (winnerId === 'tie') spToAdd = 25;
+              else if (winnerId !== t.id) spToAdd = 50; // Lose = 50 SP
               return { ...t, stuffyPoints: (t.stuffyPoints || 0) + spToAdd };
             }
             return t;
