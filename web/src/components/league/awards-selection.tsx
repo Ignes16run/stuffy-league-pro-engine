@@ -1,9 +1,9 @@
 "use client";
-// Last Updated: 2026-03-22T20:55:00-04:00
+// Last Updated: 2026-03-22T21:25:00-04:00
 
 import React, { useState } from 'react';
 import { useLeague } from '@/context/league-context';
-import { Player } from '@/lib/league/types';
+import { Player, PlayerStats } from '@/lib/league/types';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription 
 } from '@/components/ui/dialog';
@@ -16,7 +16,8 @@ import { cn } from '@/lib/utils';
 
 export function AwardsSelection() {
   const { 
-    isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, awardResults, finalizeSeason 
+    isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, 
+    awardResults, finalizeSeason, simulateAwards 
   } = useLeague();
   
   const [currentStep, setCurrentStep] = useState(0);
@@ -43,10 +44,20 @@ export function AwardsSelection() {
                 <Trophy className="w-8 h-8 text-amber-600" />
               </div>
               <div>
-                <DialogTitle className="text-3xl font-black text-stone-900 leading-tight">
+                <DialogTitle className="text-3xl font-black text-stone-900 leading-tight flex items-center gap-3">
                   {isResultsStep ? "Awards Ceremony" : "End of Season Awards"}
+                  {!isResultsStep && (
+                    <Button 
+                      onClick={simulateAwards}
+                      size="sm"
+                      className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none rounded-xl text-[10px] h-7 font-black uppercase tracking-widest px-3"
+                    >
+                      <Zap className="w-3.5 h-3.5 mr-1" />
+                      Simulate All
+                    </Button>
+                  )}
                 </DialogTitle>
-                <DialogDescription className="text-stone-500 font-medium">
+                <DialogDescription className="text-stone-500 font-medium text-xs">
                   {isResultsStep ? "Presenting this year's most impactful stuffies" : "Select the most deserving stuffy for each category"}
                 </DialogDescription>
               </div>
@@ -102,52 +113,48 @@ export function AwardsSelection() {
                     className="space-y-3"
                   >
                     {finalists.length > 0 ? (
-                      finalists.map(player => (
-                        <Card 
-                          key={player.id}
-                          className={cn(
-                            "cursor-pointer transition-all border-2 rounded-3xl overflow-hidden group hover:scale-[1.01]",
-                            selectedAwards[currentCategory] === player.id 
-                              ? "border-amber-400 bg-amber-50/30" 
-                              : "border-stone-100 hover:border-stone-200 bg-white"
-                          )}
-                          onClick={() => setAwardWinner(currentCategory, player.id)}
-                        >
-                          <CardContent className="p-4 flex items-center gap-6">
-                             <div className="w-16 h-16 rounded-2xl bg-stone-100 flex items-center justify-center text-3xl shrink-0 overflow-hidden">
-                                   {player.profilePicture ? (
-                                     <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" />
-                                   ) : (
-                                     <div className="text-stone-300">🧸</div>
-                                   )}
-                             </div>
-                             <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-black text-lg text-stone-900">{player.name}</span>
-                                  <Badge variant="outline" className="text-[10px] font-bold py-0">{player.position}</Badge>
-                                </div>
-                                <div className="flex gap-4 mt-1">
-                                  {getRelevantStats(player, currentCategory).map(s => (
-                                    <div key={s.label} className="flex flex-col">
-                                      <span className="text-[10px] text-stone-400 font-bold uppercase">{s.label}</span>
-                                      <span className="text-sm font-black text-stone-700">{s.value}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                             </div>
-                             <div className="flex flex-col items-end gap-1">
-                                <span className="text-xs text-stone-400 font-bold uppercase">Rating</span>
-                                <span className="text-2xl font-black text-stone-900">{player.rating}</span>
-                             </div>
-                             <div className={cn(
-                               "w-8 h-8 rounded-full flex items-center justify-center transition-all",
-                               selectedAwards[currentCategory] === player.id ? "bg-amber-400 text-white" : "bg-stone-50 text-stone-200 group-hover:bg-stone-100"
-                             )}>
-                                <Star className={cn("w-4 h-4", selectedAwards[currentCategory] === player.id ? "fill-current" : "")} />
-                             </div>
-                          </CardContent>
-                        </Card>
-                      ))
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {finalists.map(player => (
+                          <Card 
+                            key={player.id}
+                            className={cn(
+                              "cursor-pointer transition-all border-2 rounded-2xl overflow-hidden group hover:scale-[1.01] h-full",
+                              selectedAwards[currentCategory] === player.id 
+                                ? "border-amber-400 bg-amber-50/30 shadow-lg shadow-amber-100" 
+                                : "border-stone-100 hover:border-stone-200 bg-white"
+                            )}
+                            onClick={() => setAwardWinner(currentCategory, player.id)}
+                          >
+                            <CardContent className="p-3 flex items-center gap-4">
+                               <div className="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center text-xl shrink-0 overflow-hidden border border-stone-200">
+                                     {player.profilePicture ? (
+                                       <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" />
+                                     ) : (
+                                       <div className="text-stone-300">🧸</div>
+                                     )}
+                               </div>
+                               <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-black text-sm text-stone-900 truncate">{player.name}</span>
+                                    <Badge variant="outline" className="text-[8px] font-bold py-0 h-4">{player.position}</Badge>
+                                  </div>
+                                  <div className="flex gap-2.5 mt-0.5">
+                                    {getRelevantStats(player, currentCategory).slice(0, 2).map(s => (
+                                      <div key={s.label} className="flex flex-col">
+                                        <span className="text-[8px] text-stone-400 font-bold uppercase leading-none">{s.label}</span>
+                                        <span className="text-[10px] font-black text-stone-700">{s.value}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                               </div>
+                               <div className="flex flex-col items-end shrink-0">
+                                  <span className="text-[7px] text-stone-400 font-bold uppercase leading-none">OVR</span>
+                                  <span className="text-lg font-black text-stone-900">{player.rating}</span>
+                               </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
                     ) : (
                       <div className="text-center py-12 bg-stone-50 rounded-3xl border border-stone-100">
                          <p className="text-stone-400 font-bold uppercase text-[10px]">No valid candidates found for this category</p>
@@ -172,33 +179,33 @@ export function AwardsSelection() {
                 <p className="text-stone-500 font-bold uppercase text-[10px] tracking-widest mt-2 px-10">Review the narratives and impact of this year&apos;s award winners before moving to the next season.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 {categories.map(cat => {
                    const res = awardResults[cat];
                    if (!res) return null;
                    return (
-                     <Card key={cat} className="rounded-[2.5rem] border-stone-100 shadow-xl shadow-stone-200/50 overflow-hidden bg-white border-2">
-                        <div className="p-6">
-                          <div className="flex items-center justify-between mb-4">
-                            <Badge className="bg-stone-900 text-white border-none py-1 px-3 text-[10px] font-black uppercase tracking-widest">{cat}</Badge>
+                     <Card key={cat} className="rounded-3xl border-stone-100 shadow-xl shadow-stone-200/50 overflow-hidden bg-white border-2">
+                        <div className="p-4 flex flex-col h-full">
+                          <div className="flex items-center justify-between mb-3">
+                            <Badge className="bg-stone-900 text-white border-none py-0.5 px-2 text-[8px] font-black uppercase tracking-widest">{cat}</Badge>
                             {getIcon(cat)}
                           </div>
                           
-                          <div className="flex items-center gap-4 mb-6">
-                             <div className="w-14 h-14 rounded-2xl bg-stone-50 flex items-center justify-center text-2xl border border-stone-100 shrink-0 overflow-hidden">
+                          <div className="flex items-center gap-3 mb-4">
+                             <div className="w-10 h-10 rounded-xl bg-stone-50 flex items-center justify-center text-lg border border-stone-100 shrink-0 overflow-hidden">
                                 {res.winner.profilePicture ? (
                                    <img src={res.winner.profilePicture} alt={res.winner.name} className="w-full h-full object-cover" />
                                 ) : (
                                    "🧸"
                                 )}
                              </div>
-                             <div>
-                                <p className="font-black text-stone-900 text-lg leading-tight">{res.winner.name}</p>
-                                <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">{res.winner.position} • {res.statValue} {res.statName}</p>
+                             <div className="min-w-0">
+                                <p className="font-black text-stone-900 text-[13px] leading-tight truncate">{res.winner.name}</p>
+                                <p className="text-[8px] text-stone-400 font-bold uppercase tracking-widest truncate">{res.winner.position} • {res.statValue} {res.statName.split('/')[0]}</p>
                              </div>
                           </div>
-
-                          <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100 italic text-stone-600 text-sm leading-relaxed font-medium">
+ 
+                          <div className="flex-1 p-3 bg-stone-50 rounded-xl border border-stone-100 italic text-stone-600 text-[11px] leading-relaxed font-medium">
                              &quot;{res.narrative}&quot;
                           </div>
                         </div>
@@ -268,7 +275,7 @@ function getRelevantStats(player: Player, type: string) {
       { label: 'Car', value: s.carries || 0 }
     ];
     return [
-      { label: 'Yds', value: s.receivingYards || (s as any).yards || 0 },
+      { label: 'Yds', value: s.receivingYards || (s as PlayerStats).yards || 0 },
       { label: 'TD', value: s.receivingTds || 0 },
       { label: 'Rec', value: s.receptions || 0 }
     ];

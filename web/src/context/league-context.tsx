@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T20:58:00-04:00
+// Last Updated: 2026-03-22T21:30:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import {
@@ -20,6 +20,7 @@ import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league/constants';
 import { getStatForAward, getAwardFinalists } from '@/lib/league/awardsEngine';
 import { PersistenceEngine } from '@/lib/league/persistenceEngine';
 import { assignStatsToPlayers } from '@/lib/league/statsEngine';
+import { SimulationEngine } from '@/lib/league/simulationEngine';
 
 interface LeagueContextType {
   teams: Team[];
@@ -61,10 +62,11 @@ interface LeagueContextType {
   awardFinalists: Record<string, Player[]>;
   setAwardWinner: (category: string, playerId: string) => void;
   selectedAwards: Record<string, string>;
-  awardResults: Record<string, any>;
+  awardResults: Record<string, { winner: Player; statName: string; statValue: number | string; narrative: string }>;
   completeSeason: (championId: string) => void;
   finalizeSeason: () => void;
   setIsAwardsPhase: React.Dispatch<React.SetStateAction<boolean>>;
+  simulateAwards: () => void;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -87,7 +89,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [isAwardsPhase, setIsAwardsPhase] = useState(false);
   const [awardFinalists, setAwardFinalists] = useState<Record<string, Player[]>>({});
   const [selectedAwards, setSelectedAwards] = useState<Record<string, string>>({});
-  const [awardResults, setAwardResults] = useState<Record<string, any>>({});
+  const [awardResults, setAwardResults] = useState<Record<string, { winner: Player; statName: string; statValue: number | string; narrative: string }>>({});
 
   // --- STAT RECALCULATION ENGINE ---
   const recalculateStats = useCallback((allGames: Game[], allPlayers: Player[]) => {
@@ -351,6 +353,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setRecentNarrativesUsed(prev => [...prev, { templateId: template.id, seasonId: (history.length + 1).toString() }]);
     setAwardResults(prev => ({ ...prev, [category]: { winner, statName, statValue, narrative } }));
   };
+  
+  const simulateAwards = () => {
+    Object.entries(awardFinalists).forEach(([category, finalists]) => {
+      if (finalists.length > 0) {
+        setAwardWinner(category, finalists[0].id);
+      }
+    });
+  };
 
   const completeSeason = (championId: string) => {
     const standings = calculateStandings(teams, games);
@@ -368,7 +378,24 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const finalizeSeason = () => {
+    // 1. Migrate season stats to career and reset season stats
+    const currentYear = new Date().getFullYear() + history.length;
+    const { finalPlayers } = SimulationEngine.finalizeSeason(players, awardResults, currentYear);
+    
+    // 2. Full State Reset for Season (N+1)
+    setPlayers(finalPlayers);
+    setGames([]); // Schedule will regenerate via createLeague or manual button
+    setPlayoffGames([]);
+    setCurrentWeek(1);
+    
+    // 3. Reset Award States
+    setAwardFinalists({});
+    setSelectedAwards({});
+    setAwardResults({});
     setIsAwardsPhase(false);
+    
+    // 4. Persistence Hint
+    console.log(`Season ${currentYear} finalized. Commencing transition to next season.`);
   };
 
   return (
@@ -413,7 +440,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       isLoaded: !isInitializing,
       setHistory,
       isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner,
-      selectedAwards, awardResults, completeSeason, finalizeSeason
+      selectedAwards, awardResults, completeSeason, finalizeSeason, simulateAwards
     }}>
       {children}
     </LeagueContext.Provider>
