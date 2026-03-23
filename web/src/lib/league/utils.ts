@@ -1,5 +1,5 @@
 // Last Updated: 2026-03-22T23:55:00Z
-import { Team, Game, Standing, Player } from './types';
+import { Team, Game, Standing, Player, PlayoffGame } from './types';
 
 export function generateRoundRobinSchedule(teams: Team[], numWeeks: number = 0): Game[] {
   if (teams.length < 2) return [];
@@ -31,45 +31,80 @@ export function generateRoundRobinSchedule(teams: Team[], numWeeks: number = 0):
 }
 
 export function calculateStandings(teams: Team[], games: Game[]): Standing[] {
-  const stats: Record<string, { wins: number; losses: number; ties: number; streak: string; lastResult: string }> = {};
-  teams.forEach(team => { stats[team.id] = { wins: 0, losses: 0, ties: 0, streak: '', lastResult: '' }; });
+  const stats: Record<string, { wins: number; losses: number; ties: number; pointsFor: number; pointsAgainst: number; streak: string; lastResult: string }> = {};
+  teams.forEach(team => { 
+    stats[team.id] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, streak: '', lastResult: '' }; 
+  });
+  
   const sortedGames = [...games].sort((a, b) => a.week - b.week);
   sortedGames.forEach(game => {
-    if (!game.winnerId && !game.isTie) return;
+    if (game.homeScore === undefined || game.awayScore === undefined) return;
+    
+    const homeStats = stats[game.homeTeamId];
+    const awayStats = stats[game.awayTeamId];
+    
+    if (!homeStats || !awayStats) return;
+
+    homeStats.pointsFor += game.homeScore;
+    homeStats.pointsAgainst += game.awayScore;
+    awayStats.pointsFor += game.awayScore;
+    awayStats.pointsAgainst += game.homeScore;
+
     if (game.isTie) {
-      ['homeTeamId', 'awayTeamId'].forEach(key => {
-        const teamStats = stats[game[key as keyof Game] as string];
+      [game.homeTeamId, game.awayTeamId].forEach(id => {
+        const teamStats = stats[id];
+        if (!teamStats) return;
         teamStats.ties++;
         teamStats.streak = teamStats.lastResult === 'T' ? `T${(parseInt(teamStats.streak.slice(1)) || 1) + 1}` : 'T1';
         teamStats.lastResult = 'T';
       });
     } else if (game.winnerId) {
-      const loserId = game.winnerId === game.homeTeamId ? game.awayTeamId : game.homeTeamId;
-      const winnerStats = stats[game.winnerId];
-      winnerStats.wins++;
-      winnerStats.streak = winnerStats.lastResult === 'W' ? `W${(parseInt(winnerStats.streak.slice(1)) || 1) + 1}` : 'W1';
-      winnerStats.lastResult = 'W';
+      const winnerId = game.winnerId;
+      const loserId = winnerId === game.homeTeamId ? game.awayTeamId : game.homeTeamId;
+      
+      const winnerStats = stats[winnerId];
+      if (winnerStats) {
+        winnerStats.wins++;
+        winnerStats.streak = winnerStats.lastResult === 'W' ? `W${(parseInt(winnerStats.streak.slice(1)) || 1) + 1}` : 'W1';
+        winnerStats.lastResult = 'W';
+      }
+      
       const loserStats = stats[loserId];
-      loserStats.losses++;
-      loserStats.streak = loserStats.lastResult === 'L' ? `L${(parseInt(loserStats.streak.slice(1)) || 1) + 1}` : 'L1';
-      loserStats.lastResult = 'L';
+      if (loserStats) {
+        loserStats.losses++;
+        loserStats.streak = loserStats.lastResult === 'L' ? `L${(parseInt(loserStats.streak.slice(1)) || 1) + 1}` : 'L1';
+        loserStats.lastResult = 'L';
+      }
     }
   });
+
   const standings: Standing[] = teams.map(team => {
     const s = stats[team.id];
     const totalGames = s.wins + s.losses + s.ties;
-    const winPercentage = totalGames === 0 ? 0 : (s.wins + 0.5 * s.ties) / totalGames;
-    return { teamId: team.id, wins: s.wins, losses: s.losses, ties: s.ties, winPercentage, streak: s.streak || '-', rank: 0 };
+    const winPct = totalGames === 0 ? 0 : (s.wins + 0.5 * s.ties) / totalGames;
+    return { 
+      teamId: team.id, 
+      wins: s.wins, 
+      losses: s.losses, 
+      ties: s.ties, 
+      pointsFor: s.pointsFor,
+      pointsAgainst: s.pointsAgainst,
+      pointDiff: s.pointsFor - s.pointsAgainst,
+      winPct, 
+      streak: s.streak || '-', 
+      rank: 0 
+    };
   });
-  standings.sort((a, b) => b.winPercentage !== a.winPercentage ? b.winPercentage - a.winPercentage : b.wins - a.wins);
+
+  standings.sort((a, b) => b.winPct !== a.winPct ? b.winPct - a.winPct : b.pointDiff - a.pointDiff);
   standings.forEach((s, i) => { s.rank = i + 1; });
   return standings;
 }
 
-export function generatePlayoffBracket(standings: Standing[], size: 4 | 8): any[] {
+export function generatePlayoffBracket(standings: Standing[], size: 4 | 8): PlayoffGame[] {
   const topTeams = standings.slice(0, size);
   const rounds = Math.log2(size);
-  const games: any[] = [];
+  const games: PlayoffGame[] = [];
   for (let i = 0; i < size / 2; i++) {
     const seed1 = i + 1; const seed2 = size - i;
     games.push({ id: `playoff-1-${i}`, round: 1, matchupIndex: i, team1Id: topTeams[seed1 - 1]?.teamId, team2Id: topTeams[seed2 - 1]?.teamId, seed1, seed2 });
