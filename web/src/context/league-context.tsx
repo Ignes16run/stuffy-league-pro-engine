@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-23T00:50:00Z
+// Last Updated: 2026-03-23T01:05:00Z
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -209,10 +209,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const upgradeStat = async (teamId: string, statId: string) => {
     const team = teams.find(t => t.id === teamId);
-    if (!team || team.stuffyPoints < 50) return;
+    if (!team || (team.stuffyPoints || 0) < 50) return;
     const val = (team as any)[statId] || 75;
     if (val >= 99) return;
-    const updates = { [statId]: val + 1, stuffyPoints: team.stuffyPoints - 50 };
+    const updates = { [statId]: val + 1, stuffyPoints: (team.stuffyPoints || 0) - 50 };
     await updateTeam(teamId, updates);
   };
 
