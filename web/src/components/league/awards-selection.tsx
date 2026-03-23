@@ -1,305 +1,199 @@
 "use client";
-// Last Updated: 2026-03-22T21:25:00-04:00
+// Last Updated: 2026-03-23T04:25:00-04:00
 
 import React, { useState } from 'react';
-import { useLeague } from '@/context/league-context';
-import { Player, PlayerStats } from '@/lib/league/types';
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription 
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Trophy, Star, Shield, Zap, Target, ArrowRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Trophy, Medal, Star, Target, Shield, Sparkles, Share2, Play
+} from 'lucide-react';
+import { useLeague } from '@/context/league-context';
+import { STUFFY_ICONS } from '@/lib/league/constants';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { AwardType, Player, Team } from '@/lib/league/types';
 
-export function AwardsSelection() {
-  const { 
-    isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, 
-    awardResults, finalizeSeason, simulateAwards 
-  } = useLeague();
-  
-  const [currentStep, setCurrentStep] = useState(0);
-  const categories = Object.keys(awardFinalists);
-  const isResultsStep = currentStep === categories.length;
-  const currentCategory = isResultsStep ? null : categories[currentStep];
-  const finalists = currentCategory ? (awardFinalists[currentCategory] || []) : [];
-  
-  const handleNext = () => {
-    if (currentCategory && selectedAwards[currentCategory]) {
-      setCurrentStep(s => s + 1);
-    }
+const AWARD_CONFIG = {
+  MVP: { icon: Star, color: 'from-amber-400 to-orange-600', label: 'Most Valuable Stuffy', bg: 'bg-amber-500/10' },
+  OPOY: { icon: Target, color: 'from-blue-400 to-indigo-600', label: 'Offensive Stuffy of the Year', bg: 'bg-blue-500/10' },
+  DPOY: { icon: Shield, color: 'from-emerald-400 to-teal-600', label: 'Defensive Stuffy of the Year', bg: 'bg-emerald-500/10' },
+  STPOY: { icon: Sparkles, color: 'from-purple-400 to-fuchsia-600', label: 'Special Teams Stuffy of the Year', bg: 'bg-purple-500/10' },
+  CHAMPION: { icon: Trophy, color: 'from-rose-400 to-pink-600', label: 'League Champion', bg: 'bg-rose-500/10' }
+};
+
+export default function AwardsSelection() {
+  const { calculateAwards, teams, players } = useLeague();
+  const [awards, setAwards] = useState<Record<AwardType, string>>({} as any);
+  const [revealingAwards, setRevealingAwards] = useState<AwardType[]>([]);
+  const [isCeremonyActive, setIsCeremonyActive] = useState(false);
+
+  const startCeremony = () => {
+    const results = calculateAwards();
+    setAwards(results);
+    setIsCeremonyActive(true);
+    setRevealingAwards([]);
+    
+    // Reveal awards one by one
+    const types: AwardType[] = ['STPOY', 'DPOY', 'OPOY', 'MVP', 'CHAMPION'];
+    types.forEach((type, idx) => {
+      setTimeout(() => {
+        setRevealingAwards(prev => [...prev, type]);
+      }, idx * 1200);
+    });
   };
 
-  if (!isAwardsPhase) return null;
-
   return (
-    <Dialog open={isAwardsPhase} onOpenChange={setIsAwardsPhase}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-[3rem] border-none shadow-2xl p-0">
-        <div className="bg-stone-50/50 p-8">
-          <DialogHeader className="mb-8 relative pr-12">
-            <div className="flex items-center gap-4 mb-2">
-              <div className="p-3 bg-amber-100 rounded-2xl">
-                <Trophy className="w-8 h-8 text-amber-600" />
-              </div>
-              <div>
-                <DialogTitle className="text-3xl font-black text-stone-900 leading-tight flex items-center gap-3">
-                  {isResultsStep ? "Awards Ceremony" : "End of Season Awards"}
-                  {!isResultsStep && (
-                    <Button 
-                      onClick={simulateAwards}
-                      size="sm"
-                      className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none rounded-xl text-[10px] h-7 font-black uppercase tracking-widest px-3"
-                    >
-                      <Zap className="w-3.5 h-3.5 mr-1" />
-                      Simulate All
-                    </Button>
-                  )}
-                </DialogTitle>
-                <DialogDescription className="text-stone-500 font-medium text-xs">
-                  {isResultsStep ? "Presenting this year's most impactful stuffies" : "Select the most deserving stuffy for each category"}
-                </DialogDescription>
-              </div>
+    <div className="max-w-7xl mx-auto space-y-12 pb-20">
+      {/* Ceremony Header */}
+      {!isCeremonyActive ? (
+        <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center text-center space-y-8 py-20 bg-white/40 backdrop-blur-3xl rounded-[4rem] border border-stone-100 shadow-3xl shadow-stone-200/20 px-10 relative overflow-hidden"
+        >
+            <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-amber-500/30 to-transparent" />
+            <div className="w-24 h-24 bg-linear-to-br from-amber-400 to-amber-600 rounded-4xl flex items-center justify-center shadow-2xl shadow-amber-500/40 border-2 border-white/20 mb-4">
+               <Trophy className="w-10 h-10 text-white animate-bounce" />
             </div>
-            
+            <div className="space-y-4 max-w-2xl">
+               <h2 className="text-6xl font-black text-stone-900 uppercase tracking-tighter leading-none">The Prestige Gala</h2>
+               <p className="text-stone-400 text-sm font-black uppercase tracking-[0.4em]">Stuffy League Pro Annual Awards Night</p>
+            </div>
+            <p className="text-stone-400 text-lg leading-relaxed max-w-xl font-medium">
+               Celebrate the season's greatest achievements. Who will take home the gold and join the immortals of the Stuffy League?
+            </p>
             <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setIsAwardsPhase(false)}
-                className="absolute right-0 top-0 rounded-full hover:bg-stone-200"
-              >
-                <X className="w-5 h-5 text-stone-500" />
+               onClick={startCeremony}
+               className="h-20 px-16 rounded-3xl bg-black border-0 text-white font-black text-base uppercase tracking-[0.3em] shadow-3xl hover:bg-stone-800 transition-all active:scale-95 gap-4 group"
+            >
+               <Play className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
+               Commence Ceremony
             </Button>
-
-            <div className="flex gap-2 mt-6">
-              {categories.map((cat, idx) => (
-                <div 
-                  key={cat}
-                  className={cn(
-                    "h-1.5 flex-1 rounded-full transition-all duration-500",
-                    idx === currentStep ? "bg-stone-900 w-full" : (idx < currentStep ? "bg-emerald-500" : "bg-stone-100")
-                  )}
-                />
-              ))}
-              <div 
-                 className={cn(
-                    "h-1.5 flex-1 rounded-full transition-all duration-500",
-                    isResultsStep ? "bg-amber-500 w-full" : "bg-stone-100"
-                 )}
-              />
+        </motion.div>
+      ) : (
+        <div className="space-y-24">
+            <div className="text-center space-y-4">
+               <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }}
+                className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[10px] font-black uppercase tracking-[0.3em]"
+               >
+                  <Sparkles className="w-3 h-3" />
+                  Live Presentation
+               </motion.div>
+               <h3 className="text-4xl font-black text-stone-900 uppercase tracking-tighter">Award Recipients</h3>
             </div>
-          </DialogHeader>
 
-          {!isResultsStep && currentCategory && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black text-stone-900 uppercase tracking-tight flex items-center gap-2">
-                   {getIcon(currentCategory)}
-                   {currentCategory} Finalists
-                </h3>
-                <Badge className="bg-stone-900 text-white border-none px-4 py-1 text-xs font-black uppercase">
-                   Step {currentStep + 1} of {categories.length}
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                <AnimatePresence mode="wait">
-                  <motion.div 
-                    key={currentCategory}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="space-y-3"
-                  >
-                    {finalists.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {finalists.map(player => (
-                          <Card 
-                            key={player.id}
-                            className={cn(
-                              "cursor-pointer transition-all border-2 rounded-2xl overflow-hidden group hover:scale-[1.01] h-full",
-                              selectedAwards[currentCategory] === player.id 
-                                ? "border-amber-400 bg-amber-50/30 shadow-lg shadow-amber-100" 
-                                : "border-stone-100 hover:border-stone-200 bg-white"
-                            )}
-                            onClick={() => setAwardWinner(currentCategory, player.id)}
-                          >
-                            <CardContent className="p-3 flex items-center gap-4">
-                               <div className="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center text-xl shrink-0 overflow-hidden border border-stone-200">
-                                     {player.profilePicture ? (
-                                       <img src={player.profilePicture} alt={player.name} className="w-full h-full object-cover" />
-                                     ) : (
-                                       <div className="text-stone-300">🧸</div>
-                                     )}
-                               </div>
-                               <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-black text-sm text-stone-900 truncate">{player.name}</span>
-                                    <Badge variant="outline" className="text-[8px] font-bold py-0 h-4">{player.position}</Badge>
-                                  </div>
-                                  <div className="flex gap-2.5 mt-0.5">
-                                    {getRelevantStats(player, currentCategory).slice(0, 2).map(s => (
-                                      <div key={s.label} className="flex flex-col">
-                                        <span className="text-[8px] text-stone-400 font-bold uppercase leading-none">{s.label}</span>
-                                        <span className="text-[10px] font-black text-stone-700">{s.value}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                               </div>
-                               <div className="flex flex-col items-end shrink-0">
-                                  <span className="text-[7px] text-stone-400 font-bold uppercase leading-none">OVR</span>
-                                  <span className="text-lg font-black text-stone-900">{player.rating}</span>
-                               </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-12 bg-stone-50 rounded-3xl border border-stone-100">
-                         <p className="text-stone-400 font-bold uppercase text-[10px]">No valid candidates found for this category</p>
-                         <Button variant="ghost" className="mt-4 text-stone-600 font-black h-12 rounded-2xl" onClick={() => setCurrentStep(prev => prev + 1)}>
-                           Skip Category
-                         </Button>
-                      </div>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+               <AnimatePresence>
+                  {(['STPOY', 'DPOY', 'OPOY', 'MVP', 'CHAMPION'] as AwardType[]).map((type) => (
+                    revealingAwards.includes(type) && (
+                        <AwardRevealCard 
+                            key={type}
+                            type={type} 
+                            playerId={awards[type]} 
+                            players={players} 
+                            teams={teams}
+                        />
+                    )
+                  ))}
+               </AnimatePresence>
             </div>
-          )}
 
-          {isResultsStep && (
-            <div className="space-y-8 py-4">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-3 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-100 mb-2">
-                  <Trophy className="w-5 h-5 text-amber-600" />
-                  <h3 className="text-lg font-black text-stone-900 uppercase italic leading-none">Season Awards Ceremony</h3>
-                </div>
-                <p className="text-stone-400 font-bold uppercase text-[8px] tracking-widest mt-1">Presenting this year&apos;s most impactful stuffies.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                {categories.map(cat => {
-                   const res = awardResults[cat];
-                   if (!res) return null;
-                   return (
-                     <Card key={cat} className="rounded-3xl border-stone-100 shadow-xl shadow-stone-200/50 overflow-hidden bg-white border-2">
-                        <div className="p-4 flex flex-col h-full">
-                          <div className="flex items-center justify-between mb-3">
-                            <Badge className="bg-stone-900 text-white border-none py-0.5 px-2 text-[8px] font-black uppercase tracking-widest">{cat}</Badge>
-                            {getIcon(cat)}
-                          </div>
-                          
-                          <div className="flex items-center gap-3 mb-4">
-                             <div className="w-10 h-10 rounded-xl bg-stone-50 flex items-center justify-center text-lg border border-stone-100 shrink-0 overflow-hidden">
-                                {res.winner.profilePicture ? (
-                                   <img src={res.winner.profilePicture} alt={res.winner.name} className="w-full h-full object-cover" />
-                                ) : (
-                                   "🧸"
-                                )}
-                             </div>
-                             <div className="min-w-0">
-                                <p className="font-black text-stone-900 text-[13px] leading-tight truncate">{res.winner.name}</p>
-                                <p className="text-[8px] text-stone-400 font-bold uppercase tracking-widest truncate">{res.winner.position} • {res.statValue} {res.statName.split('/')[0]}</p>
-                             </div>
-                          </div>
- 
-                          <div className="flex-1 p-3 bg-stone-50 rounded-xl border border-stone-100 italic text-stone-600 text-[11px] leading-relaxed font-medium">
-                             &quot;{res.narrative}&quot;
-                          </div>
-                        </div>
-                     </Card>
-                   );
-                })}
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="mt-8 pt-6 border-t border-stone-100 flex items-center justify-between">
-            {!isResultsStep ? (
-              <>
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setIsAwardsPhase(false)}
-                  className="rounded-2xl h-14 px-8 font-black text-stone-500 hover:bg-stone-100"
-                >
-                  Save & Exit
-                </Button>
-                <Button 
-                  onClick={handleNext}
-                  disabled={!currentCategory || !selectedAwards[currentCategory]}
-                  className="bg-stone-900 text-white hover:bg-stone-800 rounded-2xl h-14 px-10 font-black text-lg gap-2 transition-all"
-                >
-                  Next Award
-                  <ArrowRight className="w-5 h-5" />
-                </Button>
-              </>
-            ) : (
-              <Button 
-                onClick={finalizeSeason}
-                className="bg-amber-500 text-white hover:bg-amber-600 rounded-2xl h-14 px-10 font-black text-lg gap-2 transition-all w-full shadow-lg shadow-amber-200"
-              >
-                Finalize League Reset
-                <SaveIcon className="w-5 h-5" />
-              </Button>
-            )}
-          </DialogFooter>
+            <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               transition={{ delay: 6.5 }}
+               className="flex justify-center"
+            >
+               <Button 
+                variant="outline"
+                className="h-16 px-10 rounded-2xl border-stone-200 bg-white text-[11px] font-black uppercase tracking-widest gap-3 shadow-sm hover:bg-stone-50"
+                onClick={() => setIsCeremonyActive(false)}
+               >
+                  <Share2 className="w-4 h-4" />
+                  Close Ceremony Hall
+               </Button>
+            </motion.div>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </div>
   );
 }
 
-function getIcon(type: string) {
-  switch(type) {
-    case 'MVP': return <Star className="w-5 h-5 text-amber-500 fill-amber-500" />;
-    case 'OPOY': return <Zap className="w-5 h-5 text-orange-500 fill-orange-500" />;
-    case 'DPOY': return <Shield className="w-5 h-5 text-blue-500 fill-blue-500" />;
-    case 'STPOY': return <Target className="w-5 h-5 text-purple-500 fill-purple-500" />;
-    default: return null;
-  }
-}
+function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, playerId: string, players: Player[], teams: Team[] }) {
+  const config = AWARD_CONFIG[type];
+  const Icon = config.icon;
+  const player = players.find(p => p.id === playerId);
+  const team = teams.find(t => t.id === player?.teamId);
+  const TeamIcon = team ? (STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : null;
 
-function getRelevantStats(player: Player, type: string) {
-  const s = player.stats;
-  if (type === 'MVP' || type === 'OPOY') {
-    if (player.position === 'QB') return [
-      { label: 'Yds', value: s.passingYards || 0 },
-      { label: 'TD', value: s.passingTds || 0 },
-      { label: 'INT', value: s.interceptionsThrown || 0 }
-    ];
-    if (player.position === 'RB') return [
-      { label: 'Yds', value: s.rushingYards || 0 },
-      { label: 'TD', value: s.rushingTds || 0 },
-      { label: 'Car', value: s.carries || 0 }
-    ];
-    return [
-      { label: 'Yds', value: s.receivingYards || (s as PlayerStats).yards || 0 },
-      { label: 'TD', value: s.receivingTds || 0 },
-      { label: 'Rec', value: s.receptions || 0 }
-    ];
-  }
-  if (type === 'DPOY') {
-    return [
-      { label: 'Tkl', value: s.tackles || 0 },
-      { label: 'Sck', value: s.sacks || 0 },
-      { label: 'Int', value: s.interceptions || 0 },
-      { label: 'PD', value: s.passDeflections || 0 }
-    ];
-  }
-  if (type === 'STPOY') {
-    return [
-      { label: 'Pts', value: s.points || 0 }
-    ];
-  }
-  return [];
-}
+  return (
+    <motion.div
+        initial={{ opacity: 0, scale: 0.8, y: 50 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.8 }}
+        className="relative group"
+    >
+       {/* Spotlight Beam */}
+       <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-40 h-[600px] bg-white/10 blur-[60px] pointer-events-none -z-10 animate-pulse" />
+       
+       <div className="relative h-full bg-white rounded-[3.5rem] border border-stone-100 shadow-2xl overflow-hidden group-hover:shadow-3xl transition-all duration-700">
+          {/* Accent Header */}
+          <div className={cn("h-40 w-full relative overflow-hidden flex items-center justify-center pt-8 bg-linear-to-br", config.color)}>
+             <div className="absolute inset-0 bg-white/10 noise opacity-20" />
+             <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/20 blur-3xl rounded-full" />
+             <div className="relative z-10 p-5 bg-white/20 backdrop-blur-xl rounded-4xl border border-white/30 shadow-2xl group-hover:rotate-12 transition-transform duration-700">
+                <Icon className="w-10 h-10 text-white" />
+             </div>
+          </div>
 
-const SaveIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"/>
-    <polyline points="17 21 17 13 7 13 7 21"/>
-    <polyline points="7 3 7 8 15 8"/>
-  </svg>
-);
+          <div className="p-10 space-y-8 flex flex-col items-center text-center">
+             <div className="space-y-1">
+                <span className="text-[10px] font-black text-stone-300 uppercase tracking-[0.3em]">{config.label}</span>
+                <h4 className="text-2xl font-black text-stone-900 uppercase tracking-tighter leading-tight">{player?.name || 'Unknown Legend'}</h4>
+             </div>
+
+             <div className="flex items-center gap-4">
+                {team && (
+                    <div className="flex items-center gap-3 bg-stone-50 px-5 py-3 rounded-2xl border border-stone-100 shadow-sm group-hover:bg-white group-hover:scale-105 transition-all">
+                       <div 
+                        className="w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm ring-4 ring-white"
+                        style={{ backgroundColor: team.primaryColor, borderColor: team.secondaryColor }}
+                       >
+                          {team.logoUrl ? (
+                              <img src={team.logoUrl} className="w-full h-full object-cover rounded-lg" alt={team.id} />
+                          ) : (
+                              TeamIcon && <TeamIcon className="w-4 h-4 text-white" />
+                          )}
+                       </div>
+                       <span className="text-[11px] font-black text-stone-600 uppercase tracking-widest leading-none">{team.name}</span>
+                    </div>
+                )}
+                {player && (
+                    <div className="bg-stone-900 text-white px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl ring-4 ring-white">
+                       {player.position}
+                    </div>
+                )}
+             </div>
+
+             <div className="grid grid-cols-2 w-full gap-4 pt-4 border-t border-stone-100 mt-4">
+                <div className="text-left">
+                   <p className="text-[9px] font-black text-stone-300 uppercase tracking-widest mb-1">Impact</p>
+                   <p className="text-lg font-black text-stone-900 italic tracking-tighter">Elite</p>
+                </div>
+                <div className="text-right">
+                   <p className="text-[9px] font-black text-stone-300 uppercase tracking-widest mb-1">Rating</p>
+                   <p className="text-lg font-black text-emerald-500 italic tracking-tighter">{player?.rating || '---'}</p>
+                </div>
+             </div>
+          </div>
+
+          <div className="absolute top-4 right-4 group-hover:opacity-100 opacity-0 transition-opacity">
+            <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
+                <Medal className="w-5 h-5 text-white" />
+            </div>
+          </div>
+       </div>
+    </motion.div>
+  );
+}

@@ -48,6 +48,8 @@ export interface PlayoffGame {
   winnerId?: string;
   seed1?: number;
   seed2?: number;
+  team1Score?: number;
+  team2Score?: number;
 }
 
 export interface SeasonHistory {

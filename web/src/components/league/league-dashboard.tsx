@@ -1,10 +1,9 @@
-"use client";
-// Last Updated: 2026-03-22T15:30:00-04:00
+// Last Updated: 2026-03-23T03:26:00-04:00
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  RefreshCw, Trash2, Trophy, History, PlayCircle, Star, Users, LayoutDashboard, LayoutGrid, BarChart3, User as UserIcon
+  RefreshCw, Trash2, Trophy, History, PlayCircle, Star, LayoutDashboard, LayoutGrid, BarChart3, User as UserIcon
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { useAuth } from '@/context/auth-context';
@@ -33,14 +32,22 @@ export default function LeagueDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] text-stone-900 font-sans selection:bg-emerald-100 selection:text-emerald-900 scroll-smooth antialiased">
+    <div className="min-h-screen bg-[#fafaf9] text-stone-900 font-sans selection:bg-emerald-100 selection:text-emerald-900 scroll-smooth antialiased relative overflow-hidden">
+      {/* Background Decorative Pattern */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03] z-0" 
+           style={{ backgroundImage: `radial-gradient(#10b981 0.5px, transparent 0.5px)`, backgroundSize: '24px 24px' }} />
+      
       {/* Premium Header */}
       <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-stone-100 shadow-sm shadow-stone-100/50">
         <div className="container mx-auto px-4 h-24 flex items-center justify-between">
           <div className="flex items-center gap-4">
-             <div className="w-12 h-12 bg-emerald-500 rounded-[1.25rem] flex items-center justify-center shadow-lg shadow-emerald-500/30">
+             <motion.div 
+                animate={{ y: [0, -4, 0] }}
+                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                className="w-12 h-12 bg-emerald-500 rounded-[1.25rem] flex items-center justify-center shadow-lg shadow-emerald-500/30"
+             >
                 <Trophy className="w-6 h-6 text-white" />
-             </div>
+             </motion.div>
              <div>
                 <h1 className="text-xl font-black text-stone-900 uppercase tracking-widest leading-none mb-1">Stuffy League Pro</h1>
                 <p className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] leading-none">Global Simulation Engine</p>
@@ -51,7 +58,7 @@ export default function LeagueDashboard() {
             {tabs.map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as "season" | "stats" | "playoffs" | "management" | "training" | "history")}
                 className={cn(
                   "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2",
                   activeTab === tab.id 
@@ -100,7 +107,7 @@ export default function LeagueDashboard() {
          ))}
       </div>
 
-      <main className="container mx-auto px-4 py-12 lg:py-20 relative min-h-screen">
+      <main className="container mx-auto px-4 py-12 lg:py-20 relative min-h-screen z-10">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -120,7 +127,7 @@ export default function LeagueDashboard() {
           <AwardsSelection />
       </main>
 
-      <footer className="w-full py-16 border-t border-stone-100 px-4">
+      <footer className="w-full py-16 border-t border-stone-100 px-4 relative z-10 bg-white/50 backdrop-blur-sm">
           <div className="container mx-auto text-center">
              <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center mx-auto mb-6">
                 <LayoutDashboard className="w-5 h-5 text-stone-400" />
