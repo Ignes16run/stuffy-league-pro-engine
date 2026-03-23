@@ -1,35 +1,19 @@
 "use client";
-// Last Updated: 2026-03-22T17:10:00Z
+// Last Updated: 2026-03-22T21:50:00-04:00
 
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { 
   Trophy, History, Award, Star, TrendingUp, Users, Target, Zap, Shield, Medal
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { STUFFY_ICONS } from '@/lib/league/constants';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Player, Team, PlayerStats, SeasonHistory } from '@/lib/league/types';
+import { Player, Team, PlayerStats, SeasonHistory, PlayerAward } from '@/lib/league/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 
 export default function LeagueHistory() {
   const { history, teams, players } = useLeague();
-
-  if (history.length === 0) {
-    return (
-      <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-stone-200">
-        <History className="w-16 h-16 text-stone-200 mx-auto mb-6" />
-        <h3 className="text-2xl font-black text-stone-800 mb-2">History in the Making</h3>
-        <p className="text-stone-500 max-w-xs mx-auto">The chronicles of the Stuffy League begin after your first complete season.</p>
-      </div>
-    );
-  }
-
-  // Career Summaries (Teams)
-  const sortedByWins = [...teams].sort((a, b) => (b.allTimeWins || 0) - (a.allTimeWins || 0)).slice(0, 3);
-  const sortedByChampionships = [...teams].sort((a, b) => (b.championships || 0) - (a.championships || 0)).slice(0, 3);
 
   // Career Summaries (Players)
   const playerLeaders = useMemo(() => {
@@ -62,6 +46,20 @@ export default function LeagueHistory() {
       awards: getTopAwardWinners()
     };
   }, [players]);
+
+  if (history.length === 0) {
+    return (
+      <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-stone-200">
+        <History className="w-16 h-16 text-stone-200 mx-auto mb-6" />
+        <h3 className="text-2xl font-black text-stone-800 mb-2">History in the Making</h3>
+        <p className="text-stone-500 max-w-xs mx-auto">The chronicles of the Stuffy League begin after your first complete season.</p>
+      </div>
+    );
+  }
+
+  // Career Summaries (Teams)
+  const sortedByWins = [...teams].sort((a, b) => (b.allTimeWins || 0) - (a.allTimeWins || 0)).slice(0, 3);
+  const sortedByChampionships = [...teams].sort((a, b) => (b.championships || 0) - (a.championships || 0)).slice(0, 3);
 
   return (
     <div className="max-w-6xl mx-auto space-y-12 pb-12">
@@ -110,25 +108,24 @@ export default function LeagueHistory() {
         </TabsContent>
 
         <TabsContent value="awards" className="mt-0">
-           <div className="space-y-12">
-              {[...Array(history.length)].map((_, i) => {
-                 const yearNum = history.length - i;
-                 const yearAwards: { player: Player, award: any }[] = [];
-                 players.forEach(p => {
-                    p.awards?.filter(a => a.year === yearNum).forEach(a => {
-                       yearAwards.push({ player: p, award: a });
-                    });
-                 });
-
-                 if (yearAwards.length === 0) return null;
-
-                 return (
-                   <div key={yearNum} className="space-y-6">
-                      <div className="flex items-center gap-4 px-4">
-                         <div className="h-0.5 flex-1 bg-stone-100" />
-                         <span className="font-black text-stone-900 text-lg uppercase tracking-tight italic">Season {yearNum} Honors</span>
-                         <div className="h-0.5 flex-1 bg-stone-100" />
-                      </div>
+            <div className="space-y-12">
+               {history.map((entry) => {
+                  const yearAwards: { player: Player, award: PlayerAward }[] = [];
+                  players.forEach(p => {
+                     p.awards?.filter(a => a.year === entry.year).forEach(a => {
+                        yearAwards.push({ player: p, award: a });
+                     });
+                  });
+ 
+                  if (yearAwards.length === 0) return null;
+ 
+                  return (
+                    <div key={entry.year} className="space-y-6">
+                       <div className="flex items-center gap-4 px-4">
+                          <div className="h-0.5 flex-1 bg-stone-100" />
+                          <span className="font-black text-stone-900 text-lg uppercase tracking-tight italic">Season {entry.year} Honors</span>
+                          <div className="h-0.5 flex-1 bg-stone-100" />
+                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                          {yearAwards.map(({ player, award }, idx) => (
@@ -166,7 +163,7 @@ export default function LeagueHistory() {
   );
 }
 
-function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: string, teams: any[], icon: any, statKey: string, color: string }) {
+function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: string, teams: Team[], icon: any, statKey: keyof Team, color: string }) {
   return (
     <Card className="rounded-[4xl] border border-stone-100 shadow-xl overflow-hidden min-h-[420px]">
        <CardHeader className="bg-stone-50/30 border-b border-stone-100 p-8">
@@ -194,7 +191,7 @@ function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: strin
                       </div>
                   </div>
                   <div className="text-2xl font-black text-stone-900 pr-2">
-                     {team[statKey] || 0}
+                     {team[statKey] as number || 0}
                   </div>
                </div>
              ))}
@@ -204,7 +201,7 @@ function LeaderCard({ title, teams, icon: Icon, statKey, color }: { title: strin
   );
 }
 
-function PlayerHallOfFameCard({ title, players, icon: Icon, color, customLabel }: { title: string, players: any[], icon: any, color: string, customLabel?: string }) {
+function PlayerHallOfFameCard({ title, players, icon: Icon, color, customLabel }: { title: string, players: (Player & { careerRecord: number })[], icon: any, color: string, customLabel?: string }) {
   const { teams } = useLeague();
   return (
     <Card className="rounded-[4xl] border border-stone-100 shadow-lg overflow-hidden h-full">

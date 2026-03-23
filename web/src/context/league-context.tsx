@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T21:30:00-04:00
+// Last Updated: 2026-03-22T22:00:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import {
@@ -65,7 +65,7 @@ interface LeagueContextType {
   awardResults: Record<string, { winner: Player; statName: string; statValue: number | string; narrative: string }>;
   completeSeason: (championId: string) => void;
   finalizeSeason: () => void;
-  setIsAwardsPhase: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsAwardsPhase: (active: boolean) => void;
   simulateAwards: () => void;
 }
 
@@ -363,13 +363,31 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const completeSeason = (championId: string) => {
+    // 1. Calculate Standings for the History entry
     const standings = calculateStandings(teams, games);
+    
+    // 2. Update Team All-Time Stats
+    const updatedTeams = teams.map(t => {
+      const teamStanding = standings.find(s => s.teamId === t.id);
+      return {
+        ...t,
+        allTimeWins: (t.allTimeWins || 0) + (teamStanding?.wins || 0),
+        championships: (t.championships || 0) + (t.id === championId ? 1 : 0)
+      };
+    });
+    setTeams(updatedTeams);
+
+    // 3. Create History Entry (Uses 2026, 2027...)
+    const seasonYear = 2026 + history.length;
     const newHistory: SeasonHistory = {
-      year: new Date().getFullYear() + history.length,
+      year: seasonYear,
       championId,
       finalStandings: standings
     };
+    
     setHistory(prev => [newHistory, ...prev]);
+    
+    // 4. Trigger Awards Phase
     if (!isAwardsPhase) {
       const finalists = getAwardFinalists(players);
       setAwardFinalists(finalists as Record<string, Player[]>);
@@ -379,23 +397,29 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const finalizeSeason = () => {
     // 1. Migrate season stats to career and reset season stats
-    const currentYear = new Date().getFullYear() + history.length;
-    const { finalPlayers } = SimulationEngine.finalizeSeason(players, awardResults, currentYear);
+    // Awards apply to the season that just finished (entry in history at [0])
+    const finishedYearNum = history[0]?.year || (2026 + history.length - 1);
+    const { finalPlayers } = SimulationEngine.finalizeSeason(players, awardResults, finishedYearNum);
     
     // 2. Full State Reset for Season (N+1)
     setPlayers(finalPlayers);
-    setGames([]); // Schedule will regenerate via createLeague or manual button
     setPlayoffGames([]);
     setCurrentWeek(1);
     
-    // 3. Reset Award States
+    // 3. Auto-Generate New Schedule
+    if (teams.length > 1) {
+      const newGames = generateRoundRobinSchedule(teams, numWeeks);
+      setGames(newGames);
+    }
+    
+    // 4. Reset Award States
     setAwardFinalists({});
     setSelectedAwards({});
     setAwardResults({});
     setIsAwardsPhase(false);
     
-    // 4. Persistence Hint
-    console.log(`Season ${currentYear} finalized. Commencing transition to next season.`);
+    // 5. Persistence Hint
+    console.log(`Season ending ${finishedYearNum} finalized. Next season will be ${finishedYearNum + 1}.`);
   };
 
   return (
