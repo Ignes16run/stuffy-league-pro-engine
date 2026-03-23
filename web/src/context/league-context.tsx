@@ -68,6 +68,7 @@ interface LeagueContextType {
   setIsAwardsPhase: (active: boolean) => void;
   simulateAwards: () => void;
   calculateAwards: () => Record<AwardType, string>;
+  generatePlayoffs: () => void;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -140,6 +141,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     };
     init();
   }, []);
+
+  const syncPlayoffGames = useCallback(async (bracket: PlayoffGame[]) => {
+    setPlayoffGames(bracket);
+    if (user) await PersistenceEngine.savePlayoffGames(bracket, user.id);
+  }, [user]);
 
   // Persistence effect
   useEffect(() => {
@@ -324,7 +330,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setPlayers(prev => recalculateStats(updatedGames, prev));
   };
 
-  const simulateSeason = () => {
+  const simulateSeason = async () => {
     setIsSimulating(true);
     const updatedGames = [...games];
     const pointsMap = new Map<string, number>();
@@ -338,7 +344,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           const gameIndex = updatedGames.findIndex(g => g.id === game.id);
           const isTie = score.homeScore === score.awayScore;
           const winnerId = isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId);
-          
+
           updatedGames[gameIndex] = {
             ...game, homeScore: score.homeScore, awayScore: score.awayScore,
             winnerId,
@@ -368,7 +374,48 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setPlayers(prev => recalculateStats(updatedGames, prev));
     setCurrentWeek(numWeeks);
     setIsSimulating(false);
+    
+    // Automatically Seed Playoffs if regular season is done (e.g. at least 17 weeks)
+    if (numWeeks >= 10 && updatedGames.every(g => g.winnerId)) {
+        console.log("Season finished - Seeding Playoffs...");
+        const standings = calculateStandings(teams, updatedGames);
+        const top8 = standings.slice(0, 8);
+        
+        // Quarter Finals (Round 1) - 1v8, 4v5, 2v7, 3v6
+        const newPlayoffGames: PlayoffGame[] = [
+            { id: 'q1', round: 1, matchupIndex: 0, team1Id: top8[0].teamId, seed1: 1, team2Id: top8[7].teamId, seed2: 8 },
+            { id: 'q2', round: 1, matchupIndex: 1, team1Id: top8[3].teamId, seed1: 4, team2Id: top8[4].teamId, seed2: 5 },
+            { id: 'q3', round: 1, matchupIndex: 2, team1Id: top8[1].teamId, seed1: 2, team2Id: top8[6].teamId, seed2: 7 },
+            { id: 'q4', round: 1, matchupIndex: 3, team1Id: top8[2].teamId, seed1: 3, team2Id: top8[5].teamId, seed2: 6 },
+            
+            // Semis (Round 2)
+            { id: 's1', round: 2, matchupIndex: 0 },
+            { id: 's2', round: 2, matchupIndex: 1 },
+            
+            // Finals (Round 3)
+            { id: 'f1', round: 3, matchupIndex: 0 }
+        ];
+        
+        setPlayoffGames(newPlayoffGames);
+        await syncPlayoffGames(newPlayoffGames);
+    }
   };
+
+  const generatePlayoffs = useCallback(() => {
+    const standings = calculateStandings(teams, games);
+    const top8 = standings.slice(0, 8);
+    const newPlayoffGames: PlayoffGame[] = [
+      { id: 'q1', round: 1, matchupIndex: 0, team1Id: top8[0].teamId, seed1: 1, team2Id: top8[7].teamId, seed2: 8 },
+      { id: 'q2', round: 1, matchupIndex: 1, team1Id: top8[3].teamId, seed1: 4, team2Id: top8[4].teamId, seed2: 5 },
+      { id: 'q3', round: 1, matchupIndex: 2, team1Id: top8[1].teamId, seed1: 2, team2Id: top8[6].teamId, seed2: 7 },
+      { id: 'q4', round: 1, matchupIndex: 3, team1Id: top8[2].teamId, seed1: 3, team2Id: top8[5].teamId, seed2: 6 },
+      { id: 's1', round: 2, matchupIndex: 0 },
+      { id: 's2', round: 2, matchupIndex: 1 },
+      { id: 'f1', round: 3, matchupIndex: 0 }
+    ];
+    setPlayoffGames(newPlayoffGames);
+    syncPlayoffGames(newPlayoffGames);
+  }, [teams, games, syncPlayoffGames]);
 
   const resetPredictions = () => {
     const resetGames = games.map(g => ({
@@ -473,9 +520,36 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       advanceWeek, simulateGames, resetLeague, saveToSupabase, loadFromSupabase,
       simulateSeason, resetPredictions, 
       handlePick: (gameId, winnerId) => {
-        if (gameId.includes('round-')) {
-            const ug = playoffGames.map(g => g.id === gameId ? { ...g, winnerId: (winnerId === 'tie' ? undefined : (winnerId || undefined)) } : g);
-            setPlayoffGames(ug); return;
+        // Playoff Game Progression
+        if (gameId.startsWith('q') || gameId.startsWith('s') || gameId.startsWith('f')) {
+          const finalWinnerId = winnerId === 'tie' ? undefined : (winnerId || undefined);
+          const currentGames = [...playoffGames];
+          const gameIndex = currentGames.findIndex(g => g.id === gameId);
+          if (gameIndex === -1) return;
+
+          currentGames[gameIndex] = { ...currentGames[gameIndex], winnerId: finalWinnerId };
+
+          // Advance winner to next round
+          if (finalWinnerId) {
+            if (gameId === 'q1') { const i = currentGames.findIndex(g => g.id === 's1'); if (i !== -1) currentGames[i].team1Id = finalWinnerId; }
+            if (gameId === 'q2') { const i = currentGames.findIndex(g => g.id === 's1'); if (i !== -1) currentGames[i].team2Id = finalWinnerId; }
+            if (gameId === 'q3') { const i = currentGames.findIndex(g => g.id === 's2'); if (i !== -1) currentGames[i].team1Id = finalWinnerId; }
+            if (gameId === 'q4') { const i = currentGames.findIndex(g => g.id === 's2'); if (i !== -1) currentGames[i].team2Id = finalWinnerId; }
+            if (gameId === 's1') { const i = currentGames.findIndex(g => g.id === 'f1'); if (i !== -1) currentGames[i].team1Id = finalWinnerId; }
+            if (gameId === 's2') { const i = currentGames.findIndex(g => g.id === 'f1'); if (i !== -1) currentGames[i].team2Id = finalWinnerId; }
+          } else {
+            // If winner removed, remove from next round too
+            if (gameId === 'q1') { const i = currentGames.findIndex(g => g.id === 's1'); if (i !== -1) { currentGames[i].team1Id = undefined; currentGames[i].winnerId = undefined; } }
+            if (gameId === 'q2') { const i = currentGames.findIndex(g => g.id === 's1'); if (i !== -1) { currentGames[i].team2Id = undefined; currentGames[i].winnerId = undefined; } }
+            if (gameId === 'q3') { const i = currentGames.findIndex(g => g.id === 's2'); if (i !== -1) { currentGames[i].team1Id = undefined; currentGames[i].winnerId = undefined; } }
+            if (gameId === 'q4') { const i = currentGames.findIndex(g => g.id === 's2'); if (i !== -1) { currentGames[i].team2Id = undefined; currentGames[i].winnerId = undefined; } }
+            if (gameId === 's1') { const i = currentGames.findIndex(g => g.id === 'f1'); if (i !== -1) { currentGames[i].team1Id = undefined; currentGames[i].winnerId = undefined; } }
+            if (gameId === 's2') { const i = currentGames.findIndex(g => g.id === 'f1'); if (i !== -1) { currentGames[i].team2Id = undefined; currentGames[i].winnerId = undefined; } }
+          }
+
+          setPlayoffGames(currentGames);
+          syncPlayoffGames(currentGames);
+          return;
         }
         const gameToUpdate = games.find(g => g.id === gameId);
         if (!gameToUpdate) return;
@@ -512,10 +586,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         setGames(ng); setPlayers(prev => recalculateStats(ng, prev));
       },
       setPlayers, setGames, setPlayoffGames,
-      syncPlayoffGames: async (bracket: PlayoffGame[]) => {
-        setPlayoffGames(bracket);
-        if (user) await PersistenceEngine.savePlayoffGames(bracket, user.id);
-      },
+      syncPlayoffGames,
       isLoaded: !isInitializing,
       setHistory,
       isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner,
@@ -540,7 +611,8 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           }
         }
         return winners as Record<AwardType, string>;
-      }
+      },
+      generatePlayoffs
     }}>
       {children}
     </LeagueContext.Provider>

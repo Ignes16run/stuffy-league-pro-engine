@@ -54,7 +54,7 @@ export default function RosterView() {
           <div className="relative group flex-1 min-w-[300px]">
              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300 group-focus-within:text-emerald-500 transition-colors" />
              <Input 
-                placeholder="Search athlete dossier..." 
+                placeholder="Search stuffy roster..." 
                 className="pl-14 h-16 rounded-2xl border-stone-100 bg-white/60 focus-visible:ring-emerald-500 transition-all font-bold text-stone-600 placeholder:text-stone-300 shadow-sm"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

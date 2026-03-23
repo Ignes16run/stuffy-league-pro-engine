@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T21:15:00-04:00
+// Last Updated: 2026-03-23T04:00:00-04:00
 import React, { useMemo, useState } from 'react';
 import { useLeague } from '@/context/league-context';
 import { Player, PlayerStats, PlayerPosition } from '@/lib/league/types';
@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import Standings from './standings';
+import AwardsSelection from './awards-selection';
 
 export default function StatsView() {
-  const { players, teams } = useLeague();
+  const { players, teams, isAwardsPhase } = useLeague();
   const [statMode, setStatMode] = useState<'season' | 'career'>('season');
   const [activeTab, setActiveTab] = useState('offensive');
   const [searchQuery, setSearchQuery] = useState('');
@@ -210,6 +211,13 @@ export default function StatsView() {
           <TeamStatsView preselectedTeamId={teamFilter !== 'all' ? teamFilter : null} />
         </TabsContent>
       </Tabs>
+
+      {/* Prestige Gala Reveal - Shows after season is archived */}
+      {isAwardsPhase && (
+        <div className="pt-20 border-t border-stone-100">
+           <AwardsSelection />
+        </div>
+      )}
     </div>
   );
 }

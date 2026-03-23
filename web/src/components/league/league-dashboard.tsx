@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  RefreshCw, Trash2, Trophy, History, PlayCircle, Star, LayoutDashboard, LayoutGrid, BarChart3, User as UserIcon
+  RefreshCw, Trash2, Trophy, History, PlayCircle, Star, LayoutDashboard, LayoutGrid, BarChart3, Users as UsersIcon, User as UserIcon
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { useAuth } from '@/context/auth-context';
@@ -14,9 +14,9 @@ import SeasonPredictor from './season-predictor';
 import PlayoffBracket from './playoff-bracket';
 import TrainingCamp from './training-camp';
 import LeagueHistory from './league-history';
-import AwardsSelection from './awards-selection';
 import ManagementView from './management-view';
 import StatsView from './stats-view';
+import RosterView from './roster-view';
 
 export default function LeagueDashboard() {
   const { activeTab, setActiveTab, resetLeague, resetPredictions } = useLeague();
@@ -29,6 +29,7 @@ export default function LeagueDashboard() {
     { id: 'management', label: 'Management', icon: LayoutGrid },
     { id: 'training', label: 'Camp', icon: Star },
     { id: 'history', label: 'History', icon: History },
+    { id: 'roster', label: 'Stuffy Roster', icon: UsersIcon },
   ];
 
   return (
@@ -95,7 +96,7 @@ export default function LeagueDashboard() {
          {tabs.map(tab => (
             <button
                key={tab.id}
-               onClick={() => setActiveTab(tab.id as any)}
+               onClick={() => setActiveTab(tab.id)}
                className={cn(
                   "flex-1 py-4 flex flex-col items-center gap-1.5 rounded-[1.75rem] transition-all",
                   activeTab === tab.id ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20" : "text-stone-400"
@@ -122,9 +123,9 @@ export default function LeagueDashboard() {
               {activeTab === 'management' && <ManagementView />}
               {activeTab === 'training' && <TrainingCamp />}
               {activeTab === 'history' && <LeagueHistory />}
+              {activeTab === 'roster' && <RosterView />}
             </motion.div>
           </AnimatePresence>
-          <AwardsSelection />
       </main>
 
       <footer className="w-full py-16 border-t border-stone-100 px-4 relative z-10 bg-white/50 backdrop-blur-sm">
