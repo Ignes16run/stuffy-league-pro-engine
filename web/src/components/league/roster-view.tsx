@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Search, Users, Filter, SlidersHorizontal, Edit2, Shield, Zap, Award, Star
+  Search, Users, Filter, SlidersHorizontal, Edit2, Shield, Zap, Award, Star, Trophy, Target
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { STUFFY_ICONS } from '@/lib/league/constants';
@@ -60,7 +60,7 @@ export default function RosterView() {
                 onChange={(e) => setSearch(e.target.value)}
              />
           </div>
-          <Select value={teamFilter} onValueChange={setTeamFilter}>
+          <Select value={teamFilter} onValueChange={(val) => setTeamFilter(val || 'all')}>
             <SelectTrigger className="w-64 h-16 rounded-2xl border-stone-100 bg-white/60 font-black text-[10px] uppercase tracking-widest text-stone-500 focus:ring-emerald-500 shadow-sm">
                <div className="flex items-center gap-3">
                   <Filter className="w-4 h-4 text-emerald-500" />
@@ -289,7 +289,7 @@ function BulkRatingEditor({ teamId, onApply }: { teamId: string, onApply: (playe
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-3">
                 <Label className="text-[10px] font-black text-stone-400 uppercase tracking-widest pl-1">Target Group</Label>
-                <Select value={targetPosition} onValueChange={setTargetPosition}>
+                <Select value={targetPosition} onValueChange={(val) => setTargetPosition(val || 'ALL')}>
                   <SelectTrigger className="h-14 rounded-2xl bg-stone-50 border-stone-100 font-bold text-stone-700">
                     <SelectValue />
                   </SelectTrigger>
@@ -300,7 +300,7 @@ function BulkRatingEditor({ teamId, onApply }: { teamId: string, onApply: (playe
               </div>
               <div className="space-y-3">
                 <Label className="text-[10px] font-black text-stone-400 uppercase tracking-widest pl-1">Attribute Focus</Label>
-                <Select value={categoryIndex.toString()} onValueChange={(v) => setCategoryIndex(parseInt(v))}>
+                <Select value={categoryIndex.toString()} onValueChange={(v) => setCategoryIndex(parseInt(v || '0'))}>
                   <SelectTrigger className="h-14 rounded-2xl bg-stone-50 border-stone-100 font-bold text-stone-700">
                     <SelectValue />
                   </SelectTrigger>
