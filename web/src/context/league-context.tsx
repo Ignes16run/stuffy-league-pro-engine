@@ -21,6 +21,7 @@ import { getStatForAward, getAwardFinalists } from '@/lib/league/awardsEngine';
 import { PersistenceEngine } from '@/lib/league/persistenceEngine';
 import { assignStatsToPlayers } from '@/lib/league/statsEngine';
 import { SimulationEngine } from '@/lib/league/simulationEngine';
+import { migrateData, CURRENT_DATA_VERSION } from '@/lib/league/migrationEngine';
 
 interface LeagueContextType {
   teams: Team[];
@@ -120,7 +121,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         const saved = localStorage.getItem('stuffy_league_data');
         if (saved) {
           try {
-            const data = JSON.parse(saved);
+            const rawData = JSON.parse(saved);
+            const data = migrateData(rawData);
+            
             setTeams(data.teams || []);
             setPlayers(data.players || []);
             setGames(data.games || []);
@@ -147,10 +150,12 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     if (user) await PersistenceEngine.savePlayoffGames(bracket, user.id);
   }, [user]);
 
+  // Updated: 2026-03-23T10:25:00-04:00
   // Persistence effect
   useEffect(() => {
     if (!isInitializing) {
       const data = {
+        version: CURRENT_DATA_VERSION,
         teams, players, games, playoffGames, currentWeek, numWeeks, history,
         isAwardsPhase, awardFinalists, selectedAwards, awardResults
       };
@@ -275,7 +280,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const loadFromSupabase = async () => {
     if (!user) return;
-    const data = await PersistenceEngine.loadAllData(user.id);
+    const rawData = await PersistenceEngine.loadAllData(user.id);
+    const data = migrateData(rawData);
+    
     setTeams(data.teams);
     setPlayers(data.players);
     setGames(data.games);
