@@ -67,6 +67,7 @@ interface LeagueContextType {
   finalizeSeason: () => void;
   setIsAwardsPhase: (active: boolean) => void;
   simulateAwards: () => void;
+  calculateAwards: () => Record<AwardType, string>;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -518,7 +519,28 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       isLoaded: !isInitializing,
       setHistory,
       isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner,
-      selectedAwards, awardResults, completeSeason, finalizeSeason, simulateAwards
+      selectedAwards, awardResults, completeSeason, finalizeSeason, simulateAwards,
+      calculateAwards: () => {
+        const finalists = getAwardFinalists(players);
+        const winners: Record<string, string> = {};
+        Object.entries(finalists).forEach(([category, list]) => {
+          if (list.length > 0) {
+            winners[category as AwardType] = list[0].id;
+          }
+        });
+        
+        // Add Champion
+        const champGame = playoffGames.find(g => g.round === 3 && g.winnerId);
+        if (champGame?.winnerId) {
+          winners['CHAMPION'] = champGame.winnerId;
+        } else {
+          const standings = calculateStandings(teams, games);
+          if (standings.length > 0) {
+            winners['CHAMPION'] = standings[0].teamId;
+          }
+        }
+        return winners as Record<AwardType, string>;
+      }
     }}>
       {children}
     </LeagueContext.Provider>

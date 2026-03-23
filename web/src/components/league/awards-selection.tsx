@@ -22,7 +22,7 @@ const AWARD_CONFIG = {
 
 export default function AwardsSelection() {
   const { calculateAwards, teams, players } = useLeague();
-  const [awards, setAwards] = useState<Record<AwardType, string>>({} as any);
+  const [awards, setAwards] = useState<Record<AwardType, string>>({} as Record<AwardType, string>);
   const [revealingAwards, setRevealingAwards] = useState<AwardType[]>([]);
   const [isCeremonyActive, setIsCeremonyActive] = useState(false);
 
@@ -59,7 +59,7 @@ export default function AwardsSelection() {
                <p className="text-stone-400 text-sm font-black uppercase tracking-[0.4em]">Stuffy League Pro Annual Awards Night</p>
             </div>
             <p className="text-stone-400 text-lg leading-relaxed max-w-xl font-medium">
-               Celebrate the season's greatest achievements. Who will take home the gold and join the immortals of the Stuffy League?
+               Celebrate the season&apos;s greatest achievements. Who will take home the gold and join the immortals of the Stuffy League?
             </p>
             <Button 
                onClick={startCeremony}
@@ -123,8 +123,9 @@ export default function AwardsSelection() {
 function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, playerId: string, players: Player[], teams: Team[] }) {
   const config = AWARD_CONFIG[type];
   const Icon = config.icon;
-  const player = players.find(p => p.id === playerId);
-  const team = teams.find(t => t.id === player?.teamId);
+  const isTeamAward = type === 'CHAMPION';
+  const player = isTeamAward ? null : players.find(p => p.id === playerId);
+  const team = isTeamAward ? teams.find(t => t.id === playerId) : teams.find(t => t.id === player?.teamId);
   const TeamIcon = team ? (STUFFY_ICONS[team.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : null;
 
   return (
@@ -150,7 +151,9 @@ function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, 
           <div className="p-10 space-y-8 flex flex-col items-center text-center">
              <div className="space-y-1">
                 <span className="text-[10px] font-black text-stone-300 uppercase tracking-[0.3em]">{config.label}</span>
-                <h4 className="text-2xl font-black text-stone-900 uppercase tracking-tighter leading-tight">{player?.name || 'Unknown Legend'}</h4>
+                <h4 className="text-2xl font-black text-stone-900 uppercase tracking-tighter leading-tight">
+                    {isTeamAward ? (team?.name || 'Unknown Franchise') : (player?.name || 'Unknown Legend')}
+                </h4>
              </div>
 
              <div className="flex items-center gap-4">
