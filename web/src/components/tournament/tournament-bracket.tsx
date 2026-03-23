@@ -1,165 +1,220 @@
 "use client";
-// Last Updated: 2026-03-23T09:50:00-04:00
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Trophy, RotateCcw, Play, CheckCircle2, Star, RefreshCw, ChevronRight, LayoutDashboard
+  Trophy, RotateCcw, RefreshCw, Zap, Star
 } from 'lucide-react';
-import { useTournament } from '@/context/tournament-context';
+import { useTournament, TournamentGame } from '@/context/tournament-context';
 import { STUFFY_ICONS } from '@/lib/league/constants';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Team, PlayoffGame } from '@/lib/league/types';
+import { Team } from '@/lib/league/types';
+
+const REGIONS = ['North', 'South', 'East', 'West'];
 
 export default function TournamentBracket() {
   const { 
     tournamentGames, 
     tournamentTeams, 
-    isStarted, 
     bracketSize, 
     winnerId,
     handlePick, 
-    simulateRound, 
+    simulateFullTournament,
     resetTournament 
   } = useTournament();
   
+  const [activeRegion, setActiveRegion] = useState(REGIONS[0]);
   const [isSimulating, setIsSimulating] = useState(false);
 
-  const handleSimulate = async () => {
+  const handleSimulateAll = async () => {
     setIsSimulating(true);
-    // Add a small delay for affect
-    await new Promise(r => setTimeout(r, 600));
-    simulateRound();
+    await new Promise(r => setTimeout(r, 800));
+    simulateFullTournament();
     setIsSimulating(false);
   };
 
-  const rounds = Array.from(new Set(tournamentGames.map(g => g.round))).sort((a, b) => a - b);
-  
-  const getRoundTitle = (round: number, totalRounds: number) => {
-    if (round === totalRounds) return "Championship";
-    if (round === totalRounds - 1) return "Semifinals";
-    if (round === totalRounds - 2) return "Quarterfinals";
-    if (round === totalRounds - 3) return "Round of 16";
-    if (round === totalRounds - 4) return "Round of 32";
-    return `Round ${round}`;
-  };
+  const currentRegionGames = tournamentGames.filter(g => g.regionId === activeRegion);
+  const finalFourGames = tournamentGames.filter(g => g.regionId === 'Final Four');
+  const championshipGame = tournamentGames.find(g => g.regionId === 'Championship');
 
   const winningTeam = winnerId ? tournamentTeams.find(t => t.id === winnerId) : null;
 
   return (
-    <div className="max-w-[100vw] overflow-x-hidden space-y-12 pb-20 px-4 md:px-8">
-      {/* Tournament Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 bg-white/40 backdrop-blur-3xl p-6 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] border border-stone-100 shadow-2xl shadow-stone-200/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
+    <div className="max-w-6xl mx-auto space-y-8 pb-20 px-4">
+      {/* Dynamic Header */}
+      <div className="bg-stone-900 rounded-[2.5rem] p-6 md:p-8 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/20 blur-[120px] -mr-48 -mt-48 pointer-events-none" />
         
-        <div className="relative z-10 space-y-3">
-            <div className="flex items-center gap-5">
-               <div className="w-12 h-12 md:w-16 md:h-16 bg-linear-to-br from-amber-400 to-amber-600 rounded-2xl md:rounded-4xl flex items-center justify-center shadow-2xl shadow-amber-500/40 border-2 border-white/20">
-                  <Trophy className="w-6 h-6 md:w-7 md:h-7 text-white" />
-               </div>
-               <div>
-                  <h2 className="text-2xl md:text-4xl font-black text-stone-900 uppercase tracking-tight leading-none">Tournament Mode</h2>
-                  <p className="text-stone-400 text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] mt-2 md:mt-3 px-1">{bracketSize} Team Single Elimination</p>
-               </div>
-            </div>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-3 md:gap-4 relative z-10">
-          <Button 
-            variant="outline" 
-            onClick={resetTournament}
-            disabled={isSimulating}
-            className="h-12 md:h-16 px-4 md:px-8 rounded-xl md:rounded-2xl border-stone-100 bg-white/60 text-stone-400 hover:text-rose-500 transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest gap-2 md:gap-3 shadow-sm group"
-          >
-            <RotateCcw className="w-3.4 md:w-4 h-3.5 md:h-4 group-hover:rotate-180 transition-transform duration-500" />
-            Reset
-          </Button>
-
-          {winnerId ? (
-            <div className="h-12 md:h-16 px-6 md:px-10 rounded-xl md:rounded-2xl bg-emerald-50 text-emerald-600 flex items-center gap-3 border border-emerald-100 animate-in fade-in zoom-in duration-500">
-               <Trophy className="w-5 h-5 fill-emerald-500/20" />
-               <span className="font-black text-[10px] md:text-[11px] uppercase tracking-[0.2em]">Winner: {winningTeam?.name}</span>
-            </div>
-          ) : (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
+          <div className="flex items-center gap-6">
+             <div className="w-16 h-16 bg-amber-500 rounded-3xl flex items-center justify-center shadow-xl shadow-amber-500/20">
+                <Trophy className="w-8 h-8 text-white" />
+             </div>
+             <div>
+                <h2 className="text-3xl font-black uppercase tracking-tight italic">March Madness Mode</h2>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-amber-500 text-[10px] font-black uppercase tracking-wider">{bracketSize} Teams</span>
+                  <div className="w-1 h-1 bg-stone-700 rounded-full" />
+                  <span className="text-stone-400 text-[10px] font-black uppercase tracking-wider">Single Elimination</span>
+                </div>
+             </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3">
             <Button 
-              onClick={handleSimulate}
-              disabled={isSimulating}
-              className="h-12 md:h-16 px-6 md:px-12 rounded-xl md:rounded-2xl bg-stone-900 border-0 text-white font-black text-[10px] md:text-[11px] uppercase tracking-[0.25em] shadow-2xl hover:bg-black transition-all active:scale-95 gap-3"
+              variant="outline" 
+              onClick={resetTournament}
+              className="h-12 px-6 rounded-xl border-stone-800 bg-stone-800/50 text-stone-400 hover:text-rose-400 hover:border-rose-400 transition-all font-black text-[10px] uppercase tracking-widest gap-2"
             >
-              {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-              {isSimulating ? 'Simulating...' : 'Simulate Round'}
+              <RotateCcw className="w-3.5 h-3.5" /> Reset
             </Button>
-          )}
+            
+            <Button 
+              onClick={handleSimulateAll}
+              disabled={isSimulating || !!winnerId}
+              className="h-12 px-8 rounded-xl bg-amber-500 text-white border-0 font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:bg-amber-600 transition-all gap-2"
+            >
+              {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 fill-current" />}
+              {isSimulating ? 'Processing...' : 'Simulate All'}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Bracket View */}
-      <div className="relative overflow-x-auto pb-12 custom-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-         <div className="flex gap-8 md:gap-16 items-start min-w-max pb-4">
-            {rounds.map(round => (
-              <RoundColumn 
-                key={round}
-                round={round} 
-                title={getRoundTitle(round, rounds.length)} 
-                games={tournamentGames.filter(g => g.round === round)} 
-                teams={tournamentTeams}
-                onPick={handlePick}
-              />
-            ))}
-         </div>
+      {/* Tabs */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-stone-100 rounded-2xl md:rounded-3xl border border-stone-200/50">
+        {REGIONS.map(region => (
+          <button
+            key={region}
+            onClick={() => setActiveRegion(region)}
+            className={cn(
+              "flex-1 min-w-[100px] py-3 px-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all",
+              activeRegion === region 
+                ? "bg-white text-stone-900 shadow-sm" 
+                : "text-stone-400 hover:text-stone-600"
+            )}
+          >
+            {region}
+          </button>
+        ))}
+        <button
+          onClick={() => setActiveRegion('Final Four')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 px-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all",
+            activeRegion === 'Final Four' 
+              ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" 
+              : "text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+          )}
+        >
+          Final Four
+        </button>
       </div>
 
-      {/* Champion Celebration Overlay */}
+      {/* Region Rendering */}
+      <div className="relative min-h-[500px]">
+        <AnimatePresence mode="wait">
+          {activeRegion !== 'Final Four' ? (
+            <motion.div 
+              key={activeRegion}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex gap-4 md:gap-8 overflow-x-auto pb-8 custom-scrollbar pt-2"
+            >
+              <RegionalBracket 
+                games={currentRegionGames}
+                teams={tournamentTeams}
+                handlePick={handlePick}
+              />
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="final-four"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="flex flex-col items-center gap-12 pt-8"
+            >
+               <div className="flex flex-col md:flex-row items-center gap-12 md:gap-24">
+                  <RoundColumn 
+                    title="Final Four"
+                    round={finalFourGames[0]?.round || 0}
+                    games={finalFourGames}
+                    teams={tournamentTeams}
+                    onPick={handlePick}
+                  />
+                  <div className="flex flex-col items-center gap-8">
+                    <div className="w-px h-12 bg-stone-200" />
+                    <RoundColumn 
+                      title="Championship"
+                      round={championshipGame?.round || 0}
+                      games={championshipGame ? [championshipGame] : []}
+                      teams={tournamentTeams}
+                      onPick={handlePick}
+                    />
+                  </div>
+               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Winner Overlay */}
       <AnimatePresence>
         {winnerId && winningTeam && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/40 backdrop-blur-md p-6"
-            onClick={() => {}} 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 backdrop-blur-xl p-6"
           >
             <motion.div 
-              initial={{ scale: 0.8, y: 20 }}
+              initial={{ scale: 0.9, y: 30 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[3rem] p-12 shadow-2xl border border-stone-100 max-w-md w-full text-center space-y-8 relative overflow-hidden"
+              className="bg-white rounded-[3.5rem] p-10 md:p-16 shadow-2xl border border-stone-100 max-w-lg w-full text-center space-y-10 relative overflow-hidden"
             >
-              <div className="absolute inset-0 pointer-events-none">
-                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-amber-400/20 blur-[80px]" />
-              </div>
-
-              <div className="relative space-y-6">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-80 bg-amber-400/20 blur-[100px] pointer-events-none" />
+              
+              <div className="relative space-y-8">
                 <div 
-                  className="w-32 h-32 mx-auto rounded-3xl flex items-center justify-center border-4 border-white shadow-2xl transition-all duration-700 rotate-12"
+                  className="w-40 h-40 mx-auto rounded-[2.5rem] flex items-center justify-center border-8 border-white shadow-2xl transition-all duration-700 hover:rotate-6"
                   style={{ 
                     backgroundColor: winningTeam.primaryColor, 
                     borderColor: winningTeam.secondaryColor,
-                    boxShadow: `0 20px 50px -10px ${winningTeam.primaryColor}80`
+                    boxShadow: `0 30px 60px -15px ${winningTeam.primaryColor}90`
                   }}
                 >
                    {winningTeam.logoUrl ? (
-                     <img src={winningTeam.logoUrl} className="w-full h-full object-cover rounded-2xl" alt={winningTeam.name} />
+                     <img src={winningTeam.logoUrl} className="w-full h-full object-cover rounded-4xl" alt={winningTeam.name} />
                    ) : (
-                     <Trophy className="w-16 h-16 text-white" />
+                     <Trophy className="w-20 h-20 text-white" />
                    )}
                 </div>
 
-                <div className="space-y-2">
-                  <h3 className="text-4xl font-black text-stone-900 uppercase tracking-tight">Champion!</h3>
-                  <p className="text-stone-400 font-bold uppercase tracking-[0.3em] text-[10px]">Tournament Victory</p>
+                <div className="space-y-4">
+                  <div className="inline-block px-6 py-2 bg-amber-100 rounded-full">
+                    <span className="text-amber-700 font-black text-[10px] uppercase tracking-widest flex items-center gap-2">
+                       <Star className="w-3.5 h-3.5 fill-current" /> National Champion <Star className="w-3.5 h-3.5 fill-current" />
+                    </span>
+                  </div>
+                  <h3 className="text-5xl font-black text-stone-900 uppercase tracking-tighter leading-none">{winningTeam.name}</h3>
                 </div>
 
-                <div className="bg-stone-50 rounded-2xl p-6 border border-stone-100">
-                   <p className="text-xl font-black text-stone-900 uppercase">{winningTeam.name}</p>
+                <div className="grid grid-cols-2 gap-4">
+                   <Button 
+                    variant="outline"
+                    onClick={() => {}} 
+                    className="h-14 rounded-2xl border-stone-100 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-stone-50"
+                  >
+                    View Stats
+                  </Button>
+                  <Button 
+                    onClick={resetTournament}
+                    className="h-14 rounded-2xl bg-stone-900 text-white font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black"
+                  >
+                    Play Again
+                  </Button>
                 </div>
-
-                <Button 
-                  onClick={resetTournament}
-                  className="w-full h-16 rounded-2xl bg-stone-900 text-white font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black"
-                >
-                  Start New Tournament
-                </Button>
               </div>
             </motion.div>
           </motion.div>
@@ -169,17 +224,35 @@ export default function TournamentBracket() {
   );
 }
 
-function RoundColumn({ round, title, games, teams, onPick }: { round: number, title: string, games: PlayoffGame[], teams: Team[], onPick: (gameId: string, winnerId: string) => void }) {
+function RegionalBracket({ games, teams, handlePick }: { games: TournamentGame[], teams: Team[], handlePick: (g: string, w: string) => void }) {
+  const rounds = Array.from(new Set(games.map(g => g.round))).sort((a, b) => a - b);
+  const titles = ["Round 1", "Regional Semi", "Regional Final"];
+
   return (
-    <div className="w-[300px] flex-shrink-0 space-y-8 h-full flex flex-col">
-      <div className="text-center space-y-1 relative sticky top-0 bg-zinc-50/80 backdrop-blur-sm z-10 py-2">
-         <div className="bg-white/60 border border-stone-100 rounded-full inline-block px-4 py-1.5 shadow-sm">
-            <span className="text-[9px] font-black text-stone-300 uppercase tracking-[0.4em] block">Round {round}</span>
-            <h4 className="text-sm font-black text-stone-900 uppercase tracking-tighter">{title}</h4>
-         </div>
+     <>
+      {rounds.map((r, i) => (
+         <RoundColumn 
+          key={r}
+          round={r}
+          title={titles[i] || `Round ${r}`}
+          games={games.filter(g => g.round === r)}
+          teams={teams}
+          onPick={handlePick}
+         />
+      ))}
+     </>
+  );
+}
+
+function RoundColumn({ round, title, games, teams, onPick }: { round: number, title: string, games: TournamentGame[], teams: Team[], onPick: (gameId: string, winnerId: string) => void }) {
+  return (
+    <div className="w-[240px] shrink-0 space-y-4 h-full flex flex-col items-center">
+      <div className="text-center w-full bg-stone-50 py-3 rounded-2xl border border-stone-100">
+          <span className="text-[8px] font-black text-stone-400 uppercase tracking-[0.3em] block mb-1">Depth {round}</span>
+          <h4 className="text-[11px] font-black text-stone-900 uppercase tracking-tight">{title}</h4>
       </div>
       
-      <div className={cn("flex flex-col justify-around gap-12 py-4 flex-grow")}>
+      <div className="flex flex-col justify-around gap-6 py-2 grow w-full">
         {games.map((game, idx) => (
           <MatchupCard key={game.id} game={game} teams={teams} delay={idx * 0.05} onPick={onPick} />
         ))}
@@ -188,106 +261,83 @@ function RoundColumn({ round, title, games, teams, onPick }: { round: number, ti
   );
 }
 
-function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams: Team[], delay: number, onPick: (gameId: string, winnerId: string) => void }) {
+function MatchupCard({ game, teams, delay, onPick }: { game: TournamentGame, teams: Team[], delay: number, onPick: (gameId: string, winnerId: string) => void }) {
   const team1 = teams.find(t => t.id === game.team1Id);
   const team2 = teams.find(t => t.id === game.team2Id);
   
-  const Team1Icon = team1 ? (STUFFY_ICONS[team1.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : STUFFY_ICONS.TeddyBear;
-  const Team2Icon = team2 ? (STUFFY_ICONS[team2.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : STUFFY_ICONS.TeddyBear;
+  const Team1Icon = team1 ? (STUFFY_ICONS[team1.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : null;
+  const Team2Icon = team2 ? (STUFFY_ICONS[team2.icon as keyof typeof STUFFY_ICONS] || STUFFY_ICONS.TeddyBear) : null;
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.98, x: -10 }}
-      animate={{ opacity: 1, scale: 1, x: 0 }}
-      transition={{ delay, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-      className="relative group w-full"
+      initial={{ opacity: 0, x: -5 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay }}
+      className="relative w-full"
     >
-      <div className="bg-white rounded-3xl border border-stone-100 shadow-xl shadow-stone-200/40 overflow-hidden group-hover:shadow-2xl transition-all duration-700 relative">
-         {/* Team 1 */}
+      <div className="bg-white rounded-2xl border border-stone-200/60 shadow-lg overflow-hidden relative min-h-[72px]">
+         {/* Team 1 Slot */}
          <div 
            className={cn(
-            "p-5 flex items-center justify-between transition-all duration-500",
-            game.winnerId === team1?.id && !!team1?.id ? "bg-emerald-500/5" : "hover:bg-stone-50/50 cursor-pointer"
+            "p-2.5 flex items-center justify-between transition-all cursor-pointer border-b border-stone-50",
+            game.winnerId === team1?.id ? "bg-amber-500/10" : "hover:bg-stone-50"
            )}
-           onClick={() => team1 && !game.winnerId && onPick(game.id, team1.id)}
+           onClick={() => team1 && onPick(game.id, team1.id)}
          >
-            <div className="flex items-center gap-4">
-               <div 
-                className="w-12 h-12 rounded-xl flex items-center justify-center border shadow-lg transition-all duration-700 group-hover:scale-105"
-                style={{ 
-                  backgroundColor: team1?.primaryColor || '#f3f4f6', 
-                  borderColor: team1?.secondaryColor || '#fff',
-                  boxShadow: team1 ? `0 8px 24px -8px ${team1.primaryColor}40` : 'none'
-                }}
-              >
-                {team1?.logoUrl ? (
-                  <img src={team1.logoUrl} className="w-full h-full object-cover rounded-lg" alt={team1.name} />
-                ) : (
-                  <Team1Icon className="w-6 h-6 text-white" />
-                )}
-              </div>
-              <div className="flex flex-col">
-                 <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1.5">Seed #{game.seed1 || '?'}</span>
-                 <span className="text-[13px] font-black text-stone-900 uppercase tracking-tight truncate max-w-[140px] leading-none">{team1?.name || '---'}</span>
-              </div>
+            <div className="flex items-center gap-3 overflow-hidden">
+               <span className="text-[9px] font-black text-stone-400 w-4">{game.seed1 || '•'}</span>
+               {team1 ? (
+                 <>
+                   <div className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: team1.primaryColor }}>
+                     {Team1Icon && <Team1Icon className="w-3.5 h-3.5" />}
+                   </div>
+                   <span className="text-[10px] font-black text-stone-900 uppercase truncate">{team1.name}</span>
+                 </>
+               ) : (
+                 <span className="text-[10px] font-bold text-stone-300 uppercase tracking-widest italic">Waiting...</span>
+               )}
             </div>
-            <div className={cn("text-2xl font-black italic tracking-tighter", game.winnerId === team1?.id && !!team1?.id ? "text-emerald-500" : "text-stone-200")}>
-               {game.team1Score !== undefined ? game.team1Score : '--'}
-            </div>
+            {game.team1Score !== undefined && (
+              <span className={cn("text-xs font-black", game.winnerId === team1?.id ? "text-amber-600" : "text-stone-400")}>{game.team1Score}</span>
+            )}
          </div>
 
-         {/* Visual Divider */}
-         <div className="h-px w-full bg-stone-50" />
-
-         {/* Team 2 */}
+         {/* Team 2 Slot */}
          <div 
            className={cn(
-            "p-5 flex items-center justify-between transition-all duration-500",
-            game.winnerId === team2?.id && !!team2?.id ? "bg-emerald-500/5" : "hover:bg-stone-50/50 cursor-pointer"
+            "p-2.5 flex items-center justify-between transition-all cursor-pointer",
+            game.winnerId === team2?.id ? "bg-amber-500/10" : "hover:bg-stone-50"
            )}
-           onClick={() => team2 && !game.winnerId && onPick(game.id, team2.id)}
+           onClick={() => team2 && onPick(game.id, team2.id)}
          >
-            <div className="flex items-center gap-4">
-               <div 
-                className="w-12 h-12 rounded-xl flex items-center justify-center border shadow-lg transition-all duration-700 group-hover:scale-105"
-                style={{ 
-                  backgroundColor: team2?.primaryColor || '#f3f4f6', 
-                  borderColor: team2?.secondaryColor || '#fff',
-                  boxShadow: team2 ? `0 8px 24px -8px ${team2.primaryColor}40` : 'none'
-                }}
-              >
-                {team2?.logoUrl ? (
-                  <img src={team2.logoUrl} className="w-full h-full object-cover rounded-lg" alt={team2.name} />
-                ) : (
-                  <Team2Icon className="w-6 h-6 text-white" />
-                )}
-              </div>
-              <div className="flex flex-col">
-                 <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1.5">Seed #{game.seed2 || '?'}</span>
-                 <span className="text-[13px] font-black text-stone-900 uppercase tracking-tight truncate max-w-[140px] leading-none">{team2?.name || '---'}</span>
-              </div>
+            <div className="flex items-center gap-3 overflow-hidden">
+               <span className="text-[9px] font-black text-stone-400 w-4">{game.seed2 || '•'}</span>
+               {team2 ? (
+                 <>
+                   <div className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: team2.primaryColor }}>
+                     {Team2Icon && <Team2Icon className="w-3.5 h-3.5" />}
+                   </div>
+                   <span className="text-[10px] font-black text-stone-900 uppercase truncate">{team2.name}</span>
+                 </>
+               ) : (
+                 <span className="text-[10px] font-bold text-stone-300 uppercase tracking-widest italic">Waiting...</span>
+               )}
             </div>
-            <div className={cn("text-2xl font-black italic tracking-tighter", game.winnerId === team2?.id && !!team2?.id ? "text-emerald-500" : "text-stone-200")}>
-               {game.team2Score !== undefined ? game.team2Score : '--'}
-            </div>
+            {game.team2Score !== undefined && (
+              <span className={cn("text-xs font-black", game.winnerId === team2?.id ? "text-amber-600" : "text-stone-400")}>{game.team2Score}</span>
+            )}
          </div>
 
-         {/* Winner Badge */}
+         {/* Selection Indicator */}
          <AnimatePresence>
             {game.winnerId && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-emerald-500 text-white rounded-full p-1.5 shadow-2xl shadow-emerald-500/50 border-2 border-white z-20"
-              >
-                 <CheckCircle2 className="w-5 h-5" />
-              </motion.div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute right-0 top-0 bottom-0 w-1 bg-amber-500" />
             )}
          </AnimatePresence>
       </div>
       
-      {/* Branch Connectors (only if not final round) */}
-      <div className="absolute top-1/2 -right-8 w-8 h-px bg-stone-100 -z-10" />
+      {/* Visual Branch Line */}
+      <div className="absolute top-1/2 -right-4 w-4 h-px bg-stone-200 -z-10" />
     </motion.div>
   );
 }
