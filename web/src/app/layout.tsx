@@ -30,6 +30,7 @@ export const metadata: Metadata = {
 
 import { LeagueProvider } from "@/context/league-context";
 import { AuthProvider } from "@/context/auth-context";
+import { TournamentProvider } from "@/context/tournament-context";
 
 export default function RootLayout({
   children,
@@ -50,7 +51,9 @@ export default function RootLayout({
         >
           <AuthProvider>
             <LeagueProvider>
-              {children}
+              <TournamentProvider>
+                {children}
+              </TournamentProvider>
             </LeagueProvider>
           </AuthProvider>
         </ThemeProvider>

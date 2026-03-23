@@ -507,6 +507,13 @@ export default function Home() {
             Documentation
           </Link>
           <Link
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-stone-200 bg-white px-5 text-stone-900 transition-colors hover:bg-stone-50 md:w-[158px]"
+            href="/tournament"
+          >
+            <Trophy className="w-5 h-5 text-amber-500" />
+            Tournament
+          </Link>
+          <Link
             className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 text-white transition-colors hover:bg-emerald-600 md:w-[158px]"
             href="/league"
           >
