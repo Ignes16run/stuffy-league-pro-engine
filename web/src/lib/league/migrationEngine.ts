@@ -22,7 +22,7 @@ export interface PersistedData {
  * Ensures all PlayerStats objects have necessary fields populated.
  * This is a common point of failure when new stats are added.
  */
-function migratePlayerStats(stats: PlayerStats): PlayerStats {
+function migratePlayerStats(stats: Partial<PlayerStats>): PlayerStats {
   const defaultStats: PlayerStats = {
     gamesPlayed: stats.gamesPlayed || 0,
     touchdowns: stats.touchdowns || 0,
