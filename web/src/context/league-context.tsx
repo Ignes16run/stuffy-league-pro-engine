@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-23T01:05:00Z
+// Last Updated: 2026-03-23T01:15:00Z
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -154,14 +154,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const addTeam = async (team: Omit<Team, 'id'>) => {
     const newTeam = { ...team, id: generateUUID() };
-    const newTeams = [...teams, newTeam];
     const newRoster = generateTeamRoster(newTeam.id);
-    const newPlayers = [...players, ...newRoster];
-    setTeams(newTeams);
-    setPlayers(newPlayers);
+    
+    setTeams(prev => [...prev, newTeam]);
+    setPlayers(prev => [...prev, ...newRoster]);
+    
     if (user) {
-      await PersistenceEngine.saveTeams([newTeam]);
-      await PersistenceEngine.savePlayers(newRoster);
+      await PersistenceEngine.saveTeams([newTeam], user.id);
+      await PersistenceEngine.savePlayers(newRoster, user.id);
     }
   };
 
@@ -169,7 +169,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     const newTeams = teams.map(t => t.id === teamId ? { ...t, ...updates } : t);
     setTeams(newTeams);
     const team = newTeams.find(t => t.id === teamId);
-    if (user && team) await PersistenceEngine.saveTeams([team]);
+    if (user && team) await PersistenceEngine.saveTeams([team], user.id);
   };
 
   const deleteTeam = async (teamId: string) => {
@@ -179,9 +179,24 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addDefaultTeams = async () => {
+    const nextTeams: Team[] = [];
+    const nextPlayers: Player[] = [];
+
     for (const teamDef of DEFAULT_LEAGUE_TEAMS) {
-      await addTeam(teamDef);
+        const newTeam = { ...teamDef, id: generateUUID() };
+        const newRoster = generateTeamRoster(newTeam.id);
+        nextTeams.push(newTeam as Team);
+        nextPlayers.push(...newRoster);
     }
+
+    setTeams(prev => [...prev, ...nextTeams]);
+    setPlayers(prev => [...prev, ...nextPlayers]);
+
+    if (user) {
+        await PersistenceEngine.saveTeams(nextTeams, user.id);
+        await PersistenceEngine.savePlayers(nextPlayers, user.id);
+    }
+    return { nextTeams, nextPlayers };
   };
 
   const updatePlayer = async (playerId: string, updates: Partial<Player>) => {
@@ -233,18 +248,18 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const createLeague = async (name: string) => {
     await resetLeague();
-    await addDefaultTeams();
-    const newGames = generateRoundRobinSchedule(teams, numWeeks);
+    const { nextTeams } = await addDefaultTeams();
+    const newGames = generateRoundRobinSchedule(nextTeams, numWeeks);
     setGames(newGames);
-    if (user) await PersistenceEngine.saveGames(newGames);
+    if (user) await PersistenceEngine.saveGames(newGames, user.id);
   };
 
   const saveToSupabase = async () => {
     if (!user) return;
-    await PersistenceEngine.saveTeams(teams);
-    await PersistenceEngine.savePlayers(players);
-    await PersistenceEngine.saveGames(games);
-    await PersistenceEngine.savePlayoffGames(playoffGames);
+    await PersistenceEngine.saveTeams(teams, user.id);
+    await PersistenceEngine.savePlayers(players, user.id);
+    await PersistenceEngine.saveGames(games, user.id);
+    await PersistenceEngine.savePlayoffGames(playoffGames, user.id);
   };
 
   const loadFromSupabase = async () => {
@@ -398,7 +413,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       setPlayers, setGames, setPlayoffGames,
       syncPlayoffGames: async (bracket) => {
         setPlayoffGames(bracket);
-        if (user) await PersistenceEngine.savePlayoffGames(bracket);
+        if (user) await PersistenceEngine.savePlayoffGames(bracket, user.id);
       },
       setHistory,
       isLoaded: !isInitializing,
