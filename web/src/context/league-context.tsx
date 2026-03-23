@@ -1,5 +1,5 @@
 "use client";
-// Last Updated: 2026-03-22T22:00:00-04:00
+// Last Updated: 2026-03-22T22:20:00-04:00
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import {
@@ -165,10 +165,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateTeam = async (teamId: string, updates: Partial<Team>) => {
-    const newTeams = teams.map(t => t.id === teamId ? { ...t, ...updates } : t);
-    setTeams(newTeams);
-    const team = newTeams.find(t => t.id === teamId);
-    if (user && team) await PersistenceEngine.saveTeams([team], user.id);
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return;
+    const updated = { ...team, ...updates };
+    setTeams(prev => prev.map(t => t.id === teamId ? updated : t));
+    if (user) await PersistenceEngine.saveTeams([updated], user.id);
   };
 
   const deleteTeam = async (teamId: string) => {
@@ -204,12 +205,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updatePlayer = async (playerId: string, updates: Partial<Player>) => {
-    const newPlayers = players.map(p => p.id === playerId ? { ...p, ...updates } : p);
-    setPlayers(newPlayers);
-    if (user) {
-        const player = newPlayers.find(p => p.id === playerId);
-        if (player) await PersistenceEngine.savePlayers([player], user.id);
-    }
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+    const updated = { ...player, ...updates };
+    setPlayers(prev => prev.map(p => p.id === playerId ? updated : p));
+    if (user) await PersistenceEngine.savePlayers([updated], user.id);
   };
 
   const bulkUpdatePlayers = async (playerUpdates: { id: string, updates: Partial<Player> }[]) => {
@@ -229,7 +229,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const upgradeStat = async (teamId: string, statId: string) => {
     const team = teams.find(t => t.id === teamId);
     if (!team || (team.stuffyPoints || 0) < 50) return;
-    const val = (team as any)[statId] || 75;
+    const val = (team[statId as keyof Team] as number) || 75;
     if (val >= 99) return;
     const updates = { [statId]: val + 1, stuffyPoints: (team.stuffyPoints || 0) - 50 };
     await updateTeam(teamId, updates);
@@ -284,46 +284,87 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   const simulateGames = (week: number) => {
     const updatedGames = [...games];
-    games.filter(g => g.week === week).forEach(game => {
+    const pointsMap = new Map<string, number>();
+
+    games.filter(g => g.week === week && g.winnerId === undefined && !g.isTie).forEach(game => {
       const homeTeam = teams.find(t => t.id === game.homeTeamId);
       const awayTeam = teams.find(t => t.id === game.awayTeamId);
       if (homeTeam && awayTeam) {
         const score = generateRealisticFootballScore(homeTeam, awayTeam, players);
         const gameIndex = updatedGames.findIndex(g => g.id === game.id);
         const isTie = score.homeScore === score.awayScore;
+        const winnerId = isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId);
+        
         updatedGames[gameIndex] = {
           ...game, homeScore: score.homeScore, awayScore: score.awayScore,
-          winnerId: isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId),
+          winnerId,
           isTie
         };
+
+        // Award SP
+        if (isTie) {
+          pointsMap.set(game.homeTeamId, (pointsMap.get(game.homeTeamId) || 0) + 20);
+          pointsMap.set(game.awayTeamId, (pointsMap.get(game.awayTeamId) || 0) + 20);
+        } else {
+          pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 50);
+          const loserId = winnerId === game.homeTeamId ? game.awayTeamId : game.homeTeamId;
+          pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 10);
+        }
       }
     });
+
     setGames(updatedGames);
+    if (pointsMap.size > 0) {
+      setTeams(prev => prev.map(t => ({
+        ...t,
+        stuffyPoints: (t.stuffyPoints || 0) + (pointsMap.get(t.id) || 0)
+      })));
+    }
     setPlayers(prev => recalculateStats(updatedGames, prev));
   };
 
   const simulateSeason = () => {
     setIsSimulating(true);
     const updatedGames = [...games];
+    const pointsMap = new Map<string, number>();
+
     for (let w = 1; w <= numWeeks; w++) {
-      updatedGames.filter(g => g.week === w).forEach(game => {
+      updatedGames.filter(g => g.week === w && g.winnerId === undefined && !g.isTie).forEach(game => {
         const homeTeam = teams.find(t => t.id === game.homeTeamId);
         const awayTeam = teams.find(t => t.id === game.awayTeamId);
         if (homeTeam && awayTeam) {
           const score = generateRealisticFootballScore(homeTeam, awayTeam, players);
           const gameIndex = updatedGames.findIndex(g => g.id === game.id);
           const isTie = score.homeScore === score.awayScore;
+          const winnerId = isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId);
+          
           updatedGames[gameIndex] = {
             ...game, homeScore: score.homeScore, awayScore: score.awayScore,
-            winnerId: isTie ? undefined : (score.homeScore > score.awayScore ? game.homeTeamId : game.awayTeamId),
+            winnerId,
             isTie
           };
+
+          // Award SP
+          if (isTie) {
+            pointsMap.set(game.homeTeamId, (pointsMap.get(game.homeTeamId) || 0) + 20);
+            pointsMap.set(game.awayTeamId, (pointsMap.get(game.awayTeamId) || 0) + 20);
+          } else {
+            pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 50);
+            const loserId = winnerId === game.homeTeamId ? game.awayTeamId : game.homeTeamId;
+            pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 10);
+          }
         }
       });
     }
+
     setGames(updatedGames);
-    const finalPlayers = recalculateStats(updatedGames, players);
-    setPlayers(finalPlayers);
+    if (pointsMap.size > 0) {
+      setTeams(prev => prev.map(t => ({
+        ...t,
+        stuffyPoints: (t.stuffyPoints || 0) + (pointsMap.get(t.id) || 0)
+      })));
+    }
+    setPlayers(prev => recalculateStats(updatedGames, prev));
     setCurrentWeek(numWeeks);
     setIsSimulating(false);
   };
@@ -452,6 +493,19 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
             setGames(dg); setPlayers(prev => recalculateStats(dg, prev));
             return;
         }
+        // Award SP if game was unplayed
+        if (gameToUpdate.winnerId === undefined && !gameToUpdate.isTie) {
+          setTeams(prev => prev.map(t => {
+            if (t.id === gameToUpdate.homeTeamId || t.id === gameToUpdate.awayTeamId) {
+              let spToAdd = 10; // Loss default
+              if (winnerId === 'tie') spToAdd = 20;
+              else if (winnerId === t.id) spToAdd = 50;
+              return { ...t, stuffyPoints: (t.stuffyPoints || 0) + spToAdd };
+            }
+            return t;
+          }));
+        }
+
         const ug = { ...gameToUpdate, homeScore: hScore, awayScore: aScore, winnerId: winnerId === 'tie' ? undefined : winnerId, isTie: winnerId === 'tie' };
         const ng = games.map(x => x.id === gameId ? ug : x);
         setGames(ng); setPlayers(prev => recalculateStats(ng, prev));
