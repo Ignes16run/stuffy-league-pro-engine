@@ -371,12 +371,14 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         stuffyPoints: (t.stuffyPoints || 0) + (pointsMap.get(t.id) || 0)
       })));
     }
-    setPlayers(prev => recalculateStats(updatedGames, prev));
+    const finalPlayers = recalculateStats(updatedGames, players);
+    setPlayers(finalPlayers);
     setCurrentWeek(numWeeks);
     setIsSimulating(false);
     
-    // Automatically Seed Playoffs if regular season is done (e.g. at least 17 weeks)
-    if (numWeeks >= 10 && updatedGames.every(g => g.winnerId)) {
+    // Automatically Seed Playoffs if regular season is done
+    const allGamesFinished = updatedGames.length > 0 && updatedGames.every(g => g.homeScore !== undefined);
+    if (allGamesFinished) {
         console.log("Season finished - Seeding Playoffs...");
         const standings = calculateStandings(teams, updatedGames);
         const top8 = standings.slice(0, 8);
@@ -398,6 +400,11 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         
         setPlayoffGames(newPlayoffGames);
         await syncPlayoffGames(newPlayoffGames);
+
+        // TRIGGER AWARDS PHASE using finalPlayers
+        const finalists = getAwardFinalists(finalPlayers);
+        setAwardFinalists(finalists as Record<string, Player[]>);
+        setIsAwardsPhase(true);
     }
   };
 
@@ -415,7 +422,12 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     ];
     setPlayoffGames(newPlayoffGames);
     syncPlayoffGames(newPlayoffGames);
-  }, [teams, games, syncPlayoffGames]);
+
+    // Also trigger awards phase here for manual seeding
+    const finalists = getAwardFinalists(players);
+    setAwardFinalists(finalists as Record<string, Player[]>);
+    setIsAwardsPhase(true);
+  }, [teams, games, players, syncPlayoffGames]);
 
   const resetPredictions = () => {
     const resetGames = games.map(g => ({

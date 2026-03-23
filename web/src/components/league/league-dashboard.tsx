@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  RefreshCw, Trash2, Trophy, History, PlayCircle, Star, LayoutDashboard, LayoutGrid, BarChart3, Users as UsersIcon, User as UserIcon
+  RefreshCw, Trash2, Trophy, History, PlayCircle, Star, LayoutDashboard, LayoutGrid, BarChart3, User as UserIcon
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { useAuth } from '@/context/auth-context';
@@ -16,7 +16,6 @@ import TrainingCamp from './training-camp';
 import LeagueHistory from './league-history';
 import ManagementView from './management-view';
 import StatsView from './stats-view';
-import RosterView from './roster-view';
 
 export default function LeagueDashboard() {
   const { activeTab, setActiveTab, resetLeague, resetPredictions } = useLeague();
@@ -29,7 +28,6 @@ export default function LeagueDashboard() {
     { id: 'management', label: 'Management', icon: LayoutGrid },
     { id: 'training', label: 'Camp', icon: Star },
     { id: 'history', label: 'History', icon: History },
-    { id: 'roster', label: 'Stuffy Roster', icon: UsersIcon },
   ];
 
   return (
@@ -123,7 +121,6 @@ export default function LeagueDashboard() {
               {activeTab === 'management' && <ManagementView />}
               {activeTab === 'training' && <TrainingCamp />}
               {activeTab === 'history' && <LeagueHistory />}
-              {activeTab === 'roster' && <RosterView />}
             </motion.div>
           </AnimatePresence>
       </main>
