@@ -135,10 +135,10 @@ export default function TeamSetup() {
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl border border-stone-100"
+              className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-lg border border-stone-100"
             >
-              <h3 className="text-xl font-black text-stone-900 uppercase tracking-widest mb-2">Bulk Recruit</h3>
-              <p className="text-sm text-stone-500 mb-6 font-medium">Enter one team name per line to auto-generate multiple franchises.</p>
+              <h3 className="text-xl font-black text-stone-900 uppercase tracking-tighter mb-2 italic">Bulk Recruit Node</h3>
+              <p className="text-[10px] text-stone-400 mb-6 font-black uppercase tracking-widest">Auto-generate franchise entities</p>
               <textarea 
                 value={bulkNamesText}
                 onChange={(e) => setBulkNamesText(e.target.value)}
@@ -160,11 +160,11 @@ export default function TeamSetup() {
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl border border-stone-100 max-h-[80vh] overflow-hidden flex flex-col"
+              className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-lg border border-stone-100 max-h-[80vh] overflow-hidden flex flex-col"
             >
-              <div className="p-8 pb-4">
-                <h3 className="text-xl font-black text-stone-900 uppercase tracking-widest mb-2">Bulk Stat Modifier</h3>
-                <p className="text-sm text-stone-500 font-medium">Fine-tune your entire league&apos;s power balance in real-time.</p>
+              <div className="p-4 pb-2">
+                <h3 className="text-xl font-black text-stone-900 uppercase tracking-tighter mb-2 italic">Power Balance Matrix</h3>
+                <p className="text-[10px] text-stone-400 font-black uppercase tracking-widest">Real-time stat recalibration</p>
               </div>
               
               <div className="flex-1 overflow-y-auto px-8 py-4 space-y-4">
@@ -207,15 +207,15 @@ export default function TeamSetup() {
         )}
       </AnimatePresence>
       
-      <Card className="rounded-4xl border border-stone-100 shadow-xl shadow-stone-200/50">
-        <CardHeader className="flex flex-row items-center justify-between pb-8">
+      <Card className="rounded-2xl border border-stone-100 shadow-sm overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between pb-6 border-b border-stone-50/50">
           <div>
-            <CardTitle className="text-2xl font-black text-stone-900 flex items-center gap-3">
-              {editingTeamId ? <RefreshCw className="text-indigo-500" /> : <Plus className="text-emerald-500" />}
-              {editingTeamId ? 'Update Team Branding' : 'Recruit a New Team'}
+            <CardTitle className="text-xl font-black text-stone-900 flex items-center gap-3 uppercase tracking-tighter italic leading-none">
+              {editingTeamId ? <RefreshCw className="text-indigo-500 w-5 h-5" /> : <Plus className="text-emerald-500 w-5 h-5" />}
+              {editingTeamId ? 'Update Roster' : 'Recruit Franchise'}
             </CardTitle>
-            <CardDescription className="text-stone-500 mt-1">
-              {editingTeamId ? 'Refine your team\'s visual brand and name.' : 'Define your team\'s identity and visual brand.'}
+            <CardDescription className="text-stone-400 mt-2 text-[10px] font-black uppercase tracking-widest">
+              {editingTeamId ? 'Refine identity & visual assets' : 'Initialize global team parameters'}
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -257,12 +257,12 @@ export default function TeamSetup() {
                         key={icon}
                         onClick={() => setNewTeam({ ...newTeam, icon })}
                         className={cn(
-                          "relative aspect-square rounded-4xl border-2 transition-all p-2 overflow-hidden",
-                          newTeam.icon === icon ? "border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/20" : "border-stone-100 bg-stone-50/50 hover:border-stone-200"
+                          "relative aspect-square rounded-xl border transition-all p-2 overflow-hidden",
+                          newTeam.icon === icon ? "border-emerald-500 bg-emerald-50/50 shadow-sm" : "border-stone-100 bg-stone-50/20 hover:border-stone-200"
                         )}
                       >
                         <div className="relative w-full h-full">
-                           <Image src={renderUrl} fill className="object-contain" alt={icon} />
+                           <Image src={renderUrl} fill className="object-contain" alt={icon} sizes="64px" />
                         </div>
                       </button>
                     )
@@ -300,25 +300,28 @@ export default function TeamSetup() {
               </div>
             </div>
 
-            <div className="space-y-6 flex flex-col items-center">
-               <label className="text-xs font-black uppercase text-stone-400 w-full">Logo Preview</label>
-               <div 
-                 className="w-48 h-48 rounded-[3rem] border-2 border-dashed border-stone-200 flex flex-col items-center justify-center relative overflow-hidden bg-stone-50 group hover:border-emerald-500/50 transition-colors"
-               >
-                 {newTeam.logoUrl ? (
-                   <Image src={newTeam.logoUrl} fill className="object-cover" alt="logo" />
-                 ) : (
-                   <div className="text-stone-300 text-center relative z-10 p-8">
-                     <Upload className="w-12 h-12 mx-auto mb-4 opacity-10 group-hover:scale-110 group-hover:text-emerald-500 transition-all" />
-                     <p className="text-[10px] uppercase font-black tracking-[0.3em]">Drop Branding Asset</p>
-                   </div>
-                 )}
-               </div>
-               <Button variant="outline" className="w-full relative overflow-hidden">
-                  <span className="flex items-center gap-2"><Upload className="w-4 h-4" /> Upload Custom Logo</span>
-                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleLogoUpload} accept="image/*" />
-               </Button>
-            </div>
+             <div className="space-y-4 flex flex-col items-center">
+                <label className="text-[10px] font-black uppercase text-stone-400 w-full tracking-widest">Identity Node</label>
+                 <div 
+                   className="w-44 h-44 rounded-full border-2 border-dashed border-stone-200 flex flex-col items-center justify-center relative overflow-hidden bg-white group hover:border-emerald-500 transition-all shadow-md"
+                   style={{ borderColor: newTeam.logoUrl ? 'white' : undefined }}
+                 >
+                   {newTeam.logoUrl ? (
+                     <div className="relative w-full h-full">
+                      <Image src={newTeam.logoUrl} fill className="object-cover scale-105" alt="logo" sizes="176px" />
+                     </div>
+                  ) : (
+                    <div className="text-stone-300 text-center relative z-10 p-6">
+                      <Upload className="w-10 h-10 mx-auto mb-3 opacity-20 group-hover:scale-110 group-hover:text-emerald-500 transition-all" />
+                      <p className="text-[9px] uppercase font-black tracking-widest">Deploy Asset</p>
+                    </div>
+                  )}
+                </div>
+                <Button variant="outline" className="w-full relative overflow-hidden rounded-xl h-11 text-[10px] font-black uppercase tracking-widest border-stone-200/60 shadow-sm">
+                   <span className="flex items-center gap-2"><Upload className="w-3.5 h-3.5" /> Upload Logo</span>
+                   <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleLogoUpload} accept="image/*" />
+                </Button>
+             </div>
           </div>
 
           <Button 
@@ -348,32 +351,34 @@ export default function TeamSetup() {
           {teams.map(team => {
             const renderUrl = STUFFY_RENDER_MAP[team.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
             return (
-              <motion.div layout key={team.id} className="relative group">
-                <Card className="rounded-[3rem] overflow-hidden border-2 border-stone-100 hover:shadow-2xl hover:-translate-y-2 transition-all bg-white relative">
-                   <div 
-                    className="absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-10 pointer-events-none" 
-                    style={{ backgroundColor: team.primaryColor }} 
-                   />
-                   
-                   <CardContent className="p-8 flex flex-col items-center gap-6 text-center relative z-10">
-                      <div 
-                        className="w-24 h-24 rounded-[2.5rem] flex items-center justify-center border-4 border-white shadow-xl relative overflow-hidden"
-                        style={{ backgroundColor: team.primaryColor }}
-                      >
-                        {team.logoUrl ? (
-                          <Image src={team.logoUrl} fill className="object-cover" alt={`${team.name} Logo`} />
-                        ) : (
-                          <div className="relative w-[120%] h-[120%] translate-y-2">
-                             <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={team.name} />
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-black text-stone-900 leading-none mb-2 uppercase tracking-tight">{team.name}</h4>
-                        <p className="text-[9px] text-stone-400 font-extrabold uppercase tracking-[0.2em]">{team.icon}</p>
-                      </div>
-                      
-                      <div className="flex gap-4 w-full pt-6 border-t border-stone-50">
+               <motion.div layout key={team.id} className="relative group">
+                 <Card className="rounded-2xl overflow-hidden border border-stone-100/60 hover:shadow-xl hover:-translate-y-1 transition-all bg-white relative">
+                    <div 
+                     className="absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-[0.03] pointer-events-none" 
+                     style={{ backgroundColor: team.primaryColor }} 
+                    />
+                    
+                    <CardContent className="p-6 flex flex-col items-center gap-5 text-center relative z-10">
+                        <div 
+                          className="w-28 h-28 rounded-full flex items-center justify-center border-2 border-white shadow-md relative overflow-hidden bg-white shrink-0 transition-transform group-hover:scale-110"
+                          style={{ borderColor: !team.logoUrl ? team.primaryColor : 'white' }}
+                        >
+                          {team.logoUrl ? (
+                            <div className="relative w-full h-full">
+                              <Image src={team.logoUrl} fill className="object-cover scale-105" alt={`${team.name} Logo`} sizes="112px" />
+                            </div>
+                         ) : (
+                           <div className="relative w-[120%] h-[120%] translate-y-3">
+                              <Image src={renderUrl} fill className="object-contain drop-shadow-2xl" alt={team.name} sizes="112px" />
+                           </div>
+                         )}
+                       </div>
+                       <div>
+                         <h4 className="text-sm font-black text-stone-900 leading-none mb-2 uppercase tracking-tighter italic">{team.name}</h4>
+                         <p className="text-[9px] text-stone-300 font-black uppercase tracking-[0.2em]">{team.icon}</p>
+                       </div>
+                       
+                       <div className="flex gap-4 w-full pt-4 border-t border-stone-100">
                          <div className="flex-1">
                             <p className="text-[8px] font-black text-stone-300 uppercase mb-1">Offense</p>
                             <p className="text-sm font-black text-stone-900 italic tracking-tighter">{team.offenseRating}</p>

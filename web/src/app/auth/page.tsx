@@ -42,14 +42,14 @@ export default function AuthPage() {
     <div className="min-h-screen bg-stone-50 flex items-center justify-center p-6 selection:bg-emerald-100 selection:text-emerald-900">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[480px]">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-[1.5rem] shadow-xl shadow-stone-200/50 mb-6 border border-stone-100">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-3xl shadow-xl shadow-stone-200/50 mb-6 border border-stone-100">
              <Fingerprint className="w-8 h-8 text-emerald-500" />
           </div>
           <h1 className="text-3xl font-black text-stone-900 uppercase tracking-widest leading-none mb-3">Entrance Tier</h1>
           <p className="text-stone-500 text-sm font-medium">Synchronize your simulation across all devices.</p>
         </div>
 
-        <Card className="rounded-[2.5rem] border-stone-200 shadow-2xl overflow-hidden bg-white">
+        <Card className="rounded-4xl border-stone-200 shadow-2xl overflow-hidden bg-white">
           <CardContent className="p-10">
             <div className="space-y-4 mb-10">
               <Button 
@@ -61,9 +61,9 @@ export default function AuthPage() {
                 Sign in with Google
               </Button>
               <div className="relative py-4 flex items-center">
-                <div className="flex-grow border-t border-stone-100"></div>
-                <span className="flex-shrink mx-4 text-[10px] font-black uppercase tracking-[0.2em] text-stone-300">or credential access</span>
-                <div className="flex-grow border-t border-stone-100"></div>
+                <div className="grow border-t border-stone-100"></div>
+                <span className="shrink mx-4 text-[10px] font-black uppercase tracking-[0.2em] text-stone-300">or credential access</span>
+                <div className="grow border-t border-stone-100"></div>
               </div>
             </div>
 

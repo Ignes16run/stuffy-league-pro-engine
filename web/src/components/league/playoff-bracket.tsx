@@ -93,20 +93,20 @@ export default function PlayoffBracket() {
   return (
     <div className="max-w-7xl mx-auto space-y-12 pb-20">
       {/* Tournament Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 p-10 rounded-[3.5rem] border-2 border-white/20 shadow-2xl relative overflow-hidden bg-stone-900 group">
-        <div className="absolute inset-0 z-0 overflow-hidden opacity-40">
-           <Image src={STADIUM_BG} fill className="object-cover scale-105 group-hover:scale-100 transition-transform duration-1000 saturate-50" alt="Stadium" />
-           <div className="absolute inset-0 bg-linear-to-t from-stone-950 via-stone-900/40 to-transparent" />
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 p-8 rounded-3xl border border-stone-100 shadow-sm relative overflow-hidden bg-white/80 backdrop-blur-xl group">
+        <div className="absolute inset-0 z-0 overflow-hidden opacity-10">
+           <Image src={STADIUM_BG} fill className="object-cover scale-105 group-hover:scale-100 transition-transform duration-1000 saturate-0" alt="Stadium" sizes="100vw" />
+           <div className="absolute inset-0 bg-linear-to-t from-white via-stone-50/20 to-transparent" />
         </div>
         
         <div className="relative z-10 space-y-3">
             <div className="flex items-center gap-5">
-               <div className="w-16 h-16 bg-linear-to-br from-amber-400 to-amber-600 rounded-4xl flex items-center justify-center shadow-2xl shadow-amber-500/40 border-2 border-white/20 animate-pulse">
-                  <Trophy className="w-7 h-7 text-stone-950" />
+               <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100">
+                  <Trophy className="w-7 h-7 text-emerald-500" />
                </div>
                <div>
-                  <h2 className="text-4xl font-black text-white uppercase tracking-tight leading-none drop-shadow-lg">Playoff Bracket</h2>
-                  <p className="text-amber-400/60 text-[10px] font-black uppercase tracking-[0.4em] mt-2">Road to the Stuffy Bowl</p>
+                  <h2 className="text-4xl font-black text-stone-900 uppercase tracking-tighter leading-none italic">Playoff Bracket</h2>
+                  <p className="text-emerald-500/60 text-[10px] font-black uppercase tracking-[0.4em] mt-3">Road to the Stuffy Bowl</p>
                </div>
             </div>
         </div>
@@ -115,9 +115,9 @@ export default function PlayoffBracket() {
           <Button 
             variant="outline" 
             onClick={resetPlayoffs}
-            className="h-14 px-8 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10 transition-all font-black text-[10px] uppercase tracking-widest gap-3 backdrop-blur-md"
+            className="h-14 px-8 rounded-2xl border-stone-100 bg-white text-stone-900 hover:bg-stone-50 transition-all font-black text-[10px] uppercase tracking-widest gap-3 shadow-sm shadow-stone-200/50"
           >
-            <RotateCcw className="w-4 h-4 text-amber-400" />
+            <RotateCcw className="w-4 h-4 text-emerald-500" />
             Reset Bracket
           </Button>
           <Button 
@@ -125,7 +125,7 @@ export default function PlayoffBracket() {
             disabled={isSimulating}
             className={cn(
               "h-14 px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest gap-3 shadow-2xl transition-all active:scale-[0.98]",
-              "bg-amber-400 hover:bg-amber-500 text-stone-950 shadow-amber-400/20"
+              "bg-stone-900 hover:bg-black text-white shadow-stone-900/20"
             )}
           >
             {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
@@ -211,9 +211,9 @@ function RoundColumn({ round, title, games, teams, onPick }: { round: number, ti
           <MatchupCard key={game.id} game={game} teams={teams} delay={idx * 0.05} onPick={onPick} />
         ))}
         {games.length === 0 && (
-          <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-stone-200/50 rounded-[2.5rem] text-stone-300 space-y-4 bg-stone-50/30">
-             <Star className="w-8 h-8 opacity-10 animate-pulse" />
-             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300 text-center">Awaiting Seeding</p>
+          <div className="flex flex-col items-center justify-center p-12 border border-dashed border-stone-100 rounded-2xl text-stone-300 space-y-4 bg-white/30">
+             <Star className="w-6 h-6 opacity-20 animate-pulse" />
+             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300 text-center">Awaiting Seeding</p>
           </div>
         )}
       </div>
@@ -235,81 +235,83 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
       transition={{ delay, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
       className="relative group scale-95 origin-center"
     >
-      <div className="bg-stone-900/90 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden ring-1 ring-white/10 group-hover:shadow-amber-500/10 transition-all duration-700">
+      <div className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden group-hover:border-emerald-500/30 transition-all duration-500">
          {/* Team 1 */}
          <div 
            className={cn(
-            "p-5 flex items-center justify-between transition-all duration-500 relative",
-            game.winnerId === team1?.id && !!team1?.id ? "bg-white/5" : "hover:bg-white/5 cursor-pointer"
+            "p-3 flex items-center justify-between transition-all duration-500 relative",
+            game.winnerId === team1?.id && !!team1?.id ? "bg-emerald-50/50" : "hover:bg-stone-50/50 cursor-pointer"
            )}
            onClick={() => team1 && onPick(game.id, team1.id)}
          >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
                <div 
-                className="w-12 h-12 rounded-2xl flex items-center justify-center border-2 border-white/10 shadow-2xl relative overflow-hidden transition-all duration-700 group-hover:scale-110"
+                className="w-20 h-20 rounded-full flex items-center justify-center border-2 border-stone-100 shadow-md relative overflow-hidden transition-all duration-500 bg-white shrink-0"
                 style={{ 
-                  backgroundColor: team1?.primaryColor || '#1c1917', 
-                  boxShadow: team1 ? `0 8px 32px -8px ${team1.primaryColor}60` : 'none'
+                  borderColor: team1?.logoUrl ? '#f8fafc' : team1?.primaryColor || '#f5f5f4', 
                 }}
               >
                 {team1?.logoUrl ? (
-                  <Image src={team1.logoUrl} fill className="object-cover" alt={team1.name} />
+                  <div className="relative w-full h-full">
+                    <Image src={team1.logoUrl} fill className="object-cover scale-105" alt={team1.id} sizes="80px" />
+                  </div>
                 ) : (
                   <div className="relative w-[130%] h-[130%] translate-y-2">
-                     <Image src={render1} fill className="object-contain drop-shadow-lg" alt={team1?.name || '?'} />
+                     <Image src={render1} fill className="object-contain drop-shadow-lg" alt={team1?.name || '?'} sizes="104px" />
                   </div>
                 )}
               </div>
               <div className="flex flex-col">
-                 <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] leading-none mb-1">{game.seed1 ? `#${game.seed1}` : '--'}</span>
-                 <span className="text-sm font-black text-white uppercase tracking-tighter truncate max-w-[130px] leading-none">{team1?.name || 'Awaiting'}</span>
+                 <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1">{game.seed1 ? `#${game.seed1}` : '--'}</span>
+                 <span className="text-xs font-black text-stone-900 uppercase tracking-tighter truncate max-w-[120px] leading-none italic">{team1?.name || 'Awaiting'}</span>
               </div>
             </div>
-            <div className={cn("text-2xl font-black italic tracking-tighter drop-shadow-lg", game.winnerId === team1?.id && !!team1?.id ? "text-amber-400" : "text-white/20")}>
+            <div className={cn("text-2xl font-black italic tracking-tighter", game.winnerId === team1?.id && !!team1?.id ? "text-emerald-500" : "text-stone-200")}>
                {game.team1Score || 0}
             </div>
             {game.winnerId === team1?.id && (
-               <div className="absolute left-0 top-0 w-1 h-full bg-amber-400" />
+               <div className="absolute left-0 top-0 w-1 h-full bg-emerald-500" />
             )}
          </div>
 
          {/* Visual Divider */}
-         <div className="h-px w-full bg-white/5" />
+         <div className="h-px w-full bg-stone-100" />
 
          {/* Team 2 */}
          <div 
            className={cn(
-            "p-5 flex items-center justify-between transition-all duration-500 relative",
-            game.winnerId === team2?.id && !!team2?.id ? "bg-white/5" : "hover:bg-white/5 cursor-pointer"
+            "p-3 flex items-center justify-between transition-all duration-500 relative",
+            game.winnerId === team2?.id && !!team2?.id ? "bg-emerald-50/50" : "hover:bg-stone-50/50 cursor-pointer"
            )}
            onClick={() => team2 && onPick(game.id, team2.id)}
          >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
                <div 
-                className="w-12 h-12 rounded-2xl flex items-center justify-center border-2 border-white/10 shadow-2xl relative overflow-hidden transition-all duration-700 group-hover:scale-110"
+                className="w-20 h-20 rounded-full flex items-center justify-center border-2 border-stone-100 shadow-md relative overflow-hidden transition-all duration-500 bg-white shrink-0"
                 style={{ 
-                  backgroundColor: team2?.primaryColor || '#1c1917', 
-                  boxShadow: team2 ? `0 8px 32px -8px ${team2.primaryColor}60` : 'none'
+                  borderColor: team2?.logoUrl ? '#f8fafc' : team2?.primaryColor || '#f5f5f4', 
                 }}
               >
                 {team2?.logoUrl ? (
-                  <Image src={team2.logoUrl} fill className="object-cover" alt={team2.name} />
+                  <div className="relative w-full h-full">
+                    <Image src={team2.logoUrl} fill className="object-cover scale-105" alt={team2.id} sizes="80px" />
+                  </div>
                 ) : (
                   <div className="relative w-[130%] h-[130%] translate-y-2">
-                     <Image src={render2} fill className="object-contain drop-shadow-lg" alt={team2?.name || '?'} />
+                     <Image src={render2} fill className="object-contain drop-shadow-lg" alt={team2?.name || '?'} sizes="104px" />
                   </div>
                 )}
               </div>
               <div className="flex flex-col">
-                 <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] leading-none mb-1">{game.seed2 ? `#${game.seed2}` : '--'}</span>
-                 <span className="text-sm font-black text-white uppercase tracking-tighter truncate max-w-[130px] leading-none">{team2?.name || 'Awaiting'}</span>
+                 <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1">{game.seed2 ? `#${game.seed2}` : '--'}</span>
+                 <span className="text-xs font-black text-stone-900 uppercase tracking-tighter truncate max-w-[120px] leading-none italic">{team2?.name || 'Awaiting'}</span>
               </div>
             </div>
-            <div className={cn("text-2xl font-black italic tracking-tighter drop-shadow-lg", game.winnerId === team2?.id && !!team2?.id ? "text-amber-400" : "text-white/20")}>
+            <div className={cn("text-2xl font-black italic tracking-tighter", game.winnerId === team2?.id && !!team2?.id ? "text-emerald-500" : "text-stone-200")}>
                {game.team2Score || 0}
             </div>
             {game.winnerId === team2?.id && (
-               <div className="absolute left-0 top-0 w-1 h-full bg-amber-400" />
+               <div className="absolute left-0 top-0 w-1 h-full bg-emerald-500" />
             )}
          </div>
 
@@ -319,7 +321,7 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
               <motion.div 
                 initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
                 animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-amber-400 text-stone-950 rounded-lg px-2 py-1 shadow-2xl z-50 transform"
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-emerald-500 text-white rounded-lg px-2 py-1 shadow-2xl z-50 transform"
               >
                  <span className="text-[8px] font-black uppercase tracking-tighter">Winner</span>
               </motion.div>
@@ -328,7 +330,7 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
       </div>
       
       {/* Branch Connectors */}
-      <div className="absolute top-1/2 -right-12 w-12 h-px bg-white/10 group-hover:bg-amber-400/30 transition-colors duration-500" />
+      <div className="absolute top-1/2 -right-12 w-12 h-px bg-stone-200 group-hover:bg-emerald-400/30 transition-colors duration-500" />
     </motion.div>
   );
 }

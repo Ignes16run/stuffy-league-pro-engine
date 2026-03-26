@@ -40,7 +40,7 @@ export default function ProfilePage() {
     <div className="max-w-6xl mx-auto p-12 space-y-12">
       <header className="flex items-center justify-between">
          <div className="flex items-center gap-8">
-            <div className="w-24 h-24 bg-white rounded-[2rem] shadow-2xl shadow-stone-200/50 flex items-center justify-center border border-stone-100 overflow-hidden relative">
+            <div className="w-24 h-24 bg-white rounded-4xl shadow-2xl shadow-stone-200/50 flex items-center justify-center border border-stone-100 overflow-hidden relative">
                 {profile?.avatar_url ? (
                   <div className="relative w-full h-full">
                     <Image src={profile.avatar_url} fill className="object-cover" alt="Avatar" />
@@ -72,7 +72,7 @@ export default function ProfilePage() {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-         <Card className="rounded-[3rem] border-stone-100 shadow-xl p-10 bg-white">
+         <Card className="rounded-4xl border-stone-100 shadow-xl p-10 bg-white">
             <CardTitle className="text-xl font-black text-stone-900 uppercase tracking-widest mb-1">Administrative Node</CardTitle>
             <CardDescription className="text-stone-400 text-xs mb-8">Maintain record integrity and simulation identity.</CardDescription>
             <div className="space-y-6">
@@ -82,22 +82,22 @@ export default function ProfilePage() {
             </div>
          </Card>
 
-         <Card className="rounded-[3rem] border-stone-100 shadow-xl p-10 bg-stone-900 text-white overflow-hidden relative">
+         <Card className="rounded-4xl border-stone-100 shadow-xl p-10 bg-stone-50 border-dashed relative overflow-hidden">
             <div className="relative z-10">
-              <CardTitle className="text-xl font-black uppercase tracking-widest mb-1">Legacy History</CardTitle>
+              <CardTitle className="text-xl font-black uppercase tracking-widest mb-1 text-stone-900">Legacy History</CardTitle>
               <CardDescription className="text-stone-400 text-xs mb-8">Archived season results and historical snapshots.</CardDescription>
               <div className="space-y-4">
                  {history.length === 0 ? (
-                   <div className="py-12 text-center text-stone-500 border border-dashed border-stone-800 rounded-[2rem]">
+                   <div className="py-12 text-center text-stone-300 border border-dashed border-stone-200 rounded-3xl">
                       <p className="font-black uppercase text-[10px] tracking-widest">No Archived Eras</p>
                    </div>
                  ) : (
                    history.map((h, i) => (
-                     <div key={i} className="flex items-center justify-between p-4 bg-stone-800/50 rounded-2xl border border-stone-700/50">
-                        <span className="font-black text-sm uppercase tracking-widest">Year {h.year}</span>
+                     <div key={i} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-stone-100 shadow-sm">
+                        <span className="font-black text-sm uppercase tracking-widest text-stone-900">Year {h.year}</span>
                         <div className="flex items-center gap-3">
-                           <Trophy className="w-4 h-4 text-amber-400" />
-                           <span className="text-[11px] font-bold text-stone-300">Champion Node Identified</span>
+                           <Trophy className="w-4 h-4 text-amber-500" />
+                           <span className="text-[11px] font-bold text-stone-400">Champion Node Identified</span>
                         </div>
                      </div>
                    ))
@@ -113,9 +113,9 @@ export default function ProfilePage() {
 
 function StatCard({ icon, label, value }: { icon: any, label: string, value: any }) {
   return (
-    <Card className="rounded-[2.5rem] p-10 border-stone-100 shadow-xl shadow-stone-200/50 bg-white">
+    <Card className="rounded-4xl p-10 border-stone-100 shadow-xl shadow-stone-200/50 bg-white">
        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 rounded-[1.5rem] bg-stone-50 flex items-center justify-center border border-stone-100">
+          <div className="w-16 h-16 rounded-3xl bg-stone-50 flex items-center justify-center border border-stone-100">
              {React.cloneElement(icon, { size: 30 })}
           </div>
           <div>

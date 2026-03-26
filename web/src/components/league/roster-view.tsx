@@ -4,15 +4,14 @@ import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Search, Users, Filter, SlidersHorizontal, Edit2, Shield, Star, Trophy, Target
+  Search, Filter, SlidersHorizontal, Edit2, Shield, Star, Trophy, Target
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
-import { STUFFY_RENDER_MAP, STADIUM_BG } from '@/lib/league/assetMap';
+import { STUFFY_RENDER_MAP, PLAYER_SPECIFIC_RENDERS } from '@/lib/league/assetMap';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,40 +34,28 @@ export default function RosterView() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-12 pb-20">
-      {/* Premium Search & Filter Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 bg-white/40 backdrop-blur-2xl p-10 rounded-[3rem] border border-stone-100 shadow-2xl shadow-stone-200/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-stone-50/50 p-6 rounded-2xl border border-stone-100 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 blur-[120px] -mr-40 -mt-40 pointer-events-none" />
         
-        <div className="relative z-10 space-y-3">
-            <div className="flex items-center gap-4">
-               <div className="w-14 h-14 bg-emerald-500 rounded-3xl flex items-center justify-center shadow-2xl shadow-emerald-500/40">
-                  <Users className="w-6 h-6 text-white" />
-               </div>
-               <div>
-                  <h2 className="text-4xl font-black text-stone-900 uppercase tracking-tight leading-none">Personnel</h2>
-                  <p className="text-stone-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Global Athlete Database</p>
-               </div>
-            </div>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-4 relative z-10">
+        <div className="flex flex-wrap items-center gap-4 relative z-10 w-full">
           <div className="relative group flex-1 min-w-[300px]">
              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300 group-focus-within:text-emerald-500 transition-colors" />
              <Input 
-                placeholder="Search stuffy roster..." 
-                className="pl-14 h-16 rounded-2xl border-stone-100 bg-white/60 focus-visible:ring-emerald-500 transition-all font-bold text-stone-600 placeholder:text-stone-300 shadow-sm"
+                placeholder="Search database..." 
+                className="pl-14 h-14 rounded-xl border-stone-100 bg-white/60 focus-visible:ring-emerald-500 transition-all font-bold text-stone-600 placeholder:text-stone-300 shadow-sm"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
              />
           </div>
           <Select value={teamFilter} onValueChange={(val) => setTeamFilter(val || 'all')}>
-            <SelectTrigger className="w-64 h-16 rounded-2xl border-stone-100 bg-white/60 font-black text-[10px] uppercase tracking-widest text-stone-500 focus:ring-emerald-500 shadow-sm">
+            <SelectTrigger className="w-64 h-14 rounded-xl border-stone-100 bg-white/60 font-black text-[10px] uppercase tracking-widest text-stone-500 focus:ring-emerald-500 shadow-sm">
                <div className="flex items-center gap-3">
                   <Filter className="w-4 h-4 text-emerald-500" />
-                  <SelectValue placeholder="Filter Franchises" />
+                  <SelectValue placeholder="Filter Results" />
                </div>
             </SelectTrigger>
-            <SelectContent className="rounded-2xl border-stone-100 shadow-2xl">
+            <SelectContent className="rounded-xl border-stone-100 shadow-lg">
               <SelectItem value="all" className="font-black text-[10px] uppercase tracking-widest py-3">All Franchises</SelectItem>
               {teams.map(t => (
                 <SelectItem key={t.id} value={t.id} className="font-black text-[10px] uppercase tracking-widest py-3">{t.name}</SelectItem>
@@ -120,7 +107,20 @@ export default function RosterView() {
 
 function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Team | undefined, index: number, onEdit: () => void }) {
   const [rotate, setRotate] = useState({ x: 0, y: 0 });
-  const renderUrl = team ? STUFFY_RENDER_MAP[team.icon] : STUFFY_RENDER_MAP.TeddyBear;
+  const baseRenderUrl = team ? STUFFY_RENDER_MAP[team.icon] : STUFFY_RENDER_MAP.TeddyBear;
+  
+  const getRenderUrl = () => {
+    if (player.profilePicture) return player.profilePicture;
+    let hash = 0;
+    for (let i = 0; i < player.id.length; i++) hash = player.id.charCodeAt(i) + ((hash << 5) - hash);
+    // 25% chance of having a specific profile picture for variety if available
+    if ((Math.abs(hash) % 100) < 25 && PLAYER_SPECIFIC_RENDERS?.length > 0) {
+       return PLAYER_SPECIFIC_RENDERS[Math.abs(hash) % PLAYER_SPECIFIC_RENDERS.length];
+    }
+    return baseRenderUrl;
+  };
+  const renderUrl = getRenderUrl();
+
   const rating = player.rating;
 
   const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -138,7 +138,7 @@ function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Tea
   const getRatingColor = (v: number) => {
     if (v >= 90) return 'text-amber-500';
     if (v >= 80) return 'text-emerald-500';
-    if (v >= 70) return 'text-stone-600';
+    if (v >= 70) return 'text-stone-800';
     return 'text-stone-400';
   };
 
@@ -168,108 +168,101 @@ function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Tea
     >
       <Card 
         className={cn(
-          "relative h-[480px] rounded-[3rem] border-2 overflow-hidden bg-stone-900 shadow-2xl transition-all cursor-pointer",
-          rating >= 90 ? "border-amber-400/50" : "border-white/10"
+          "relative h-[560px] rounded-[2.5rem] border-0 overflow-hidden bg-white hover:shadow-xl transition-all duration-700 cursor-pointer group/card",
+          rating >= 90 ? "ring-2 ring-amber-400/20" : ""
         )}
         style={{ 
-          boxShadow: team ? `0 40px 80px -20px ${team.primaryColor}40` : '0 20px 40px -15px rgba(0,0,0,0.2)'
+          boxShadow: '0 4px 20px -5px rgba(0,0,0,0.05)'
         }}
       >
-        {/* Stadium Background Overlay */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
-           <Image 
-            src={STADIUM_BG} 
-            fill
-            className="object-cover opacity-30 scale-110 group-hover:scale-100 transition-transform duration-1000 saturate-0 group-hover:saturate-100" 
-            alt="Stadium" 
-           />
-           <div className="absolute inset-0 bg-linear-to-t from-stone-950 via-stone-900/60 to-transparent" />
-        </div>
+        {/* Modern Sports Card Layout */}
+        <div className="absolute inset-0 flex flex-col p-6">
+          {/* Top Section: Team & Pos */}
+          <div className="flex justify-between items-start z-10">
+             <div className="space-y-1">
+                <span className="text-[10px] font-black text-stone-300 uppercase tracking-[0.3em] block mb-1">Franchise</span>
+                <p className="text-[12px] font-black text-stone-800 uppercase tracking-tighter italic truncate max-w-[130px]">
+                   {team?.name || 'Unassigned'}
+                </p>
+             </div>
+             <div className="text-right">
+                <div className="bg-stone-900 text-white rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest inline-block mb-1">
+                   {player.position}
+                </div>
+                <div className="flex gap-0.5 justify-end">
+                   {[1,2,3].map(i => <Star key={i} className={cn("w-2 h-2", i <= (rating/20) ? "text-amber-400 fill-current" : "text-stone-200")} />)}
+                </div>
+             </div>
+          </div>
 
-        {/* Character Render (Popping Out) */}
-        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-           <motion.div 
-             animate={{ 
-               y: rotate.x * 0.5,
-               x: rotate.y * 0.5
-             }}
-             className="relative w-[85%] h-full flex items-center justify-center group-hover:scale-110 transition-all duration-700"
-           >
-              <Image 
-                src={renderUrl}
-                fill
-                className="object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
-                alt={player.name}
-              />
-           </motion.div>
-        </div>
+          {/* Middle Section: Circular Stuffy Render */}
+          <div className="flex-1 flex items-center justify-center relative my-2">
+             {/* OVR Rating Backdrop */}
+             <div className={cn(
+               "absolute text-[9rem] font-black italic tracking-tighter leading-none opacity-[0.02] select-none",
+               getRatingColor(rating)
+             )}>
+                {rating}
+             </div>
 
-        {/* Foil/Holographic Flash Effect */}
-        <motion.div 
-          className="absolute inset-0 z-30 opacity-0 group-hover:opacity-10 pointer-events-none bg-linear-to-br from-white via-transparent to-transparent blend-soft-light"
-          style={{
-            background: `radial-gradient(circle at ${50 + rotate.y * 2}% ${50 + rotate.x * 2}%, rgba(255,255,255,0.8) 0%, transparent 60%)`
-          }}
-        />
+             <div className="relative w-52 h-52 group-hover/card:scale-105 transition-transform duration-700">
+                {/* Main Circular Mask */}
+                <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-white shadow-lg z-10 bg-stone-50">
+                   <Image 
+                     src={renderUrl} 
+                     fill 
+                     className="object-cover scale-150 translate-y-2" 
+                     alt={player.name}
+                     sizes="208px"
+                   />
+                </div>
 
-        {/* Premium Frame & HUD */}
-        <div className="absolute inset-0 z-40 p-8 flex flex-col justify-between">
-            {/* Top HUD: Position & Rank */}
-            <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                   <div className="flex items-center gap-2">
-                      <Badge className="bg-amber-400 text-stone-950 border-0 text-[10px] font-black uppercase h-6 px-3 tracking-tighter rounded-lg">
-                         {player.position}
-                      </Badge>
-                      {rating >= 90 && (
-                        <div className="flex gap-0.5">
-                          {[1,2,3].map(i => <Star key={i} className="w-3 h-3 text-amber-400 fill-current opacity-80" />)}
-                        </div>
-                      )}
+                {/* Rating Badge Overlay */}
+                <div className={cn(
+                  "absolute -top-1 -right-1 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg z-20 border-2 border-white -rotate-12",
+                  getRatingColor(rating).replace('text-', 'bg-')
+                )}>
+                   <span className="text-xl font-black text-white italic tracking-tighter leading-none">{rating}</span>
+                </div>
+             </div>
+          </div>
+
+          {/* Bottom Section: Name & Stats */}
+          <div className="z-10 space-y-4">
+             <div className="text-center group-hover/card:translate-y-[-2px] transition-transform duration-500">
+                <h3 className="text-3xl font-black text-stone-900 leading-tight uppercase tracking-tighter italic truncate">
+                   {player.name}
+                </h3>
+             </div>
+
+             <div className="grid grid-cols-3 gap-2 py-3 px-2 bg-stone-50/50 backdrop-blur-md rounded-2xl border border-stone-100 shadow-sm">
+                {player.abilities.slice(0, 3).map((ability, i) => (
+                   <div key={i} className="flex flex-col items-center">
+                      <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-0.5">{ability.name.slice(0, 3)}</span>
+                      <span className="text-sm font-black text-stone-800 tabular-nums">{ability.value}</span>
+                   </div>
+                ))}
+             </div>
+
+             <div className="flex items-center justify-between px-1 pt-1">
+                <div className="flex items-center gap-2">
+                   <div className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center border border-stone-200">
+                      <Shield className="w-3 h-3 text-stone-400" />
+                   </div>
+                   <span className="text-[10px] font-black text-stone-400 italic">#{player.jerseyNumber || (index + 10)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                   <span className="text-[8px] font-black text-stone-300 uppercase tracking-widest opacity-0 group-hover/card:opacity-100 transition-opacity">Record</span>
+                   <div className="w-9 h-9 rounded-full bg-stone-900 flex items-center justify-center shadow-lg hover:bg-emerald-500 transition-all duration-300">
+                      <Edit2 className="w-3.5 h-3.5 text-white" />
                    </div>
                 </div>
-                <div className={cn("text-6xl font-black tracking-tighter italic leading-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]", getRatingColor(rating))}>
-                   {rating}
-                </div>
-            </div>
-
-            {/* Bottom HUD: Dynamic Stats & Name */}
-            <div className="space-y-4 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
-                <div className="space-y-1">
-                   <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] block">
-                      {team?.name || 'Unassigned'}
-                   </span>
-                   <h3 className="text-3xl font-black text-white leading-none uppercase tracking-tight drop-shadow-lg">
-                      {player.name}
-                   </h3>
-                </div>
-
-                <div className="flex items-center gap-4 py-3 px-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10">
-                   {player.abilities.slice(0, 3).map((ability, i) => (
-                      <div key={i} className="flex-1 flex flex-col items-center">
-                         <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">{ability.name.slice(0, 3)}</span>
-                         <span className="text-sm font-black text-white">{ability.value}</span>
-                      </div>
-                   ))}
-                </div>
-
-                <div className="flex items-center justify-between px-1">
-                   <div className="flex items-center gap-2 opacity-60">
-                      <Shield className="w-4 h-4 text-white/50" />
-                      <span className="text-xs font-black text-white italic">#{player.jerseyNumber || (index + 10)}</span>
-                   </div>
-                   <div 
-                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-emerald-500 hover:scale-110 transition-all duration-300"
-                    style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
-                   >
-                      <Edit2 className="w-4 h-4 text-white" />
-                   </div>
-                </div>
-            </div>
+             </div>
+          </div>
         </div>
 
-        {/* Gloss Overlay */}
-        <div className="absolute inset-0 z-50 pointer-events-none bg-linear-to-tr from-white/5 to-transparent opacity-20" />
+        {/* Gloss/Reflect Effect */}
+        <div className="absolute inset-0 z-50 pointer-events-none bg-linear-to-tr from-white/5 via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-700" />
       </Card>
     </motion.div>
   );
@@ -308,19 +301,19 @@ function BulkRatingEditor({ teamId, onApply }: { teamId: string, onApply: (playe
       <Button 
         variant="outline" 
         onClick={() => setIsOpen(true)}
-        className="h-16 px-8 rounded-2xl border-stone-100 bg-white/60 text-stone-600 hover:bg-emerald-50 hover:text-emerald-700 transition-all font-black text-[10px] uppercase tracking-widest gap-3 shadow-sm group"
+        className="h-14 px-8 rounded-xl border-stone-100 bg-white/60 text-stone-600 hover:bg-emerald-50 hover:text-emerald-700 transition-all font-black text-[10px] uppercase tracking-widest gap-3 shadow-sm group"
       >
         <SlidersHorizontal className="w-4 h-4 text-stone-300 group-hover:text-emerald-500" />
         Scouting Lab
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="rounded-[3rem] border-0 bg-white/95 backdrop-blur-2xl shadow-2xl p-0 overflow-hidden sm:max-w-[500px]">
-          <div className="h-32 bg-stone-900 p-10 relative overflow-hidden">
-             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 blur-[60px] -mr-16 -mt-16" />
+        <DialogContent className="rounded-4xl border-0 bg-white shadow-3xl p-0 overflow-hidden sm:max-w-[500px]">
+          <div className="h-32 bg-stone-50 p-8 relative overflow-hidden border-b border-stone-100">
+             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[60px] -mr-16 -mt-16" />
              <div className="relative z-10">
-                <DialogTitle className="text-2xl font-black text-white uppercase tracking-tight leading-none">Scouting Lab</DialogTitle>
-                <p className="text-stone-400 font-bold uppercase text-[9px] tracking-[0.3em] mt-3">Advanced Franchise Calibration</p>
+                <DialogTitle className="text-2xl font-black text-stone-900 uppercase tracking-tighter leading-none italic">Scouting Lab</DialogTitle>
+                <p className="text-emerald-600/60 font-black uppercase text-[9px] tracking-[0.4em] mt-3">Advanced Franchise Calibration</p>
              </div>
           </div>
           <div className="p-10 space-y-8">
@@ -410,22 +403,28 @@ function PlayerEditDialog({ player, team, onClose, onSave }: { player: Player, t
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="rounded-[3rem] bg-white border-0 shadow-2xl p-0 overflow-hidden sm:max-w-[550px]">
-        <div className="h-40 bg-stone-900 p-10 relative overflow-hidden">
+      <DialogContent className="rounded-4xl bg-white border-0 shadow-3xl p-0 overflow-hidden sm:max-w-[550px]">
+        <div className="h-40 bg-stone-50 p-10 relative overflow-hidden border-b border-stone-100">
            <div 
-             className="absolute top-0 right-0 w-48 h-48 blur-[80px] opacity-20 pointer-events-none" 
+             className="absolute top-0 right-0 w-48 h-48 blur-[80px] opacity-10 pointer-events-none" 
              style={{ backgroundColor: team?.primaryColor || '#10b981' }} 
            />
            <div className="flex items-center gap-6 relative z-10">
               <div 
-                className="w-20 h-20 rounded-[2rem] flex items-center justify-center border-4 border-white shadow-2xl"
-                style={{ backgroundColor: team?.primaryColor }}
+                className="w-20 h-20 rounded-3xl flex items-center justify-center border-4 border-white shadow-2xl bg-white"
+                style={{ backgroundColor: team?.logoUrl ? 'white' : team?.primaryColor }}
               >
-                 <Trophy className="w-8 h-8 text-white" />
+                 {team?.logoUrl ? (
+                   <div className="relative w-full h-full p-4">
+                     <Image src={team.logoUrl} fill className="object-contain" alt={team.name} sizes="80px" />
+                   </div>
+                 ) : (
+                    <Trophy className="w-8 h-8 text-stone-400" />
+                 )}
               </div>
               <div className="space-y-1">
-                 <DialogTitle className="text-3xl font-black text-white uppercase tracking-tight">{player.name}</DialogTitle>
-                 <DialogDescription className="text-stone-400 font-black uppercase text-[9px] tracking-[0.3em]">Athlete ID Dossier</DialogDescription>
+                 <DialogTitle className="text-3xl font-black text-stone-900 uppercase tracking-tight leading-none">{player.name}</DialogTitle>
+                 <DialogDescription className="text-emerald-600 font-black uppercase text-[9px] tracking-[0.3em]">Athlete ID Dossier</DialogDescription>
               </div>
            </div>
         </div>

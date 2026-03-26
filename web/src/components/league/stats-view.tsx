@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useLeague } from '@/context/league-context';
 import { Player, PlayerStats, PlayerPosition, StuffyIcon } from '@/lib/league/types';
-import { Target, Search, Users, Filter, X } from 'lucide-react';
+import { Target, Search, Users, Filter, X, Trophy } from 'lucide-react';
 import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -90,10 +90,10 @@ export default function StatsView() {
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-24">
       {/* Header & Main Toggle */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white rounded-3xl p-6 shadow-sm border border-stone-100 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white rounded-2xl p-6 shadow-sm border border-stone-100 gap-4">
         <div>
-          <h2 className="text-2xl font-black text-stone-900 uppercase tracking-tighter leading-none mb-1">League Statistics</h2>
-          <p className="text-xs text-stone-500 font-medium italic">Performance metrics and global leaderboards.</p>
+          <h2 className="text-4xl font-black text-stone-900 uppercase tracking-tighter leading-none mb-1 italic">League Statistics</h2>
+          <p className="text-emerald-500/60 text-[10px] font-black uppercase tracking-[0.4em] mt-3">Metrical Analysis & Global Performance Node</p>
         </div>
         <div className="flex bg-stone-100 p-1 rounded-xl shadow-inner gap-0.5 self-end">
            <button 
@@ -108,43 +108,43 @@ export default function StatsView() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl p-4 shadow-sm border border-stone-100">
+      <div className="flex flex-wrap items-center gap-3 bg-white rounded-xl p-3 shadow-sm border border-stone-100">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
           <Input 
-            placeholder="Search players..." 
+            placeholder="Search database..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-10 border-stone-100 rounded-xl"
+            className="pl-10 h-10 border-stone-100 rounded-lg text-sm font-bold"
           />
         </div>
         
-        <div className="w-56">
+        <div className="w-52">
           <Select value={teamFilter} onValueChange={(val) => setTeamFilter(val || 'all')}>
-            <SelectTrigger className="h-10 border-stone-100 rounded-xl bg-stone-50/50">
-              <Users className="w-4 h-4 text-stone-400 mr-2" />
-              <SelectValue placeholder="All Teams" />
+            <SelectTrigger className="h-10 border-stone-100 rounded-lg bg-stone-50/50 text-[10px] font-black uppercase tracking-widest text-stone-400">
+              <Users className="w-3.5 h-3.5 text-stone-300 mr-2" />
+              <SelectValue placeholder="All Franchises" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Teams</SelectItem>
+            <SelectContent className="rounded-xl border-stone-100">
+              <SelectItem value="all" className="text-[10px] font-black uppercase tracking-widest">All Franchises</SelectItem>
               {teams.map(t => (
-                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                <SelectItem key={t.id} value={t.id} className="text-[10px] font-black uppercase tracking-widest">{t.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
         {currentAvailablePositions.length > 0 && (
-          <div className="w-48">
+          <div className="w-44">
             <Select value={positionFilter} onValueChange={(val) => setPositionFilter(val || 'all')}>
-              <SelectTrigger className="h-10 border-stone-100 rounded-xl bg-stone-50/50">
-                <Filter className="w-4 h-4 text-stone-400 mr-2" />
-                <SelectValue placeholder="All Positions" />
+              <SelectTrigger className="h-10 border-stone-100 rounded-lg bg-stone-50/50 text-[10px] font-black uppercase tracking-widest text-stone-400">
+                <Filter className="w-3.5 h-3.5 text-stone-300 mr-2" />
+                <SelectValue placeholder="Position" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Positions</SelectItem>
+              <SelectContent className="rounded-xl border-stone-100">
+                <SelectItem value="all" className="text-[10px] font-black uppercase tracking-widest">A-Pos</SelectItem>
                 {currentAvailablePositions.map(p => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                  <SelectItem key={p} value={p} className="text-[10px] font-black uppercase tracking-widest">{p}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -154,9 +154,9 @@ export default function StatsView() {
         {(searchQuery || teamFilter !== 'all' || positionFilter !== 'all') && (
           <button 
             onClick={resetFilters}
-            className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-stone-400 hover:text-stone-900 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-[9px] font-black uppercase text-stone-300 hover:text-rose-500 transition-colors tracking-widest"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3 h-3" />
             Clear
           </button>
         )}
@@ -273,16 +273,25 @@ function TeamStatsView({ preselectedTeamId }: { preselectedTeamId: string | null
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-xs font-black" style={{ backgroundColor: selectedTeam?.primaryColor }}>
-            {selectedTeam?.name.substring(0, 2).toUpperCase()}
+          <div 
+            className="w-20 h-20 rounded-full flex items-center justify-center border-2 border-white shadow-md relative overflow-hidden bg-white shrink-0"
+            style={{ borderColor: !selectedTeam?.logoUrl ? selectedTeam?.primaryColor : 'white' }}
+          >
+            {selectedTeam?.logoUrl ? (
+                <div className="relative w-full h-full">
+                  <Image src={selectedTeam.logoUrl} fill className="object-cover scale-105" alt={selectedTeam.name} sizes="80px" />
+                </div>
+            ) : (
+                <Trophy className="w-7 h-7 text-stone-200" />
+            )}
           </div>
           <div>
-            <h3 className="text-2xl font-black text-stone-900 uppercase tracking-tighter">{selectedTeam?.name} Roster Stats</h3>
-            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Individual Player Performance</p>
+            <h3 className="text-3xl font-black text-stone-900 uppercase tracking-tighter leading-none italic">{selectedTeam?.name}</h3>
+            <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest mt-2 ml-0.5">Franchise Performance Analysis</p>
           </div>
         </div>
-        <button onClick={() => setInternalTeamId(null)} className="text-[10px] font-black uppercase text-stone-400 hover:text-stone-900 flex items-center gap-1">
-          <X className="w-3 h-3" /> Change Team
+        <button onClick={() => setInternalTeamId(null)} className="text-[10px] font-black uppercase text-stone-300 hover:text-stone-900 flex items-center gap-1 tracking-widest transition-colors">
+          <X className="w-3.5 h-3.5" /> Change
         </button>
       </div>
 
@@ -367,14 +376,14 @@ function StatLeaderCard({ title, players, statKey, statMode }: {
   const { teams } = useLeague();
   
   return (
-    <Card className="rounded-[2rem] border border-stone-100 shadow-xl overflow-hidden bg-white group/card hover:border-emerald-200 transition-all duration-500">
+    <Card className="rounded-2xl border border-stone-100 shadow-sm overflow-hidden bg-white group/card hover:border-emerald-500/20 transition-all duration-500">
       <CardHeader className="bg-stone-50/30 pb-4 pt-6 px-6 border-b border-stone-100/50 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-3xl -mr-12 -mt-12" />
         <div className="flex items-center gap-3 relative z-10">
           <div className="w-10 h-10 bg-white rounded-xl shadow-lg shadow-stone-200/50 border border-stone-100 flex items-center justify-center group-hover/card:scale-110 transition-transform">
              <Target className="w-5 h-5 text-emerald-500" />
           </div>
-          <CardTitle className="text-sm font-black text-stone-900 tracking-[0.1em] uppercase leading-none">{title}</CardTitle>
+          <CardTitle className="text-sm font-black text-stone-900 tracking-widest uppercase leading-none">{title}</CardTitle>
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -392,17 +401,19 @@ function StatLeaderCard({ title, players, statKey, statMode }: {
             return (
               <div key={player.id} className="px-6 py-4 flex items-center justify-between hover:bg-emerald-50/30 transition-all group overflow-hidden relative">
                 <div className="flex items-center gap-4 overflow-hidden relative z-10">
-                  <span className="text-2xl font-black text-stone-100 w-8 shrink-0 group-hover:text-emerald-500/20 transition-colors italic tracking-tighter">#{idx + 1}</span>
+                  <span className="text-2xl font-black text-stone-100 w-8 shrink-0 group-hover:text-emerald-500/10 transition-colors italic tracking-tighter tabular-nums">#{idx + 1}</span>
                   
                   <div 
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white border-2 border-white shadow-xl relative overflow-hidden group-hover:scale-110 transition-all duration-500 shrink-0" 
-                    style={{ backgroundColor: team.primaryColor }}
+                    className="w-14 h-14 rounded-full flex items-center justify-center border-2 border-white shadow-md relative overflow-hidden group-hover:scale-110 transition-all duration-500 shrink-0 bg-white" 
+                    style={{ borderColor: !team.logoUrl ? team.primaryColor : 'white' }}
                   >
                     {team.logoUrl ? (
-                      <Image src={team.logoUrl} fill className="object-cover" alt={team.name} />
+                      <div className="relative w-full h-full">
+                        <Image src={team.logoUrl} fill className="object-cover scale-105" alt={team.id} sizes="56px" />
+                      </div>
                     ) : (
                       <div className="relative w-[135%] h-[135%] translate-y-2">
-                        <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={player.name} />
+                        <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={player.name} sizes="80px" />
                       </div>
                     )}
                   </div>

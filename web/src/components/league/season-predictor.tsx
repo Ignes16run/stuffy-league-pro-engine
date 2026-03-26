@@ -55,7 +55,7 @@ export default function SeasonPredictor() {
 
   if (teams.length < 2) {
     return (
-      <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-stone-200">
+      <div className="flex flex-col items-center justify-center p-12 text-center rounded-4xl bg-stone-50 border border-dashed border-stone-200 col-span-full">
         <Users className="w-16 h-16 text-stone-200 mx-auto mb-6" />
         <h3 className="text-2xl font-black text-stone-800 mb-2">The League is Empty</h3>
         <p className="text-stone-500 max-w-xs mx-auto">Head over to Team Setup to recruit your first stuffy competitors.</p>
@@ -64,8 +64,8 @@ export default function SeasonPredictor() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-[2rem] shadow-lg shadow-stone-200/40 border border-stone-100">
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/50 backdrop-blur-sm p-4 rounded-2xl shadow-sm border border-stone-100">
         <div className="flex items-center gap-3">
           <Button 
             variant="outline" size="icon" className="h-10 w-10 rounded-xl"
@@ -123,17 +123,17 @@ export default function SeasonPredictor() {
           <Button
             onClick={simulateSeason}
             disabled={isSimulating || games.every(g => g.winnerId || g.isTie)}
-            className="h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px] bg-stone-900 text-white"
+            className="h-11 px-8 rounded-lg font-black uppercase tracking-widest text-[10px] bg-stone-900 text-white shadow-lg shadow-black/10 hover:bg-black transition-all"
           >
             {isSimulating ? (
               <>
-                <RefreshCw className="w-3 h-3 animate-spin mr-2" />
-                Simulating...
+                <RefreshCw className="w-3.5 h-3.5 animate-spin mr-2" />
+                Processing...
               </>
             ) : (
               <>
-                <Play className="w-3 h-3 mr-2" />
-                Simulate Season
+                <Play className="w-3.5 h-3.5 mr-2" />
+                Simulate Week
               </>
             )}
           </Button>
@@ -160,9 +160,9 @@ export default function SeasonPredictor() {
               <motion.div 
                 layout
                 key={game.id} 
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-[2.5rem] p-6 shadow-xl shadow-stone-200/40 border border-stone-100 flex flex-col gap-5 relative overflow-hidden group"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-2xl p-3 shadow-sm border border-stone-100 flex flex-col gap-3 relative overflow-hidden transition-all hover:shadow-md hover:border-stone-200"
               >
                 {/* Storyline Badges */}
                 {storylines.length > 0 && (
@@ -186,30 +186,36 @@ export default function SeasonPredictor() {
                   <button 
                     onClick={() => handlePick(game.id, away.id)}
                     className={cn(
-                      "flex-1 flex items-center justify-between gap-5 p-5 rounded-[2rem] transition-all border-2 group/btn",
-                      game.winnerId === away.id ? "border-emerald-500 bg-emerald-50/50" : "border-transparent bg-stone-50/50 hover:bg-stone-50"
+                      "flex-1 flex items-center justify-between gap-3 p-3 rounded-xl transition-all border-2",
+                      game.winnerId === away.id ? "border-emerald-500 bg-emerald-50/20 shadow-inner" : "border-transparent bg-stone-50/40 hover:bg-stone-50"
                     )}
                   >
                     <div className="flex items-center gap-4">
                       <div 
-                        className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-black/10 border-2 border-white relative overflow-hidden group-hover/btn:scale-110 transition-transform duration-500"
-                        style={{ backgroundColor: away.primaryColor }}
+                        className="w-28 h-28 rounded-full flex items-center justify-center border-2 border-stone-100 shadow-md relative overflow-hidden bg-white shrink-0"
+                        style={{ borderColor: !away.logoUrl ? away.primaryColor : 'white' }}
                       >
                         {away.logoUrl ? (
-                          <Image src={away.logoUrl} fill className="object-cover" alt={away.name} />
+                          <div className="relative w-full h-full">
+                            <Image src={away.logoUrl} fill className="object-cover scale-105" alt={away.id} sizes="112px" />
+                          </div>
                         ) : (
-                          <div className="relative w-[130%] h-[130%] translate-y-2">
-                             <Image src={awayRender} fill className="object-contain drop-shadow-lg" alt={away.name} />
+                          <div className="relative w-[130%] h-[130%] translate-y-3">
+                             <Image src={awayRender} fill className="object-contain drop-shadow-2xl" alt={away.name} sizes="144px" />
                           </div>
                         )}
                       </div>
                       <div className="text-left">
-                        <p className="text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] mb-1">Away</p>
-                        <span className="font-black text-stone-900 text-sm leading-tight block uppercase tracking-tighter">
-                          {awayStanding <= 8 && <span className="text-stone-300 mr-2 font-bold text-[10px]">#{awayStanding}</span>}
+                        <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest mb-1.5 font-sans">Away</p>
+                        <span className="font-black text-stone-900 text-lg leading-none block uppercase tracking-tighter italic">
+                          {awayStanding <= 8 && <span className="text-stone-300 mr-1.5 not-italic text-[12px]">#{awayStanding}</span>}
                           {away.name}
                         </span>
-                        <span className="text-[10px] text-stone-400 font-bold tabular-nums">{teamRecords[away.id]}</span>
+                        <div className="flex items-center gap-2 mt-2">
+                           <span className="text-[10px] text-stone-400 font-bold tabular-nums uppercase tracking-wider">{teamRecords[away.id]}</span>
+                           <div className="w-1 h-1 bg-stone-200 rounded-full" />
+                           <span className="text-[10px] text-stone-300 font-bold uppercase tracking-wider">Seed {awayStanding}</span>
+                        </div>
                       </div>
                     </div>
                     {game.awayScore !== undefined && (
@@ -233,31 +239,37 @@ export default function SeasonPredictor() {
                   <button 
                     onClick={() => handlePick(game.id, home.id)}
                     className={cn(
-                      "flex-1 flex items-center justify-between gap-5 p-5 rounded-[2rem] transition-all border-2 group/btn",
-                      game.winnerId === home.id ? "border-emerald-500 bg-emerald-50/50" : "border-transparent bg-stone-50/50 hover:bg-stone-50"
+                      "flex-1 flex items-center justify-between gap-3 p-3 rounded-xl transition-all border-2",
+                      game.winnerId === home.id ? "border-emerald-500 bg-emerald-50/20 shadow-inner" : "border-transparent bg-stone-50/40 hover:bg-stone-50"
                     )}
                   >
                     {game.homeScore !== undefined && (
-                      <span className="text-3xl font-black text-stone-900 tabular-nums italic">{game.homeScore}</span>
+                      <span className="text-5xl font-black text-stone-900 tabular-nums italic tracking-tighter">{game.homeScore}</span>
                     )}
-                    <div className="flex items-center gap-4 text-right">
+                    <div className="flex items-center gap-4 text-right ml-auto">
                       <div className="text-right">
-                        <p className="text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] mb-1">Home</p>
-                        <span className="font-black text-stone-900 text-sm leading-tight block text-right uppercase tracking-tighter">
-                          {homeStanding <= 8 && <span className="text-stone-300 mr-2 font-bold text-[10px]">#{homeStanding}</span>}
+                        <p className="text-[10px] font-black text-stone-200 uppercase tracking-widest mb-1 font-sans">Home</p>
+                        <span className="font-black text-stone-900 text-xl leading-none block text-right uppercase tracking-tighter italic">
+                          {homeStanding <= 8 && <span className="text-stone-300 mr-1.5 not-italic text-[12px]">#{homeStanding}</span>}
                           {home.name}
                         </span>
-                        <span className="text-[10px] text-stone-400 font-bold tabular-nums">{teamRecords[home.id]}</span>
+                        <div className="flex items-center justify-end gap-2 mt-1.5">
+                           <span className="text-[10px] text-stone-300 font-bold uppercase tracking-wider">Seed {homeStanding}</span>
+                           <div className="w-1 h-1 bg-stone-200 rounded-full" />
+                           <span className="text-[10px] text-stone-400 font-bold tabular-nums uppercase tracking-widest">{teamRecords[home.id]}</span>
+                        </div>
                       </div>
                       <div 
-                        className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-black/10 border-2 border-white relative overflow-hidden group-hover/btn:scale-110 transition-transform duration-500"
-                        style={{ backgroundColor: home.primaryColor }}
+                        className="w-28 h-28 rounded-full flex items-center justify-center border-2 border-stone-100 shadow-md relative overflow-hidden bg-white shrink-0"
+                        style={{ borderColor: !home.logoUrl ? home.primaryColor : 'white' }}
                       >
                         {home.logoUrl ? (
-                          <Image src={home.logoUrl} fill className="object-cover" alt={home.name} />
+                          <div className="relative w-full h-full">
+                            <Image src={home.logoUrl} fill className="object-cover scale-105" alt={home.id} sizes="112px" />
+                          </div>
                         ) : (
-                          <div className="relative w-[130%] h-[130%] translate-y-2">
-                             <Image src={homeRender} fill className="object-contain drop-shadow-lg" alt={home.name} />
+                          <div className="relative w-[130%] h-[130%] translate-y-3">
+                             <Image src={homeRender} fill className="object-contain drop-shadow-2xl" alt={home.name} sizes="144px" />
                           </div>
                         )}
                       </div>
@@ -277,22 +289,28 @@ export default function SeasonPredictor() {
                <div className="h-px flex-1 bg-stone-100" />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-               {teamsOnBye.map(team => {
-                 const renderUrl = STUFFY_RENDER_MAP[team.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
-                 return (
-                   <div key={team.id} className="bg-white/50 backdrop-blur-sm rounded-[1.5rem] p-4 border border-stone-100 flex items-center gap-4 group hover:bg-white hover:shadow-xl transition-all duration-500">
-                     <div className="w-12 h-12 rounded-xl flex items-center justify-center border-2 border-white shadow-lg relative overflow-hidden group-hover:scale-110 transition-transform" style={{ backgroundColor: team.primaryColor }}>
-                        <div className="relative w-[130%] h-[130%] translate-y-2">
-                           <Image src={renderUrl} fill className="object-contain drop-shadow-md" alt={team.name} />
-                        </div>
-                     </div>
-                     <div className="min-w-0">
-                        <span className="font-black text-stone-900 text-xs leading-tight block truncate uppercase tracking-tighter">{team.name}</span>
-                        <p className="text-[8px] font-black text-stone-300 uppercase tracking-widest mt-0.5">Resting</p>
-                     </div>
-                   </div>
-                 );
-               })}
+                {teamsOnBye.map(team => {
+                  const renderUrl = STUFFY_RENDER_MAP[team.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
+                  return (
+                     <div key={team.id} className="bg-white rounded-xl p-2 border border-stone-100 flex items-center gap-3 group hover:shadow-lg transition-all duration-500">
+                        <div className="w-20 h-20 rounded-full flex items-center justify-center border-2 border-stone-100 shadow-md relative overflow-hidden group-hover:scale-110 transition-transform bg-white shrink-0" style={{ borderColor: team.logoUrl ? 'white' : team.primaryColor }}>
+                          {team.logoUrl ? (
+                            <div className="relative w-full h-full">
+                              <Image src={team.logoUrl} fill className="object-cover scale-105" alt={team.id} sizes="80px" />
+                            </div>
+                         ) : (
+                           <div className="relative w-[130%] h-[130%] translate-y-2">
+                              <Image src={renderUrl} fill className="object-contain drop-shadow-md" alt={team.name} sizes="104px" />
+                           </div>
+                         )}
+                       </div>
+                      <div className="min-w-0">
+                         <span className="font-black text-stone-900 text-xs leading-tight block truncate uppercase tracking-tighter italic">{team.name}</span>
+                         <p className="text-[8px] font-black text-emerald-500/60 uppercase tracking-widest mt-0.5">Resting</p>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </motion.div>
         )}

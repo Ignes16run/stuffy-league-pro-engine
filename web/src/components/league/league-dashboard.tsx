@@ -33,29 +33,35 @@ export default function LeagueDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] text-stone-900 font-sans selection:bg-emerald-100 selection:text-emerald-900 scroll-smooth antialiased relative overflow-hidden">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-emerald-500/10 selection:text-emerald-700 scroll-smooth antialiased relative overflow-hidden">
       {/* Premium Stadium Background Layer */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden opacity-[0.05] grayscale">
          <Image 
            src={STADIUM_BG} 
            fill 
-           className="object-cover opacity-[0.03] saturate-0" 
+           className="object-cover" 
            alt="" 
            priority
+           sizes="100vw"
          />
-         <div className="absolute inset-0 bg-linear-to-b from-stone-50/20 via-[#fafaf9] to-[#fafaf9]" />
       </div>
+      <div className="fixed inset-0 bg-linear-to-b from-background/50 via-background to-background pointer-events-none z-0" />
       
       {/* Premium Header */}
       <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-stone-100 shadow-sm shadow-stone-100/50">
         <div className="container mx-auto px-4 h-24 flex items-center justify-between">
           <div className="flex items-center gap-4">
              <motion.div 
-                animate={{ y: [0, -4, 0] }}
-                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                className="w-12 h-12 bg-emerald-500 rounded-[1.25rem] flex items-center justify-center shadow-lg shadow-emerald-500/30"
+                whileHover={{ scale: 1.05 }}
+                className="w-14 h-14 relative flex items-center justify-center p-1 rounded-2xl bg-white border border-stone-100 shadow-sm shadow-emerald-500/10 cursor-pointer"
              >
-                <Trophy className="w-6 h-6 text-white" />
+                <Image 
+                  src="/assets/league-logos/full_noback_stuffyprologo.png" 
+                  alt="Stuffy Pro League Logo"
+                  fill 
+                  className="object-contain p-1"
+                  sizes="56px"
+                />
              </motion.div>
              <div>
                 <h1 className="text-xl font-black text-stone-900 uppercase tracking-widest leading-none mb-1">Stuffy League Pro</h1>
@@ -116,7 +122,7 @@ export default function LeagueDashboard() {
          ))}
       </div>
 
-      <main className="container mx-auto px-4 py-12 lg:py-20 relative min-h-screen z-10">
+      <main className="container mx-auto px-4 py-8 relative min-h-screen z-10">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}

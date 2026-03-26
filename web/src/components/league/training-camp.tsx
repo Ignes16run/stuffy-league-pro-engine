@@ -71,10 +71,10 @@ function TeamCampCard({ team, onUpgrade }: { team: Team, onUpgrade: (teamId: str
             style={{ backgroundColor: team.primaryColor }}
           >
              {team.logoUrl ? (
-               <Image src={team.logoUrl} fill className="object-cover" alt={team.name} />
+               <Image src={team.logoUrl} fill className="object-cover" alt={team.name} sizes="80px" />
              ) : (
                <div className="relative w-[130%] h-[130%] translate-y-2">
-                 <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={team.name} />
+                  <Image src={renderUrl} fill className="object-contain drop-shadow-lg" alt={team.name} sizes="104px" />
                </div>
              )}
           </div>

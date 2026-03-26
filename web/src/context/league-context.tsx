@@ -26,6 +26,7 @@ import { PersistenceEngine } from '@/lib/league/persistenceEngine';
 import { assignStatsToPlayers } from '@/lib/league/statsEngine';
 import { SimulationEngine } from '@/lib/league/simulationEngine';
 import { migrateData, CURRENT_DATA_VERSION } from '@/lib/league/migrationEngine';
+import { TEAM_EMBLEM_MAP } from '@/lib/league/assetMap';
 
 interface LeagueContextType {
   teams: Team[];
@@ -127,8 +128,15 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
           try {
             const rawData = JSON.parse(saved);
             const data = migrateData(rawData);
-            
-            setTeams(syncTeamStructures(data.teams || []));
+                        const loadedTeams = syncTeamStructures(data.teams || []);
+             const syncedTeams = loadedTeams.map(t => {
+               const defaultTeam = DEFAULT_LEAGUE_TEAMS.find(dt => dt.name.toLowerCase() === t.name.toLowerCase());
+               return {
+                 ...t,
+                 logoUrl: defaultTeam ? defaultTeam.logoUrl : (TEAM_EMBLEM_MAP[t.id] || t.logoUrl)
+               };
+             });
+             setTeams(syncedTeams);
             setPlayers(data.players || []);
             setGames(data.games || []);
             setPlayoffGames(data.playoffGames || []);
@@ -287,11 +295,19 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     const rawData = await PersistenceEngine.loadAllData(user.id);
     const data = migrateData(rawData);
     
-    setTeams(data.teams);
-    setPlayers(data.players);
-    setGames(data.games);
-    setPlayoffGames(data.playoffGames);
-    setHistory(data.history);
+    const loadedTeams = syncTeamStructures(data.teams || []);
+    const syncedTeams = loadedTeams.map(t => {
+      const defaultTeam = DEFAULT_LEAGUE_TEAMS.find(dt => dt.name === t.name);
+      return {
+        ...t,
+        logoUrl: defaultTeam ? defaultTeam.logoUrl : (TEAM_EMBLEM_MAP[t.id] || t.logoUrl)
+      };
+    });
+    setTeams(syncedTeams);
+    setPlayers(data.players || []);
+    setGames(data.games || []);
+    setPlayoffGames(data.playoffGames || []);
+    setHistory(data.history || []);
   };
 
   const advanceWeek = () => {
