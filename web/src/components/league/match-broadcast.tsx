@@ -167,7 +167,6 @@ export default function MatchBroadcast() {
             </div>
             <div className="text-center">
               <h3 className="text-3xl font-black italic tracking-tighter uppercase mb-1">{awayTeam.name}</h3>
-              <p className="text-[10px] font-bold text-white/30 tracking-[0.3em] uppercase">{awayTeam.city}</p>
             </div>
           </motion.div>
 
@@ -177,7 +176,7 @@ export default function MatchBroadcast() {
                 {/* Glow behind score */}
                 <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full" />
                 
-                <div className="relative bg-stone-900/80 backdrop-blur-xl rounded-[2.5rem] p-10 border-2 border-white/10 shadow-2xl flex flex-col items-center min-w-[280px]">
+                <div className="relative bg-stone-900/80 backdrop-blur-xl rounded-4xl p-10 border-2 border-white/10 shadow-2xl flex flex-col items-center min-w-[280px]">
                     <div className="flex items-center gap-8 mb-6">
                         <motion.span 
                             key={currentStep?.awayScore}
@@ -261,7 +260,6 @@ export default function MatchBroadcast() {
             </div>
             <div className="text-center">
               <h3 className="text-3xl font-black italic tracking-tighter uppercase mb-1">{homeTeam.name}</h3>
-              <p className="text-[10px] font-bold text-white/30 tracking-[0.3em] uppercase">{homeTeam.city}</p>
             </div>
           </motion.div>
         </div>
@@ -291,7 +289,7 @@ export default function MatchBroadcast() {
                 </div>
                 
                 <h4 className="text-4xl font-black italic tracking-tighter uppercase leading-tight max-w-2xl text-balance">
-                    "{currentStep?.commentary || currentStep?.description}"
+                    &ldquo;{currentStep?.commentary || currentStep?.description}&rdquo;
                 </h4>
                 
                 <p className="text-white/40 text-sm font-medium italic">
@@ -375,7 +373,7 @@ export default function MatchBroadcast() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[150] bg-stone-950/95 backdrop-blur-3xl flex items-center justify-center p-8"
+                    className="fixed inset-0 z-150 bg-stone-950/95 backdrop-blur-3xl flex items-center justify-center p-8"
                 >
                     <motion.div 
                         initial={{ scale: 0.9, y: 20 }}
