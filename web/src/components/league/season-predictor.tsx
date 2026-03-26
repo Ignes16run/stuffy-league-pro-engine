@@ -9,7 +9,8 @@ import {
   ChevronLeft, 
   Play, 
   Users, 
-  Settings 
+  Settings,
+  FastForward
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
@@ -29,11 +30,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function SeasonPredictor() {
-  const { teams, games, simulateSeason, handlePick, isSimulating, numWeeks, setNumWeeks, history } = useLeague();
+  const { teams, games, simulateSeason, simulateGames, handlePick, isSimulating, numWeeks, setNumWeeks, history } = useLeague();
   const [activeWeek, setActiveWeek] = useState(1);
 
   const maxWeek = useMemo(() => Math.max(...games.map(g => g.week), 0), [games]);
   const weekGames = useMemo(() => games.filter(g => g.week === activeWeek), [games, activeWeek]);
+
+  const allWeekGamesFinished = useMemo(() => weekGames.every(g => g.winnerId || g.isTie), [weekGames]);
+  const allSeasonGamesFinished = useMemo(() => games.every(g => g.winnerId || g.isTie), [games]);
 
   const teamsOnBye = useMemo(() => {
     const teamsInGames = new Set(weekGames.flatMap(g => [g.homeTeamId, g.awayTeamId]));
@@ -120,23 +124,26 @@ export default function SeasonPredictor() {
             </DialogContent>
           </Dialog>
 
-          <Button
-            onClick={simulateSeason}
-            disabled={isSimulating || games.every(g => g.winnerId || g.isTie)}
-            className="h-11 px-8 rounded-lg font-black uppercase tracking-widest text-[10px] bg-stone-900 text-white shadow-lg shadow-black/10 hover:bg-black transition-all"
-          >
-            {isSimulating ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin mr-2" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 mr-2" />
-                Simulate Week
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2 bg-stone-100/30 p-1 rounded-xl border border-stone-100/50">
+            <Button
+              onClick={() => simulateGames(activeWeek)}
+              disabled={isSimulating || allWeekGamesFinished}
+              className="h-10 px-4 rounded-lg font-black uppercase tracking-widest text-[9px] bg-stone-900 text-white shadow-lg shadow-black/10 hover:bg-black transition-all"
+            >
+              <Play className="w-3 h-3 mr-2" />
+              Sim Week {activeWeek}
+            </Button>
+
+            <Button
+              onClick={simulateSeason}
+              disabled={isSimulating || allSeasonGamesFinished}
+              variant="outline"
+              className="h-10 px-4 rounded-lg font-black uppercase tracking-widest text-[9px] border-stone-200 text-stone-600 hover:bg-stone-50 transition-all"
+            >
+              <FastForward className="w-3 h-3 mr-2 text-emerald-500" />
+              Sim Season
+            </Button>
+          </div>
         </div>
       </div>
 
