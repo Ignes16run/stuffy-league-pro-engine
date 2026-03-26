@@ -103,23 +103,23 @@ export function simulateGameSteps(
   };
 
   const arcadeCommentary: Record<string, string[]> = {
-    'TOUCHDOWN': ["BOOM SHAKALAKA!", "HE'S ON FIRE!", "FROM DOWNTOWN BABY!", "PUT IT ON THE BOARD!", "TO THE HOUSE!", "CAN'T BE STOPPED!"],
-    'FIELD_GOAL': ["YES! IT'S GOOD!", "AUTOMATIC!", "FROM DEEP... YES!", "SPLIT THE UPRIGHTS!"],
-    'SACK': ["GET THAT OUTTA HERE!", "NOT IN MY HOUSE!", "CRUNCH TIME!", "TOTAL DESTRUCTION!", "TERMINATED!"],
-    'INTERCEPTION': ["INTERCEPTED! NO WAY!", "GIMME THAT BALL!", "THIEVERY ON THE FIELD!", "STOLEN!"],
-    'FUMBLE': ["BALL IS LOOSE!", "MISTAKE! TURNOVER!", "DISASTER!", "THEY DROPPED THE ROCK!"],
-    'TURNOVER_ON_DOWNS': ["DENIED!", "BRICK WALL!", "TURNOVER ON DOWNS!", "NOT TODAY!"],
-    'PUNT': ["OUTTA HERE!", "BOOTED!", "SEND IT BACK!", "CAN'T GET PAST 'EM!"],
-    'KICKOFF': ["KICKOFF! LET'S GO!", "GAME START!", "READY FOR ACTION!"]
+    'TOUCHDOWN': ["WHAT A PLAY!", "TOUCHDOWN!", "ABSOLUTE BRILLIANCE!", "INTO THE ENDZONE!", "UNREAL AGILITY!", "HISTORY IN THE MAKING!"],
+    'FIELD_GOAL': ["IT'S GOOD!", "PERFECT PRECISION!", "STRAIGHT THROUGH!", "CLUTCH KICKING!"],
+    'SACK': ["BIG TIME STOP!", "DENIED!", "PRESSURE APPLIED!", "TOTAL DEFENSIVE DOMINANCE!", "THE QB GOES DOWN!"],
+    'INTERCEPTION': ["PICKED OFF!", "TURNED OVER!", "DEFENSIVE BRILLIANCE!", "STOLEN!"],
+    'FUMBLE': ["BALL IS LOOSE!", "MISTAKE! TURNOVER!", "DISASTER STRIKES!", "THEY DROPPED IT!"],
+    'TURNOVER_ON_DOWNS': ["STOPPED!", "THE WALL HOLDS!", "TURNOVER ON DOWNS!", "NOT TODAY!"],
+    'PUNT': ["GOOD KICK!", "FIELD POSITION BATTLE!", "SENDING IT BACK!", "DEFENSE GETS A BREAK!"],
+    'KICKOFF': ["KICKOFF!", "GAME ON!", "WE ARE READY!"]
   };
 
   const getArcadeCommentary = (type: string) => {
-    const list = arcadeCommentary[type] || ["UNBELIEVABLE PLAY!", "DID YOU SEE THAT?!", "ARCADE ACTION!"];
+    const list = arcadeCommentary[type] || ["INCREDIBLE MOMENT!", "ELITE ATHLETICISM!", "STUFFY LEAGUE ACTION!"];
     return list[Math.floor(Math.random() * list.length)];
   };
 
   // Intro
-  addStep('KICKOFF', `WELCOME TO STUFFY LEAGUE ARCADE! ${awayTeam.name} @ ${homeTeam.name}!`, { soundEffect: 'KICKOFF' });
+  addStep('KICKOFF', `LIVE FROM THE STADIUM! ${awayTeam.name} @ ${homeTeam.name}!`, { soundEffect: 'KICKOFF' });
   
   // Simulation Loop
   while (currentQuarter <= 4) {
@@ -127,7 +127,7 @@ export function simulateGameSteps(
       if (currentQuarter === 2) {
         addStep('HALF_TIME', "HALF TIME! GET READY FOR THE SHOW!", { soundEffect: 'DRUM_ROLL' });
       } else {
-        addStep('END_OF_QUARTER', `QUARTER ${currentQuarter} OVER!`, { soundEffect: 'WHISTLE' });
+        addStep('END_OF_QUARTER', `QUARTER ${currentQuarter} OVER!`, { soundEffect: 'DRUM_ROLL' });
       }
       currentQuarter++;
       if (currentQuarter > 4) break;
@@ -226,7 +226,7 @@ export function simulateGameSteps(
         playType = 'PUNT';
         const puntYards = 35 + Math.floor(Math.random() * 20);
         description = `${isHome ? homeTeam.name : awayTeam.name} punts it away! ${puntYards} yards.`;
-        soundEffect = 'WHISTLE';
+        soundEffect = 'KICKOFF'; // Use a lighter sound for punt
         possessionId = isHome ? awayTeam.id : homeTeam.id;
         yardLine = Math.max(10, 100 - (yardLine + puntYards));
         sideOfField = sideOfField === 'HOME' ? 'AWAY' : 'HOME';

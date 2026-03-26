@@ -275,8 +275,17 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       setGames(games.map(g => ({ ...g, homeScore: undefined, awayScore: undefined, winnerId: undefined, isTie: undefined })));
       setIsAwardsPhase(false);
     },
-    handlePick: (_gid: string, _wid: string | 'tie' | null) => { 
-        // Playoff advancement logic would go here if needed
+    handlePick: (gameId: string, winnerId: string | 'tie' | null) => { 
+        setGames(prev => prev.map(g => {
+            if (g.id !== gameId) return g;
+            return {
+                ...g,
+                winnerId: winnerId === 'tie' ? undefined : (winnerId || undefined),
+                isTie: winnerId === 'tie',
+                homeScore: undefined,
+                awayScore: undefined
+            };
+        }));
     },
     setPlayers, setGames, setPlayoffGames, syncPlayoffGames: async (g: PlayoffGame[]) => setPlayoffGames(g), 
     setHistory, isLoaded: !isInitializing,
