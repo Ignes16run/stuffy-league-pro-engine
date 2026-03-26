@@ -75,6 +75,10 @@ interface LeagueContextType {
   simulateAwards: () => void;
   calculateAwards: () => Record<AwardType, { winner: Player; narrative: string }>;
   generatePlayoffs: () => void;
+  // Live Broadcast
+  activeBroadcastGameId: string | null;
+  setActiveBroadcastGameId: (id: string | null) => void;
+  updateGameResult: (gameId: string, homeScore: number, awayScore: number, winnerId: string | 'tie') => void;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -92,6 +96,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState('season');
   const [recentNarrativesUsed, setRecentNarrativesUsed] = useState<NarrativeMemoryEntry[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [activeBroadcastGameId, setActiveBroadcastGameId] = useState<string | null>(null);
 
   // Awards State
   const [isAwardsPhase, setIsAwardsPhase] = useState(false);
@@ -356,6 +361,37 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     }
     setPlayers(prev => recalculateStats(updatedGames, prev));
   };
+  
+  const updateGameResult = useCallback((gameId: string, homeScore: number, awayScore: number, winnerId: string | 'tie' | null) => {
+    const updatedGames = [...games];
+    const gameIndex = updatedGames.findIndex(g => g.id === gameId);
+    if (gameIndex === -1) return;
+
+    const isTie = winnerId === 'tie';
+    const finalWinnerId = isTie ? undefined : (winnerId || undefined);
+
+    updatedGames[gameIndex] = {
+      ...updatedGames[gameIndex],
+      homeScore,
+      awayScore,
+      winnerId: finalWinnerId,
+      isTie
+    };
+
+    setGames(updatedGames);
+    setPlayers(prev => recalculateStats(updatedGames, prev));
+
+    // Award SP
+    setTeams(prev => prev.map(t => {
+      if (t.id === updatedGames[gameIndex].homeTeamId || t.id === updatedGames[gameIndex].awayTeamId) {
+        let spToAdd = 10;
+        if (isTie) spToAdd = 25;
+        else if (finalWinnerId !== t.id) spToAdd = 50;
+        return { ...t, stuffyPoints: (t.stuffyPoints || 0) + spToAdd };
+      }
+      return t;
+    }));
+  }, [games, recalculateStats]);
 
   const simulateSeason = async () => {
     setIsSimulating(true);
@@ -532,6 +568,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       createLeague, setCurrentWeek,
       advanceWeek, simulateGames, resetLeague, saveToSupabase, loadFromSupabase,
       simulateSeason, resetPredictions,
+      activeBroadcastGameId, setActiveBroadcastGameId, updateGameResult,
       handlePick: (gameId, winnerId) => {
         // Playoff Game Progression
         if (gameId.startsWith('q') || gameId.startsWith('s') || gameId.startsWith('f')) {

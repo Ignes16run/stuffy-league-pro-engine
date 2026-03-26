@@ -18,6 +18,7 @@ import TrainingCamp from './training-camp';
 import LeagueHistory from './league-history';
 import ManagementView from './management-view';
 import StatsView from './stats-view';
+import MatchBroadcast from './match-broadcast';
 
 export default function LeagueDashboard() {
   const { activeTab, setActiveTab, resetLeague, resetPredictions } = useLeague();
@@ -150,6 +151,7 @@ export default function LeagueDashboard() {
              <p className="text-stone-300 text-xs font-medium">Built with Advanced Stuffy Physics Engine v4.0.0</p>
           </div>
       </footer>
+      <MatchBroadcast />
     </div>
   );
 }

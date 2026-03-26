@@ -10,7 +10,8 @@ import {
   Play, 
   Users, 
   Settings,
-  FastForward
+  FastForward,
+  Monitor
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
@@ -30,7 +31,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function SeasonPredictor() {
-  const { teams, games, simulateSeason, simulateGames, handlePick, isSimulating, numWeeks, setNumWeeks, history } = useLeague();
+  const { 
+    teams, games, simulateSeason, simulateGames, handlePick, 
+    isSimulating, numWeeks, setNumWeeks, history,
+    setActiveBroadcastGameId 
+  } = useLeague();
   const [activeWeek, setActiveWeek] = useState(1);
 
   const maxWeek = useMemo(() => Math.max(...games.map(g => g.week), 0), [games]);
@@ -241,6 +246,16 @@ export default function SeasonPredictor() {
                       Tie
                     </button>
                     <div className="text-[10px] font-black text-stone-300 italic tracking-widest">VS</div>
+                    {game.winnerId === undefined && !game.isTie && (
+                      <button 
+                        onClick={() => setActiveBroadcastGameId(game.id)}
+                        className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all border border-emerald-100 flex items-center justify-center gap-2 group"
+                        title="Watch Live Broadcast"
+                      >
+                        <Monitor className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter">Live</span>
+                      </button>
+                    )}
                   </div>
 
                   <button 
