@@ -84,29 +84,64 @@ export function generateDivisionSchedule(teams: Team[], numWeeks: number = 14): 
     }
   });
 
-  // 3. Assign Weeks (Greedy approach)
-  // This is a simplified version of round-robin assignment
-  const weekLoad: Record<number, Game[]> = {};
-  for (let i = 1; i <= numWeeks; i++) weekLoad[i] = [];
-
+  // 3. Assign Weeks (Backtracking approach to guarantee no byes)
   const assignedGames: Game[] = [];
+  const gamesToAssign = [...games].sort(() => Math.random() - 0.5);
   
-  // Shuffle games slightly to vary week assignments
-  const shuffledGames = [...games].sort(() => Math.random() - 0.5);
+  // Track which teams are busy in which week
+  const teamWeeks: Record<string, Set<number>> = {};
+  allTeamIds.forEach(id => teamWeeks[id] = new Set());
 
-  shuffledGames.forEach(game => {
-    for (let w = 1; w <= numWeeks; w++) {
-      const teamsInWeek = new Set(weekLoad[w].flatMap(g => [g.homeTeamId, g.awayTeamId]));
-      if (!teamsInWeek.has(game.homeTeamId) && !teamsInWeek.has(game.awayTeamId)) {
+  // Week slots: week -> games
+  const weekSlots: Record<number, Game[]> = {};
+  for (let w = 1; w <= numWeeks; w++) weekSlots[w] = [];
+
+  function assign(index: number): boolean {
+    if (index === gamesToAssign.length) return true;
+    
+    const game = gamesToAssign[index];
+    // Optimization: Try weeks with fewer games first to keep it balanced
+    const weeks = Array.from({length: numWeeks}, (_, i) => i + 1)
+      .sort((a, b) => weekSlots[a].length - weekSlots[b].length);
+
+    for (const w of weeks) {
+      if (!teamWeeks[game.homeTeamId].has(w) && !teamWeeks[game.awayTeamId].has(w)) {
+        // Try assigning
         game.week = w;
-        weekLoad[w].push(game);
-        assignedGames.push(game);
-        break;
+        teamWeeks[game.homeTeamId].add(w);
+        teamWeeks[game.awayTeamId].add(w);
+        weekSlots[w].push(game);
+        
+        if (assign(index + 1)) return true;
+        
+        // Backtrack
+        weekSlots[w].pop();
+        teamWeeks[game.homeTeamId].delete(w);
+        teamWeeks[game.awayTeamId].delete(w);
       }
     }
-  });
+    return false;
+  }
 
-  return assignedGames;
+  // If backtracking is too slow for large leagues, we fall back to a safer greedy
+  if (!assign(0)) {
+    console.warn("Backtracking failed to find a perfect schedule, using greedy fallback.");
+    // Greedy fallback that at least fills as much as possible
+    gamesToAssign.forEach((game: any) => {
+      for (let w = 1; w <= numWeeks; w++) {
+        if (!teamWeeks[game.homeTeamId].has(w) && !teamWeeks[game.awayTeamId].has(w)) {
+           game.week = w;
+           teamWeeks[game.homeTeamId].add(w);
+           teamWeeks[game.awayTeamId].add(w);
+           assignedGames.push(game);
+           break;
+        }
+      }
+    });
+    return assignedGames;
+  }
+
+  return gamesToAssign;
 }
 
 /**
@@ -178,10 +213,18 @@ export function getConferenceSeeds(conferenceId: string, teams: Team[], standing
   const nonWinners = confStandings.filter(s => !divisionWinners.find(w => w.teamId === s.teamId));
   nonWinners.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
 
-  // 3. Merge: Div Winners (sorted) then Wildcards (sorted)
+  // 3. Merge: Div Winners (sorted by overall record) then Wildcards (sorted by overall record)
   divisionWinners.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
+  nonWinners.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
   
-  return [...divisionWinners, ...nonWinners];
+  // Ensure the top 4 seeds are clearly assigned by rank
+  const finalSeeds = [...divisionWinners, ...nonWinners];
+  finalSeeds.forEach((s, idx) => {
+    // Seed is index + 1
+    (s as any).seed = idx + 1;
+  });
+
+  return finalSeeds;
 }
 
 /**
