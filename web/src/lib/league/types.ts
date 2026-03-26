@@ -66,6 +66,7 @@ export interface SeasonHistory {
   year: number;
   championId: string;
   finalStandings: Standing[];
+  awardWinners?: Record<string, any>;
 }
 
 export interface LeagueState {

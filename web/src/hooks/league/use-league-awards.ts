@@ -47,11 +47,36 @@ export function useLeagueAwards(
     });
   }, [awardFinalists, setAwardWinner]);
 
+  const calculateAwards = useCallback(() => {
+    const results: Record<string, any> = {};
+    Object.entries(awardFinalists).forEach(([category, finalists]) => {
+      if (finalists.length > 0) {
+        const winner = finalists[0];
+        const team = teams.find(t => t.id === winner.teamId);
+        const awardType = category as AwardType;
+        const statValue = getStatForAward(winner, awardType);
+        const statName = awardType === 'STPOY' ? 'Points' : (awardType === 'DPOY' ? 'Tackles/Sacks' : 'All-Purpose');
+        
+        const template = selectNarrativeTemplate(
+          awardType, 
+          winner.position, 
+          winner.awardsHistory || [], 
+          recentNarrativesUsed, 
+          (history.length + 1).toString()
+        ) || NARRATIVE_BANK[0];
+
+        const narrative = generateNarrative(winner, awardType, team?.name || 'his team', statValue, statName, template);
+        results[awardType] = { winner, narrative };
+      }
+    });
+    return results;
+  }, [awardFinalists, teams, history.length, recentNarrativesUsed]);
+
   return {
     isAwardsPhase, setIsAwardsPhase,
     awardFinalists, setAwardFinalists,
     selectedAwards, setSelectedAwards,
     awardResults, setAwardResults,
-    setAwardWinner, simulateAwards
+    setAwardWinner, simulateAwards, calculateAwards
   };
 }

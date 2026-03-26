@@ -263,3 +263,10 @@ export const DEFAULT_LEAGUE_TEAMS: Team[] = [
     divisionId: 'NFC North'
   }
 ];
+
+export const NUM_WEEKS_DEFAULT = 14;
+export const DRAFT_ROUND_CONFIG = [
+  { round: 1, picks: 16 },
+  { round: 2, picks: 16 },
+  { round: 3, picks: 16 }
+];

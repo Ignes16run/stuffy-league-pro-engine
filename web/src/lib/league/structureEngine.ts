@@ -3,145 +3,110 @@ import { calculateStandings, generateUUID } from './utils';
 import { DEFAULT_LEAGUE_TEAMS } from './constants';
 
 /**
- * Generates a schedule that prioritizes intra-division matchups.
- * ~60% games vs division opponents, 40% non-division.
+ * Generates a schedule that ensures no bye weeks (for even number of teams).
+ * Uses a balanced approach for division vs non-division games.
  */
 export function generateDivisionSchedule(teams: Team[], numWeeks: number = 14): Game[] {
   const games: Game[] = [];
-  const teamsByDivision: Record<string, Team[]> = {};
+  const teamIds = teams.map(t => t.id);
+  const n = teamIds.length;
   
+  if (n % 2 !== 0) {
+    // If odd, we'd need byes, but let's assume even for now as per user request
+    console.warn("Odd number of teams detected. Schedule will contain byes.");
+  }
+
+  // 1. Group by division
+  const teamsByDivision: Record<string, string[]> = {};
   teams.forEach(t => {
     const div = t.divisionId || 'Independent';
     if (!teamsByDivision[div]) teamsByDivision[div] = [];
-    teamsByDivision[div].push(t);
+    teamsByDivision[div].push(t.id);
   });
 
-  const divisionIds = Object.keys(teamsByDivision);
-  
-  // Track how many games each team has scheduled
-  const teamGameCounts: Record<string, number> = {};
-  teams.forEach(t => teamGameCounts[t.id] = 0);
+  // 2. Track matchups to avoid duplicates in same week
+  const teamWeeks: Record<string, Set<number>> = {};
+  teamIds.forEach(id => teamWeeks[id] = new Set());
 
-  // 1. Schedule Division Games (The core of the schedule)
-  // Each team plays division rivals twice (home/away)
-  divisionIds.forEach(divId => {
-    const divTeams = teamsByDivision[divId];
-    for (let i = 0; i < divTeams.length; i++) {
-      for (let j = i + 1; j < divTeams.length; j++) {
-        const teamA = divTeams[i];
-        const teamB = divTeams[j];
-        
-        // Game 1
-        games.push({
-          id: generateUUID(),
-          week: 0, // Placeholder
-          homeTeamId: teamA.id,
-          awayTeamId: teamB.id
-        });
-        
-        // Game 2
-        games.push({
-          id: generateUUID(),
-          week: 0, // Placeholder
-          homeTeamId: teamB.id,
-          awayTeamId: teamA.id
-        });
-        
-        teamGameCounts[teamA.id] += 2;
-        teamGameCounts[teamB.id] += 2;
+  // 3. Round Robin for Division Games
+  // In a 4-team division, teams play each other twice = 6 games.
+  Object.values(teamsByDivision).forEach(divTeams => {
+    for (let round = 1; round <= 2; round++) {
+      for (let i = 0; i < divTeams.length; i++) {
+        for (let j = i + 1; j < divTeams.length; j++) {
+          games.push({
+            id: generateUUID(),
+            week: 0, // Assigned later
+            homeTeamId: round === 1 ? divTeams[i] : divTeams[j],
+            awayTeamId: round === 1 ? divTeams[j] : divTeams[i]
+          });
+        }
       }
     }
   });
 
-  // 2. Fill remaining games with non-division opponents
-  const allTeamIds = teams.map(t => t.id);
-  
-  allTeamIds.forEach(tId => {
+  // 4. Non-Division Games
+  // Each team needs more games to reach numWeeks
+  const teamGameCounts: Record<string, number> = {};
+  teamIds.forEach(id => {
+    teamGameCounts[id] = games.filter(g => g.homeTeamId === id || g.awayTeamId === id).length;
+  });
+
+  teamIds.forEach(tId => {
     const team = teams.find(t => t.id === tId)!;
     const divId = team.divisionId || 'Independent';
-    const divTeamIds = teamsByDivision[divId].map(t => t.id);
+    const divTeamIds = teamsByDivision[divId] || [];
     
-    const possibleOpponents = allTeamIds.filter(id => !divTeamIds.includes(id));
+    const possibleOpponents = teamIds.filter(id => id !== tId && !divTeamIds.includes(id));
     
     while (teamGameCounts[tId] < numWeeks) {
-      // Find an opponent who also needs games
-      const opponentId = possibleOpponents.find(oppId => 
-        teamGameCounts[oppId] < numWeeks && 
-        !games.some(g => (g.homeTeamId === tId && g.awayTeamId === oppId) || (g.homeTeamId === oppId && g.awayTeamId === tId))
+      const oppId = possibleOpponents.find(id => 
+        teamGameCounts[id] < numWeeks && 
+        !games.some(g => (g.homeTeamId === tId && g.awayTeamId === id) || (g.homeTeamId === id && g.awayTeamId === tId))
       );
       
-      if (!opponentId) break; // Should theoretically not happen with enough teams
+      if (!oppId) break;
       
       games.push({
         id: generateUUID(),
         week: 0,
         homeTeamId: tId,
-        awayTeamId: opponentId
+        awayTeamId: oppId
       });
-      
       teamGameCounts[tId]++;
-      teamGameCounts[opponentId]++;
+      teamGameCounts[oppId]++;
     }
   });
 
-  // 3. Assign Weeks (Backtracking approach to guarantee no byes)
-  const assignedGames: Game[] = [];
-  const gamesToAssign = [...games].sort(() => Math.random() - 0.5);
-  
-  // Track which teams are busy in which week
-  const teamWeeks: Record<string, Set<number>> = {};
-  allTeamIds.forEach(id => teamWeeks[id] = new Set());
+  // 5. Assign Weeks (Greedy with conflict checking)
+  // To avoid byes, every team MUST play every week. 
+  // There should be exactly (n/2) games per week.
+  const weekGames: Record<number, Game[]> = {};
+  for (let w = 1; w <= numWeeks; w++) weekGames[w] = [];
 
-  // Week slots: week -> games
-  const weekSlots: Record<number, Game[]> = {};
-  for (let w = 1; w <= numWeeks; w++) weekSlots[w] = [];
+  const unassignedGames = [...games].sort(() => Math.random() - 0.5);
+  const finalGames: Game[] = [];
 
-  function assign(index: number): boolean {
-    if (index === gamesToAssign.length) return true;
+  for (let w = 1; w <= numWeeks; w++) {
+    const busyTeams = new Set<string>();
     
-    const game = gamesToAssign[index];
-    // Optimization: Try weeks with fewer games first to keep it balanced
-    const weeks = Array.from({length: numWeeks}, (_, i) => i + 1)
-      .sort((a, b) => weekSlots[a].length - weekSlots[b].length);
-
-    for (const w of weeks) {
-      if (!teamWeeks[game.homeTeamId].has(w) && !teamWeeks[game.awayTeamId].has(w)) {
-        // Try assigning
-        game.week = w;
-        teamWeeks[game.homeTeamId].add(w);
-        teamWeeks[game.awayTeamId].add(w);
-        weekSlots[w].push(game);
+    // Attempt to fill this week's quota (n/2 games)
+    for (let i = 0; i < unassignedGames.length; i++) {
+      const g = unassignedGames[i];
+      if (!busyTeams.has(g.homeTeamId) && !busyTeams.has(g.awayTeamId)) {
+        g.week = w;
+        busyTeams.add(g.homeTeamId);
+        busyTeams.add(g.awayTeamId);
+        finalGames.push(g);
+        unassignedGames.splice(i, 1);
+        i--;
         
-        if (assign(index + 1)) return true;
-        
-        // Backtrack
-        weekSlots[w].pop();
-        teamWeeks[game.homeTeamId].delete(w);
-        teamWeeks[game.awayTeamId].delete(w);
+        if (busyTeams.size === n) break; // Week is full
       }
     }
-    return false;
   }
 
-  // If backtracking is too slow for large leagues, we fall back to a safer greedy
-  if (!assign(0)) {
-    console.warn("Backtracking failed to find a perfect schedule, using greedy fallback.");
-    // Greedy fallback that at least fills as much as possible
-    gamesToAssign.forEach((game: any) => {
-      for (let w = 1; w <= numWeeks; w++) {
-        if (!teamWeeks[game.homeTeamId].has(w) && !teamWeeks[game.awayTeamId].has(w)) {
-           game.week = w;
-           teamWeeks[game.homeTeamId].add(w);
-           teamWeeks[game.awayTeamId].add(w);
-           assignedGames.push(game);
-           break;
-        }
-      }
-    });
-    return assignedGames;
-  }
-
-  return gamesToAssign;
+  return finalGames;
 }
 
 /**
@@ -150,7 +115,6 @@ export function generateDivisionSchedule(teams: Team[], numWeeks: number = 14): 
 export function calculateGroupedStandings(teams: Team[], games: Game[]) {
   const baseStandings = calculateStandings(teams, games);
   
-  // Map conference/division info from teams
   const standings = baseStandings.map(s => {
     const team = teams.find(t => t.id === s.teamId);
     return {
@@ -160,7 +124,6 @@ export function calculateGroupedStandings(teams: Team[], games: Game[]) {
     };
   });
 
-  // Grouping structure
   const grouped: Record<string, Record<string, Standing[]>> = {};
 
   standings.forEach(s => {
@@ -173,7 +136,7 @@ export function calculateGroupedStandings(teams: Team[], games: Game[]) {
     grouped[conf][div].push(s as Standing);
   });
 
-  // Sort each division by rank/winPct
+  // Sort each division by winPct, then pointDiff
   Object.keys(grouped).forEach(confId => {
     Object.keys(grouped[confId]).forEach(divId => {
       grouped[confId][divId].sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
@@ -184,47 +147,48 @@ export function calculateGroupedStandings(teams: Team[], games: Game[]) {
 }
 
 /**
- * Seeding logic: Division winners first, then Wildcards.
+ * Seeding logic: Division winners first (sorted by record), then Wildcards (sorted by record).
  */
 export function getConferenceSeeds(conferenceId: string, teams: Team[], standings: Standing[]): Standing[] {
-  const confTeams = teams.filter(t => t.conferenceId === conferenceId);
   const confStandings = standings.filter(s => {
     const team = teams.find(t => t.id === s.teamId);
     return team?.conferenceId === conferenceId;
   });
 
-  // 1. Identify Division Winners
-  const divisions = Array.from(new Set(confTeams.map(t => t.divisionId)));
+  // Group by division to find winners
+  const divMap: Record<string, Standing[]> = {};
+  confStandings.forEach(s => {
+    const team = teams.find(t => t.id === s.teamId);
+    const div = team?.divisionId || 'Independent';
+    if (!divMap[div]) divMap[div] = [];
+    divMap[div].push(s);
+  });
+
   const divisionWinners: Standing[] = [];
-  
-  divisions.forEach(divId => {
-    const divStandings = confStandings.filter(s => {
-      const team = teams.find(t => t.id === s.teamId);
-      return team?.divisionId === divId;
-    });
-    
-    if (divStandings.length > 0) {
-      divStandings.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
-      divisionWinners.push(divStandings[0]);
+  const wildcards: Standing[] = [];
+
+  Object.values(divMap).forEach(divStandings => {
+    // Sort division by record
+    divStandings.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
+    divisionWinners.push(divStandings[0]);
+    // The rest are wildcard candidates
+    for (let i = 1; i < divStandings.length; i++) {
+      wildcards.push(divStandings[i]);
     }
   });
 
-  // 2. Identify Wildcards (everyone else)
-  const nonWinners = confStandings.filter(s => !divisionWinners.find(w => w.teamId === s.teamId));
-  nonWinners.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
-
-  // 3. Merge: Div Winners (sorted by overall record) then Wildcards (sorted by overall record)
+  // Sort div winners by overall record
   divisionWinners.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
-  nonWinners.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
-  
-  // Ensure the top 4 seeds are clearly assigned by rank
-  const finalSeeds = [...divisionWinners, ...nonWinners];
-  finalSeeds.forEach((s, idx) => {
-    // Seed is index + 1
-    (s as any).seed = idx + 1;
-  });
+  // Sort wildcards by overall record
+  wildcards.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
 
-  return finalSeeds;
+  const totalSeeds = [...divisionWinners, ...wildcards];
+  
+  // Assign seed numbers (1-indexed)
+  return totalSeeds.map((s, idx) => ({
+    ...s,
+    seed: idx + 1
+  }));
 }
 
 /**

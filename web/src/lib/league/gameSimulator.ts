@@ -25,6 +25,15 @@ export type SoundEffectType =
   | 'TOUCHDOWN'
   | 'KICKOFF';
 
+export interface TeamStats {
+  totalYards: number;
+  passingYards: number;
+  rushingYards: number;
+  firstDowns: number;
+  turnovers: number;
+  penalties: number;
+}
+
 export interface GameStep {
   type: GameEventType;
   description: string;
@@ -32,203 +41,279 @@ export interface GameStep {
   soundEffect?: SoundEffectType;
   homeScore: number;
   awayScore: number;
-  timeRemaining: string; // e.g. "12:34"
+  timeRemaining: string;
   quarter: number;
   teamInPossessionId?: string;
+  // Enriched Data for Ultra-Realism
+  down?: number;
+  distance?: number | string;
+  yardLine?: number;
+  sideOfField?: string;
+  gain?: number;
+  isScoringPlay?: boolean;
+  stats?: {
+    home: TeamStats;
+    away: TeamStats;
+  };
 }
 
-export function simulateGameSteps(game: Game, homeTeam: Team, awayTeam: Team): GameStep[] {
+export function simulateGameSteps(
+  game: Game, 
+  homeTeam: Team, 
+  awayTeam: Team,
+  initialBoosts: { home: number; away: number } = { home: 0, away: 0 }
+): GameStep[] {
   const steps: GameStep[] = [];
   let homeScore = 0;
   let awayScore = 0;
+  const homeStats: TeamStats = { totalYards: 0, passingYards: 0, rushingYards: 0, firstDowns: 0, turnovers: 0, penalties: 0 };
+  const awayStats: TeamStats = { totalYards: 0, passingYards: 0, rushingYards: 0, firstDowns: 0, turnovers: 0, penalties: 0 };
   
-  const addStep = (type: GameEventType, description: string, quarter: number, time: string, possessionId?: string, commentary?: string, soundEffect?: SoundEffectType) => {
+  let currentQuarter = 1;
+  let currentTimeSeconds = 15 * 60; // 15 mins per quarter
+  let possessionId = Math.random() > 0.5 ? homeTeam.id : awayTeam.id; 
+  let yardLine = 25; 
+  let sideOfField = possessionId === homeTeam.id ? 'HOME' : 'AWAY';
+  let down = 1;
+  let distance = 10;
+  let otRound = 0;
+
+  const addStep = (type: GameEventType, description: string, options: Partial<GameStep> = {}) => {
+    const timeMins = Math.floor(currentTimeSeconds / 60);
+    const timeSecs = currentTimeSeconds % 60;
+    
     steps.push({
       type,
       description,
-      commentary,
-      soundEffect,
       homeScore,
       awayScore,
-      timeRemaining: time,
-      quarter,
-      teamInPossessionId: possessionId
+      timeRemaining: currentQuarter > 4 ? "OT" : `${timeMins.toString().padStart(2, '0')}:${timeSecs.toString().padStart(2, '0')}`,
+      quarter: currentQuarter,
+      teamInPossessionId: possessionId,
+      down,
+      distance,
+      yardLine,
+      sideOfField,
+      stats: {
+        home: { ...homeStats },
+        away: { ...awayStats }
+      },
+      ...options
     });
   };
 
-  const commentaryMap: Record<string, string[]> = {
-    'GAME_START': [
-      "The crowd is buzzing as the final preparations are made. We're in for a classic!",
-      "An electric atmosphere today as both teams look to make a statement.",
-      "The sun is setting, the lights are up, and the fans are ready for kick-off!",
-      "A potential championship-preview matchup here today. All eyes on the field."
-    ],
-    'KICKOFF': [
-      "A booming kick deep into the endzone. Let's see how they respond.",
-      "The ball is in the air! The chase is on!",
-      "Perfect placement on the kick. Special teams getting it done.",
-      "Kicked high and deep! The returner decides to take a touchback."
-    ],
-    'TOUCHDOWN': [
-      "UNBELIEVABLE! He breaks one tackle, then another... and he's GONE! TOUCHDOWN!",
-      "A laser-sharp pass across the middle. Catch! Reach... YES! SIX POINTS!",
-      "The defense was waiting, but the power was too much. Into the endzone they go!",
-      "A trick play that works to perfection! The stadium is erupting!",
-      "HE TAKES IT TO THE HOUSE! Pure speed on display right there."
-    ],
-    'FIELD_GOAL': [
-      "The snap is good, the hold is perfect... it's high, it's deep... IT'S GOOD!",
-      "Adding three points to the board. Clinical efficiency from the kicker.",
-      "A pressure kick from 45 yards out. Right down the middle!",
-      "Split the uprights! No doubt about that one."
-    ],
-    'INTERCEPTION': [
-      "PICKED OFF! He read that like a book! The momentum just shifted hard.",
-      "NO! A forced throw into double coverage leads to a huge turnover!",
-      "Intercepted! The safety comes out of nowhere to snag it!",
-      "He baited the QB into that one. Defense is having a day!"
-    ],
-    'FUMBLE': [
-      "The ball is loose! IT'S ON THE GROUND! Who's got it?!",
-      "A devastating hit jars the ball free! That's going to hurt.",
-      "Ball security failure! The defense was hungry for that one.",
-      "TURNOVER! He coughs it up in the redzone! Disaster for the offense."
-    ],
-    'SACK': [
-      "BROUGHT DOWN! The offensive line collapses as the pressure hits home.",
-      "SACKED! He had nowhere to go. Loss of 8 on the play.",
-      "Absolute chaos in the pocket! He's pinned behind the line.",
-      "The sack-master strikes again! That offensive line is struggling."
-    ],
-    'PUNT': [
-      "A long, spiraling punt to pin them back deep.",
-      "The drive stalls out. Time to trust the defense.",
-      "Excellent coverage on the return. They've got a long field ahead.",
-      "Fair catch called. The defense did their job."
-    ],
-    'TURNOVER_ON_DOWNS': [
-        "Denied! They went for it on 4th down and got absolutely stuffed!",
-        "Stuffed at the line! The gamble doesn't pay off for the offense.",
-        "A huge defensive stand! They take over at their own 40."
-    ],
-    'END_OF_QUARTER': [
-      "Quarter complete. Coaches drawing up new strategies on the sideline.",
-      "A brief pause to catch their breath. This game is intense!",
-      "Tensions are high as both teams regroup for the next 15.",
-      "What a battle we have on our hands. Everything to play for."
-    ],
-    'HALF_TIME': [
-      "HALF TIME! We've seen some incredible plays. Time for the show!",
-      "A quick breather before the second half battle begins.",
-      "Halftime report coming up. Let's recap the highlights.",
-      "Both teams heading to the locker room. Adjustments are needed."
-    ],
-    'OVERTIME_START': [
-        "WE ARE HEADED TO OVERTIME! 60 minutes wasn't enough!",
-        "Bonus football! The atmosphere is peak intensity right now.",
-        "Sudden death rules apply. Next score could end it."
-    ],
-    'GAME_END': [
-      "That is it! A hard-fought victory that will be remembered for years.",
-      "The final whistle blows! What a spectacle of sportsmanship and skill.",
-      "Emotional scenes on the field as the clock hits zero. Victory is theirs!",
-      "What a finish! This one lived up to the hype and more."
-    ],
+  const arcadeCommentary: Record<string, string[]> = {
+    'TOUCHDOWN': ["BOOM SHAKALAKA!", "HE'S ON FIRE!", "FROM DOWNTOWN BABY!", "PUT IT ON THE BOARD!", "TO THE HOUSE!", "CAN'T BE STOPPED!"],
+    'FIELD_GOAL': ["YES! IT'S GOOD!", "AUTOMATIC!", "FROM DEEP... YES!", "SPLIT THE UPRIGHTS!"],
+    'SACK': ["GET THAT OUTTA HERE!", "NOT IN MY HOUSE!", "CRUNCH TIME!", "TOTAL DESTRUCTION!", "TERMINATED!"],
+    'INTERCEPTION': ["INTERCEPTED! NO WAY!", "GIMME THAT BALL!", "THIEVERY ON THE FIELD!", "STOLEN!"],
+    'FUMBLE': ["BALL IS LOOSE!", "MISTAKE! TURNOVER!", "DISASTER!", "THEY DROPPED THE ROCK!"],
+    'TURNOVER_ON_DOWNS': ["DENIED!", "BRICK WALL!", "TURNOVER ON DOWNS!", "NOT TODAY!"],
+    'PUNT': ["OUTTA HERE!", "BOOTED!", "SEND IT BACK!", "CAN'T GET PAST 'EM!"],
+    'KICKOFF': ["KICKOFF! LET'S GO!", "GAME START!", "READY FOR ACTION!"]
   };
 
-  const getRandomCommentary = (type: string) => {
-    const list = commentaryMap[type] || [];
-    return list[Math.floor(Math.random() * list.length)] || "";
+  const getArcadeCommentary = (type: string) => {
+    const list = arcadeCommentary[type] || ["UNBELIEVABLE PLAY!", "DID YOU SEE THAT?!", "ARCADE ACTION!"];
+    return list[Math.floor(Math.random() * list.length)];
   };
 
-  addStep('GAME_START', `Welcome to the arena! ${awayTeam.name} faces off against ${homeTeam.name}.`, 1, '15:00', undefined, getRandomCommentary('GAME_START'), 'WHISTLE');
-  addStep('KICKOFF', `${awayTeam.name} kicks off to begin the game!`, 1, '14:55', homeTeam.id, getRandomCommentary('KICKOFF'), 'KICKOFF');
-
-  const runQuarters = (start: number, end: number) => {
-    for (let q = start; q <= end; q++) {
-        const drives = Math.floor(Math.random() * 4) + 2; 
-        
-        for (let d = 0; d < drives; d++) {
-          const isHomePossession = Math.random() > 0.5;
-          const actingTeam = isHomePossession ? homeTeam : awayTeam;
-          const otherTeam = isHomePossession ? awayTeam : homeTeam;
-          
-          const outcomeSeed = Math.random();
-          const timeMinutes = Math.floor(Math.random() * 10) + 1;
-          const timeSeconds = Math.floor(Math.random() * 50) + 10;
-          const time = `${timeMinutes.toString().padStart(2, '0')}:${timeSeconds.toString().padStart(2, '0')}`;
-    
-          if (outcomeSeed > 0.82) {
-            // Touchdown
-            const points = 7;
-            if (isHomePossession) homeScore += points; else awayScore += points;
-            addStep('TOUCHDOWN', `TOUCHDOWN! ${actingTeam.name} finds the endzone!`, q, time, actingTeam.id, getRandomCommentary('TOUCHDOWN'), 'TOUCHDOWN');
-          } else if (outcomeSeed > 0.65) {
-            // Field Goal
-            const points = 3;
-            if (isHomePossession) homeScore += points; else awayScore += points;
-            addStep('FIELD_GOAL', `${actingTeam.name} settles for a field goal. It's good!`, q, time, actingTeam.id, getRandomCommentary('FIELD_GOAL'), 'FG_GOOD');
-          } else if (outcomeSeed > 0.55) {
-            // Sack
-            addStep('SACK', `DISASTER! ${actingTeam.name} QB is sacked for a huge loss!`, q, time, actingTeam.id, getRandomCommentary('SACK'), 'OOH');
-          } else if (outcomeSeed > 0.45) {
-            // Turnover
-            const turners = ['INTERCEPTION', 'FUMBLE', 'TURNOVER_ON_DOWNS'];
-            const type = turners[Math.floor(Math.random() * turners.length)];
-            addStep(type as GameEventType, `TURNOVER! ${actingTeam.name} loses control!`, q, time, otherTeam.id, getRandomCommentary(type), 'OOH');
-          } else {
-            // Punt
-            addStep('PUNT', `Defense holds strong. ${actingTeam.name} is forced to punt.`, q, time, otherTeam.id, getRandomCommentary('PUNT'), 'WHISTLE');
-          }
-
-          // If it's overtime (q > 4), we stop at the first score
-          if (q > 4 && (homeScore !== awayScore)) break;
-        }
-        
-        if (q === 2) {
-          addStep('HALF_TIME', `HALF TIME! Score: ${awayTeam.name} ${awayScore}, ${homeTeam.name} ${homeScore}`, 2, '00:00', undefined, getRandomCommentary('HALF_TIME'), 'DRUM_ROLL');
-        } else if (q < 4) {
-          addStep('END_OF_QUARTER', `That's the end of Quarter ${q}! Score: ${awayTeam.name} ${awayScore}, ${homeTeam.name} ${homeScore}`, q, '00:00', undefined, getRandomCommentary('END_OF_QUARTER'), 'WHISTLE');
-        }
-
-        // If it's overtime (q > 4), we stop as soon as someone scores
-        if (q > 4 && homeScore !== awayScore) break;
+  // Intro
+  addStep('KICKOFF', `WELCOME TO STUFFY LEAGUE ARCADE! ${awayTeam.name} @ ${homeTeam.name}!`, { soundEffect: 'KICKOFF' });
+  
+  // Simulation Loop
+  while (currentQuarter <= 4) {
+    if (currentTimeSeconds <= 0) {
+      if (currentQuarter === 2) {
+        addStep('HALF_TIME', "HALF TIME! GET READY FOR THE SHOW!", { soundEffect: 'DRUM_ROLL' });
+      } else {
+        addStep('END_OF_QUARTER', `QUARTER ${currentQuarter} OVER!`, { soundEffect: 'WHISTLE' });
+      }
+      currentQuarter++;
+      if (currentQuarter > 4) break;
+      currentTimeSeconds = 15 * 60;
+      if (currentQuarter === 3) {
+          possessionId = possessionId === homeTeam.id ? awayTeam.id : homeTeam.id;
+          yardLine = 25;
+          sideOfField = possessionId === homeTeam.id ? 'HOME' : 'AWAY';
+      }
     }
-  };
 
-  // Run first 4 quarters
-  runQuarters(1, 4);
+    const isHome = possessionId === homeTeam.id;
+    const actingStats = isHome ? homeStats : awayStats;
+    const boost = isHome ? initialBoosts.home : initialBoosts.away;
+    const offensePower = ((isHome ? homeTeam.overallRating : awayTeam.overallRating) || 75) + (boost * 0.5);
+    const defensePower = (isHome ? awayTeam.overallRating : homeTeam.overallRating) || 75;
 
-  // Overtime logic
-  if (homeScore === awayScore) {
-    addStep('OVERTIME_START', `Regulation isn't enough! Score: ${awayScore}-${homeScore}. We're going to OVERTIME!`, 5, '15:00', undefined, getRandomCommentary('OVERTIME_START'), 'WHISTLE');
-    
-    // Simulate OT - higher chance of scoring to avoid tie
-    for (let otDrive = 0; otDrive < 4; otDrive++) {
-        if (homeScore !== awayScore) break;
-        
-        const isHomePossession = Math.random() > 0.5;
-        const actingTeam = isHomePossession ? homeTeam : awayTeam;
-        const time = `${Math.floor(Math.random() * 5) + 1}:${Math.floor(Math.random() * 40) + 10}`;
-        
-        const otSeed = Math.random();
-        if (otSeed > 0.5) { // 50% chance of score in OT drive to end it
-            if (Math.random() > 0.4) {
-                homeScore += isHomePossession ? 7 : 0;
-                awayScore += isHomePossession ? 0 : 7;
-                addStep('TOUCHDOWN', `WALK-OFF TOUCHDOWN! ${actingTeam.name} wins it in Overtime!`, 5, time, actingTeam.id, getRandomCommentary('TOUCHDOWN'), 'CHEER');
-            } else {
-                homeScore += isHomePossession ? 3 : 0;
-                awayScore += isHomePossession ? 0 : 3;
-                addStep('FIELD_GOAL', `GAME WINNER! The kick is GOOD! ${actingTeam.name} wins!`, 5, time, actingTeam.id, getRandomCommentary('FIELD_GOAL'), 'CHEER');
-            }
+    const playSeed = Math.random();
+    let gain = 0;
+    let playType: GameEventType = 'GAME_START';
+    let soundEffect: SoundEffectType | undefined;
+    let description = "";
+
+    if (down < 4) {
+      const successChance = 0.45 + (offensePower - defensePower) / 200;
+      if (playSeed < 0.02) {
+        playType = 'INTERCEPTION';
+        description = `TURNOVER! ${isHome ? homeTeam.name : awayTeam.name} pass is PICKED!`;
+        actingStats.turnovers++;
+        soundEffect = 'OOH';
+        possessionId = isHome ? awayTeam.id : homeTeam.id;
+        yardLine = 100 - yardLine;
+        sideOfField = sideOfField === 'HOME' ? 'AWAY' : 'HOME';
+        down = 1; distance = 10;
+      } else if (playSeed < 0.035) {
+        playType = 'FUMBLE';
+        description = `${isHome ? homeTeam.name : awayTeam.name} FUMBLES THE BALL!`;
+        actingStats.turnovers++;
+        soundEffect = 'OOH';
+        possessionId = isHome ? awayTeam.id : homeTeam.id;
+        yardLine = 100 - yardLine;
+        sideOfField = sideOfField === 'HOME' ? 'AWAY' : 'HOME';
+        down = 1; distance = 10;
+      } else if (playSeed < 0.10) {
+        playType = 'SACK';
+        gain = -Math.floor(Math.random() * 8) - 4;
+        description = `CRUNCHED! ${isHome ? homeTeam.name : awayTeam.name} is SACKED for ${Math.abs(gain)} yards!`;
+        soundEffect = 'OOH';
+        down++;
+        distance -= gain;
+        yardLine += gain;
+      } else if (playSeed < successChance) {
+        gain = Math.floor(Math.random() * 12) + 1;
+        if (Math.random() > 0.92) gain += Math.floor(Math.random() * 25);
+        description = `${isHome ? homeTeam.name : awayTeam.name} rips off ${gain} yards!`;
+        actingStats.totalYards += gain;
+        yardLine += gain;
+        if (yardLine >= 100) {
+          playType = 'TOUCHDOWN';
+          description = `UNBELIEVABLE! TOUCHDOWN ${isHome ? homeTeam.name : awayTeam.name}!`;
+          if (isHome) homeScore += 7; else awayScore += 7;
+          soundEffect = 'TOUCHDOWN';
+          possessionId = isHome ? awayTeam.id : homeTeam.id;
+          yardLine = 25;
+          sideOfField = isHome ? 'AWAY' : 'HOME';
+          down = 1; distance = 10;
+        } else if (gain >= distance) {
+          actingStats.firstDowns++;
+          down = 1; distance = Math.min(10, 100 - yardLine);
+          description += " NEW SET OF DOWNS!";
+          soundEffect = 'CHEER';
         } else {
-            addStep('PUNT', `OT continues as ${actingTeam.name} is forced to punt.`, 5, time, undefined, "Keep the heart medication close, folks!", 'WHISTLE');
+          down++; distance -= gain;
         }
+      } else {
+        description = `${isHome ? homeTeam.name : awayTeam.name}'s play is SHUT DOWN!`;
+        down++;
+      }
+    } else {
+      if (yardLine > 65) {
+        const fgChance = 0.85 - (yardLine - 65) / 100;
+        if (Math.random() < fgChance) {
+          playType = 'FIELD_GOAL';
+          description = `FROM DISTANCE... IT'S GOOD! ${isHome ? homeTeam.name : awayTeam.name} strikes for 3!`;
+          if (isHome) homeScore += 3; else awayScore += 3;
+          soundEffect = 'FG_GOOD';
+        } else {
+          description = `THE KICK IS WIDE! NO GOOD!`;
+          soundEffect = 'OOH';
+        }
+        possessionId = isHome ? awayTeam.id : homeTeam.id;
+        yardLine = 25;
+        sideOfField = isHome ? 'AWAY' : 'HOME';
+        down = 1; distance = 10;
+      } else {
+        playType = 'PUNT';
+        const puntYards = 35 + Math.floor(Math.random() * 20);
+        description = `${isHome ? homeTeam.name : awayTeam.name} punts it away! ${puntYards} yards.`;
+        soundEffect = 'WHISTLE';
+        possessionId = isHome ? awayTeam.id : homeTeam.id;
+        yardLine = Math.max(10, 100 - (yardLine + puntYards));
+        sideOfField = sideOfField === 'HOME' ? 'AWAY' : 'HOME';
+        down = 1; distance = 10;
+      }
+    }
+
+    currentTimeSeconds -= (30 + Math.floor(Math.random() * 15)); 
+    addStep(playType, description, { 
+      commentary: playType !== 'GAME_START' ? getArcadeCommentary(playType) : "NEXT PLAY COMIN' UP!",
+      soundEffect, gain,
+      isScoringPlay: playType === 'TOUCHDOWN' || playType === 'FIELD_GOAL'
+    });
+  }
+
+  // COLLEGIATE OVERTIME
+  if (homeScore === awayScore) {
+    currentQuarter = 5;
+    addStep('OVERTIME_START', "COLLEGIATE OVERTIME! BALL ON THE 25!", { soundEffect: 'WHISTLE' });
+    
+    while (homeScore === awayScore && otRound < 5) {
+      otRound++;
+      // Round: Each team gets one possession from the 25
+      const roundTeams = [awayTeam, homeTeam]; // Away team usually goes first in NCAA
+      const roundScores = [0, 0];
+
+      for (let i = 0; i < 2; i++) {
+        const team = roundTeams[i];
+        possessionId = team.id;
+        yardLine = 75; // 25 yards to go (100 - 25 = 75 is wrong, 100 - yardline = distance to endzone. yardLine 75 means 25 to go)
+        sideOfField = team.id === homeTeam.id ? 'AWAY' : 'HOME'; // On opponent's side
+        down = 1;
+        distance = 10;
+        let possessionActive = true;
+
+        addStep('GAME_START', `${team.name} possession begins at the 25!`);
+
+        while (possessionActive) {
+          const isHome = team.id === homeTeam.id;
+          const boost = isHome ? initialBoosts.home : initialBoosts.away;
+          const offensePower = ((isHome ? homeTeam.overallRating : awayTeam.overallRating) || 75) + (boost * 0.5);
+          const defensePower = (isHome ? awayTeam.overallRating : homeTeam.overallRating) || 75;
+
+          const playSeed = Math.random();
+          if (down < 4) {
+            const successChance = 0.45 + (offensePower - defensePower) / 200;
+            if (playSeed < 0.05) { // Higher turnover risk in OT pressure
+              addStep('INTERCEPTION', `PICKED OFF! Possession ends!`, { soundEffect: 'OOH' });
+              possessionActive = false;
+            } else if (playSeed < successChance) {
+              const gain = Math.floor(Math.random() * 8) + 2;
+              yardLine += gain;
+              if (yardLine >= 100) {
+                roundScores[i] = 7;
+                if (isHome) homeScore += 7; else awayScore += 7;
+                addStep('TOUCHDOWN', `TOUCHDOWN ${team.name}!`, { soundEffect: 'TOUCHDOWN', isScoringPlay: true });
+                possessionActive = false;
+              } else if (gain >= distance) {
+                down = 1; distance = Math.min(10, 100 - yardLine);
+                addStep('GAME_START', `First down ${team.name}!`);
+              } else {
+                down++; distance -= gain;
+                addStep('GAME_START', `${team.name} gains ${gain} yards.`);
+              }
+            } else {
+              down++;
+              addStep('GAME_START', `Incomplete pass.`);
+            }
+          } else {
+            // 4th Down in OT: Always Field Goal
+            if (Math.random() < 0.85) {
+              roundScores[i] = 3;
+              if (isHome) homeScore += 3; else awayScore += 3;
+              addStep('FIELD_GOAL', `FIELD GOAL IS GOOD!`, { soundEffect: 'FG_GOOD', isScoringPlay: true });
+            } else {
+              addStep('FIELD_GOAL', `MISSED! No points.`, { soundEffect: 'OOH' });
+            }
+            possessionActive = false;
+          }
+        }
+      }
+      
+      if (homeScore !== awayScore) break;
+      addStep('OVERTIME_START', `Tied index at ${homeScore}! Moving to next OT round.`);
     }
   }
 
-  addStep('GAME_END', `Game Over! Final: ${awayTeam.name} ${awayScore}, ${homeTeam.name} ${homeScore}`, homeScore === awayScore ? 5 : 4, '00:00', undefined, getRandomCommentary('GAME_END'), homeScore === awayScore ? 'DRUM_ROLL' : 'WHISTLE');
-
+  addStep('GAME_END', `GAME OVER! FINAL SCORE: ${homeScore} - ${awayScore}`, { soundEffect: 'WHISTLE' });
   return steps;
 }

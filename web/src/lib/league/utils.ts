@@ -1,5 +1,7 @@
-// Last Updated: 2026-03-22T23:55:00Z
-import { Team, Game, Standing, Player, PlayoffGame } from './types';
+// Last Updated: 2026-03-24T04:10:00Z
+import { Team, Game, Standing, Player, PlayoffGame, PlayerStats } from './types';
+import { assignStatsToPlayers } from './statsEngine';
+import { DEFAULT_LEAGUE_TEAMS } from './constants';
 
 export function generateRoundRobinSchedule(teams: Team[], numWeeks: number = 0): Game[] {
   if (teams.length < 2) return [];
@@ -140,7 +142,21 @@ export function generateRealisticFootballScore(home: Team, away: Team, players: 
     score += (fgs * 3);
     return score === 1 ? 0 : score;
   };
-  return { homeScore: getScore(homeIntensity), awayScore: getScore(awayIntensity) };
+
+  const scores = { homeScore: getScore(homeIntensity), awayScore: getScore(awayIntensity) };
+  
+  // Overtime Simulation (to reduce ties to ~1-2% as requested)
+  if (scores.homeScore === scores.awayScore) {
+    const otResult = Math.random();
+    if (otResult > 0.02) { // 98% chance of overtime resolution
+      const winner = Math.random() > 0.5 ? 'home' : 'away';
+      const otPoints = Math.random() > 0.4 ? 6 : 3; // TD or FG
+      if (winner === 'home') scores.homeScore += otPoints;
+      else scores.awayScore += otPoints;
+    }
+  }
+  
+  return scores;
 }
 
 export function isValidFootballScore(score: number): boolean {
@@ -179,4 +195,62 @@ export function createSeededRandom(seed: string) {
     h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
     return ((h ^= h >>> 16) >>> 0) / 4294967296;
   };
+}
+
+/**
+ * Re-runs simulation for all completed games to ensure player stats are consistent.
+ */
+export function recalculateStats(allGames: Game[], allPlayers: Player[]): Player[] {
+  let playersPool = allPlayers.map(p => ({
+    ...p,
+    stats: { gamesPlayed: 0 } as PlayerStats
+  }));
+  const completedGames = allGames
+    .filter(g => (g.homeScore !== undefined && g.awayScore !== undefined))
+    .sort((a, b) => a.week - b.week || a.id.localeCompare(b.id));
+
+  completedGames.forEach(game => {
+    const homeScore = game.homeScore || 0;
+    const awayScore = game.awayScore || 0;
+    const random = createSeededRandom(game.id);
+    playersPool = assignStatsToPlayers(playersPool, game.homeTeamId, homeScore, awayScore, random);
+    playersPool = assignStatsToPlayers(playersPool, game.awayTeamId, awayScore, homeScore, random);
+  });
+  return playersPool;
+}
+
+/**
+ * Ensures existing teams have their conference and division assignments from defaults.
+ */
+export function syncTeamStructures(teams: Team[]): Team[] {
+  return teams.map(t => {
+    const defaultTeam = DEFAULT_LEAGUE_TEAMS.find(dt => dt.id === t.id) || 
+                       DEFAULT_LEAGUE_TEAMS.find(dt => dt.name.toLowerCase() === t.name.toLowerCase());
+                       
+    if (defaultTeam) {
+      return {
+        ...t,
+        conferenceId: t.conferenceId || defaultTeam.conferenceId,
+        divisionId: t.divisionId || defaultTeam.divisionId
+      };
+    }
+    return t;
+  });
+}
+
+/**
+ * Migrates data from older versions.
+ */
+export function migrateData(data: any): any {
+  if (!data) return null;
+  // If no version, assume v1
+  if (!data.version) {
+    return {
+      ...data,
+      version: 2,
+      playoffGames: data.playoffGames || [],
+      history: data.history || []
+    };
+  }
+  return data;
 }
