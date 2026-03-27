@@ -152,8 +152,8 @@ export function simulateGameSteps(
     let description = "";
 
     if (down < 4) {
-      const successChance = 0.45 + (offensePower - defensePower) / 200;
-      if (playSeed < 0.02) {
+      const successChance = 0.52 + (offensePower - defensePower) / 200;
+      if (playSeed < 0.015) {
         playType = 'INTERCEPTION';
         description = `TURNOVER! ${isHome ? homeTeam.name : awayTeam.name} pass is PICKED!`;
         actingStats.turnovers++;
@@ -162,7 +162,7 @@ export function simulateGameSteps(
         yardLine = 100 - yardLine;
         sideOfField = sideOfField === 'HOME' ? 'AWAY' : 'HOME';
         down = 1; distance = 10;
-      } else if (playSeed < 0.035) {
+      } else if (playSeed < 0.03) {
         playType = 'FUMBLE';
         description = `${isHome ? homeTeam.name : awayTeam.name} FUMBLES THE BALL!`;
         actingStats.turnovers++;
@@ -171,17 +171,17 @@ export function simulateGameSteps(
         yardLine = 100 - yardLine;
         sideOfField = sideOfField === 'HOME' ? 'AWAY' : 'HOME';
         down = 1; distance = 10;
-      } else if (playSeed < 0.10) {
+      } else if (playSeed < 0.075) {
         playType = 'SACK';
-        gain = -Math.floor(Math.random() * 8) - 4;
+        gain = -Math.floor(Math.random() * 6) - 3;
         description = `CRUNCHED! ${isHome ? homeTeam.name : awayTeam.name} is SACKED for ${Math.abs(gain)} yards!`;
         soundEffect = 'OOH';
         down++;
         distance -= gain;
         yardLine += gain;
       } else if (playSeed < successChance) {
-        gain = Math.floor(Math.random() * 12) + 1;
-        if (Math.random() > 0.92) gain += Math.floor(Math.random() * 25);
+        gain = Math.floor(Math.random() * 14) + 1;
+        if (Math.random() > 0.90) gain += Math.floor(Math.random() * 30);
         description = `${isHome ? homeTeam.name : awayTeam.name} rips off ${gain} yards!`;
         actingStats.totalYards += gain;
         yardLine += gain;
@@ -203,7 +203,8 @@ export function simulateGameSteps(
           down++; distance -= gain;
         }
       } else {
-        description = `${isHome ? homeTeam.name : awayTeam.name}'s play is SHUT DOWN!`;
+        const isPass = Math.random() > 0.4;
+        description = isPass ? `Incomplete pass by ${isHome ? homeTeam.name : awayTeam.name}.` : `Stuffed! ${isHome ? homeTeam.name : awayTeam.name} is stopped for no gain.`;
         down++;
       }
     } else {

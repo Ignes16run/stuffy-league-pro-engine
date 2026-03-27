@@ -113,14 +113,12 @@ function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Tea
     if (player.profilePicture) return player.profilePicture;
     let hash = 0;
     for (let i = 0; i < player.id.length; i++) hash = player.id.charCodeAt(i) + ((hash << 5) - hash);
-    // 25% chance of having a specific profile picture for variety if available
-    if ((Math.abs(hash) % 100) < 25 && PLAYER_SPECIFIC_RENDERS?.length > 0) {
+    if ((Math.abs(hash) % 100) < 25 && (PLAYER_SPECIFIC_RENDERS?.length ?? 0) > 0) {
        return PLAYER_SPECIFIC_RENDERS[Math.abs(hash) % PLAYER_SPECIFIC_RENDERS.length];
     }
     return baseRenderUrl;
   };
   const renderUrl = getRenderUrl();
-
   const rating = player.rating;
 
   const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -128,7 +126,8 @@ function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Tea
     const box = card.getBoundingClientRect();
     const x = (e.clientX - box.left) / box.width - 0.5;
     const y = (e.clientY - box.top) / box.height - 0.5;
-    setRotate({ x: y * -15, y: x * 15 });
+    // Smoother, subtler rotation
+    setRotate({ x: y * -8, y: x * 8 });
   };
 
   const onMouseLeave = () => {
@@ -145,7 +144,7 @@ function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Tea
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.9, y: 20 }}
+      initial={{ opacity: 0, scale: 0.95, y: 10 }}
       animate={{ 
         opacity: 1, 
         scale: 1, 
@@ -153,11 +152,11 @@ function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Tea
         rotateX: rotate.x,
         rotateY: rotate.y
       }}
-      exit={{ opacity: 0, scale: 0.9 }}
+      exit={{ opacity: 0, scale: 0.95 }}
       transition={{ 
-        layout: { duration: 0.4, ease: [0.23, 1, 0.32, 1] },
-        rotateX: { type: 'spring', stiffness: 300, damping: 20 },
-        rotateY: { type: 'spring', stiffness: 300, damping: 20 },
+        layout: { duration: 0.3, ease: 'easeOut' },
+        rotateX: { type: 'spring', stiffness: 200, damping: 25 },
+        rotateY: { type: 'spring', stiffness: 200, damping: 25 },
         opacity: { duration: 0.2 },
         scale: { duration: 0.2 }
       }}
@@ -168,101 +167,90 @@ function PlayerCard({ player, team, index, onEdit }: { player: Player, team: Tea
     >
       <Card 
         className={cn(
-          "relative h-[560px] rounded-[2.5rem] border-0 overflow-hidden bg-white hover:shadow-xl transition-all duration-700 cursor-pointer group/card",
-          rating >= 90 ? "ring-2 ring-amber-400/20" : ""
+          "relative h-[580px] rounded-[3rem] border border-stone-100 overflow-hidden bg-white hover:border-stone-200 transition-all duration-500 cursor-pointer group/card",
+          rating >= 90 && "ring-1 ring-amber-400/10 shadow-lg shadow-amber-500/5"
         )}
-        style={{ 
-          boxShadow: '0 4px 20px -5px rgba(0,0,0,0.05)'
-        }}
       >
-        {/* Modern Sports Card Layout */}
-        <div className="absolute inset-0 flex flex-col p-6">
-          {/* Top Section: Team & Pos */}
-          <div className="flex justify-between items-start z-10">
-             <div className="space-y-1">
-                <span className="text-[10px] font-black text-stone-300 uppercase tracking-[0.3em] block mb-1">Franchise</span>
-                <p className="text-[12px] font-black text-stone-800 uppercase tracking-tighter italic truncate max-w-[130px]">
-                   {team?.name || 'Unassigned'}
-                </p>
-             </div>
-             <div className="text-right">
-                <div className="bg-stone-900 text-white rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest inline-block mb-1">
-                   {player.position}
-                </div>
-                <div className="flex gap-0.5 justify-end">
-                   {[1,2,3].map(i => <Star key={i} className={cn("w-2 h-2", i <= (rating/20) ? "text-amber-400 fill-current" : "text-stone-200")} />)}
-                </div>
-             </div>
+        {/* Background Accent */}
+        <div 
+          className="absolute inset-0 opacity-[0.03] transition-opacity group-hover/card:opacity-[0.05] pointer-events-none" 
+          style={{ backgroundColor: team?.primaryColor }}
+        />
+
+        <div className="absolute inset-0 flex flex-col p-8 pt-10">
+          {/* Top Integrated Header: Image & Rating */}
+          <div className="relative mb-8 group-hover/card:scale-[1.02] transition-transform duration-700 ease-out">
+            <div className="relative w-full aspect-square max-w-[240px] mx-auto">
+               {/* Decorative Ring */}
+               <div className="absolute inset-0 rounded-full border border-stone-100 p-2">
+                 <div className="w-full h-full rounded-full bg-stone-50/50" />
+               </div>
+
+               {/* Main Render Circular Mask */}
+               <div className="relative w-full h-full rounded-full overflow-hidden border-8 border-white shadow-xl bg-white z-10">
+                  <Image 
+                    src={renderUrl} 
+                    fill 
+                    className="object-cover scale-150 translate-y-3" 
+                    alt={player.name}
+                    sizes="240px"
+                  />
+               </div>
+
+               {/* Rating Badge - High Contrast, integrated with Image circle */}
+               <div className={cn(
+                 "absolute bottom-2 -right-1 w-16 h-16 rounded-3xl flex flex-col items-center justify-center shadow-2xl z-20 border-4 border-white transform rotate-6",
+                 getRatingColor(rating).replace('text-', 'bg-')
+               )}>
+                  <span className="text-2xl font-black text-white italic tracking-tighter leading-none">{rating}</span>
+                  <span className="text-[7px] font-black text-white/70 uppercase tracking-widest mt-0.5">OVR</span>
+               </div>
+            </div>
           </div>
 
-          {/* Middle Section: Circular Stuffy Render */}
-          <div className="flex-1 flex items-center justify-center relative my-2">
-             {/* OVR Rating Backdrop */}
-             <div className={cn(
-               "absolute text-[9rem] font-black italic tracking-tighter leading-none opacity-[0.02] select-none",
-               getRatingColor(rating)
-             )}>
-                {rating}
-             </div>
-
-             <div className="relative w-52 h-52 group-hover/card:scale-105 transition-transform duration-700">
-                {/* Main Circular Mask */}
-                <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-white shadow-lg z-10 bg-stone-50">
-                   <Image 
-                     src={renderUrl} 
-                     fill 
-                     className="object-cover scale-150 translate-y-2" 
-                     alt={player.name}
-                     sizes="208px"
-                   />
-                </div>
-
-                {/* Rating Badge Overlay */}
-                <div className={cn(
-                  "absolute -top-1 -right-1 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg z-20 border-2 border-white -rotate-12",
-                  getRatingColor(rating).replace('text-', 'bg-')
-                )}>
-                   <span className="text-xl font-black text-white italic tracking-tighter leading-none">{rating}</span>
-                </div>
-             </div>
+          {/* Name & Subtitle Section */}
+          <div className="text-center space-y-1 mb-8">
+            <div className="flex items-center justify-center gap-2 mb-1">
+               <span className="bg-stone-900 text-white rounded-md px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest leading-none">
+                  {player.position}
+               </span>
+               <span className="text-[10px] font-black text-stone-300 italic tracking-tighter">#{player.jerseyNumber || (index + 10)}</span>
+            </div>
+            <h3 className="text-3xl font-black text-stone-900 leading-tight uppercase tracking-tighter italic truncate group-hover/card:text-amber-600 transition-colors">
+               {player.name}
+            </h3>
+            <div className="flex items-center justify-center gap-2">
+               <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest italic truncate max-w-[150px]">
+                  {team?.name || 'Free Agent'}
+               </p>
+            </div>
           </div>
 
-          {/* Bottom Section: Name & Stats */}
-          <div className="z-10 space-y-4">
-             <div className="text-center group-hover/card:translate-y-[-2px] transition-transform duration-500">
-                <h3 className="text-3xl font-black text-stone-900 leading-tight uppercase tracking-tighter italic truncate">
-                   {player.name}
-                </h3>
-             </div>
-
-             <div className="grid grid-cols-3 gap-2 py-3 px-2 bg-stone-50/50 backdrop-blur-md rounded-2xl border border-stone-100 shadow-sm">
-                {player.abilities.slice(0, 3).map((ability, i) => (
-                   <div key={i} className="flex flex-col items-center">
-                      <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-0.5">{ability.name.slice(0, 3)}</span>
-                      <span className="text-sm font-black text-stone-800 tabular-nums">{ability.value}</span>
-                   </div>
-                ))}
-             </div>
-
-             <div className="flex items-center justify-between px-1 pt-1">
-                <div className="flex items-center gap-2">
-                   <div className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center border border-stone-200">
-                      <Shield className="w-3 h-3 text-stone-400" />
-                   </div>
-                   <span className="text-[10px] font-black text-stone-400 italic">#{player.jerseyNumber || (index + 10)}</span>
+          {/* Attributes Grid - Simplified Summary */}
+          <div className="mt-auto">
+            <div className="grid grid-cols-3 gap-3 p-4 bg-stone-50/50 backdrop-blur-sm rounded-3xl border border-stone-100 group-hover/card:bg-white transition-colors duration-500">
+              {player.abilities.slice(0, 3).map((ability, i) => (
+                <div key={i} className="flex flex-col items-center">
+                  <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1">{ability.name.slice(0, 3)}</span>
+                  <span className="text-base font-black text-stone-800 tabular-nums italic tracking-tighter leading-none">{ability.value}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                   <span className="text-[8px] font-black text-stone-300 uppercase tracking-widest opacity-0 group-hover/card:opacity-100 transition-opacity">Record</span>
-                   <div className="w-9 h-9 rounded-full bg-stone-900 flex items-center justify-center shadow-lg hover:bg-emerald-500 transition-all duration-300">
-                      <Edit2 className="w-3.5 h-3.5 text-white" />
-                   </div>
-                </div>
-             </div>
+              ))}
+            </div>
+
+            {/* Bottom Actions Row */}
+            <div className="flex items-center justify-between mt-6 px-1">
+               <div className="flex gap-0.5">
+                  {[1,2,3,4,5].map(i => <Star key={i} className={cn("w-2.5 h-2.5", i <= Math.ceil(rating/20) ? "text-amber-400 fill-current" : "text-stone-200")} />)}
+               </div>
+               <div className="w-10 h-10 rounded-2xl bg-stone-900 flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-300">
+                  <Edit2 className="w-4 h-4 text-white" />
+               </div>
+            </div>
           </div>
         </div>
 
-        {/* Gloss/Reflect Effect */}
-        <div className="absolute inset-0 z-50 pointer-events-none bg-linear-to-tr from-white/5 via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-700" />
+        {/* Gloss/Reflect Effect - Barely Visible Shim */}
+        <div className="absolute inset-0 z-50 pointer-events-none bg-linear-to-tr from-white/10 via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-1000" />
       </Card>
     </motion.div>
   );
@@ -456,7 +444,7 @@ function PlayerEditDialog({ player, team, onClose, onSave }: { player: Player, t
                {formData.abilities.slice(0, 5).map((ability, idx) => (
                  <div key={idx} className="space-y-3">
                    <div className="flex justify-between items-end">
-                     <div className="flex flex-col">
+                     <div className="flex-2 min-w-0">
                        <span className="text-[10px] font-black text-stone-800 uppercase tracking-tight">{ability.name}</span>
                        <span className="text-[8px] text-stone-400 font-bold uppercase tracking-tighter">{categories[idx]?.name || 'Specialty'}</span>
                      </div>
@@ -485,7 +473,7 @@ function PlayerEditDialog({ player, team, onClose, onSave }: { player: Player, t
             <Button variant="ghost" onClick={onClose} className="flex-1 h-16 rounded-2xl font-black text-[10px] uppercase tracking-widest text-stone-400 hover:bg-stone-50 transition-all">Cancel</Button>
             <Button 
                 onClick={() => onSave(formData)} 
-                className="flex-[2] h-16 rounded-2xl bg-stone-900 hover:bg-black text-white font-black uppercase tracking-widest shadow-2xl shadow-stone-900/40 transition-all active:scale-[0.98]"
+                className="flex-2 h-16 rounded-2xl bg-stone-900 hover:bg-black text-white font-black uppercase tracking-widest shadow-2xl shadow-stone-900/40 transition-all active:scale-[0.98]"
             >
               Update Dossier
             </Button>

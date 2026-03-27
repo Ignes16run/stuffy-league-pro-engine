@@ -300,28 +300,126 @@ export default function TeamSetup() {
               </div>
             </div>
 
+             {/* Live Broadcast Preview Card */}
              <div className="space-y-4 flex flex-col items-center">
-                <label className="text-[10px] font-black uppercase text-stone-400 w-full tracking-widest">Identity Node</label>
-                 <div 
-                   className="w-44 h-44 rounded-full border-2 border-dashed border-stone-200 flex flex-col items-center justify-center relative overflow-hidden bg-white group hover:border-emerald-500 transition-all shadow-md"
-                   style={{ borderColor: newTeam.logoUrl ? 'white' : undefined }}
-                 >
-                   {newTeam.logoUrl ? (
-                     <div className="relative w-full h-full">
-                      <Image src={newTeam.logoUrl} fill className="object-cover scale-105" alt="logo" sizes="176px" />
-                     </div>
-                  ) : (
-                    <div className="text-stone-300 text-center relative z-10 p-6">
-                      <Upload className="w-10 h-10 mx-auto mb-3 opacity-20 group-hover:scale-110 group-hover:text-emerald-500 transition-all" />
-                      <p className="text-[9px] uppercase font-black tracking-widest">Deploy Asset</p>
+                <label className="text-[10px] font-black uppercase text-stone-400 w-full tracking-widest">Live Broadcast Preview</label>
+
+                {/* Broadcast Preview */}
+                <motion.div
+                  layout
+                  className="w-full rounded-2xl overflow-hidden border border-stone-900 shadow-2xl bg-[#1e1f26] relative"
+                >
+                  {/* Ambient glow from primary color */}
+                  <div
+                    className="absolute inset-0 opacity-20 pointer-events-none transition-all duration-500"
+                    style={{ background: `radial-gradient(circle at center, ${newTeam.primaryColor || '#10b981'} 0%, transparent 70%)` }}
+                  />
+
+                  {/* Mini score header */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 relative z-10">
+                    <div className="text-[8px] font-black uppercase tracking-[0.3em] text-white/30">Stuffy League Network</div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                      <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Live</span>
                     </div>
-                  )}
-                </div>
+                  </div>
+
+                  {/* Mascot + team identity */}
+                  <div className="flex flex-col items-center py-8 px-6 gap-4 relative z-10">
+                    <motion.div
+                      layout
+                      key={newTeam.icon}
+                      initial={{ scale: 0.8, opacity: 0, y: 10 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                      className="w-28 h-28 rounded-full flex items-center justify-center border-2 shadow-xl relative overflow-hidden"
+                      style={{
+                        borderColor: newTeam.primaryColor || '#10b981',
+                        boxShadow: `0 0 40px ${newTeam.primaryColor || '#10b981'}44`,
+                        backgroundColor: `${newTeam.primaryColor || '#10b981'}22`,
+                      }}
+                    >
+                      {newTeam.logoUrl ? (
+                        <Image src={newTeam.logoUrl} fill className="object-cover scale-105" alt="preview" sizes="112px" />
+                      ) : (
+                        <div className="relative w-[90%] h-[90%] translate-y-2">
+                          <Image
+                            src={STUFFY_RENDER_MAP[newTeam.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear}
+                            fill className="object-contain drop-shadow-2xl"
+                            alt="mascot preview"
+                            sizes="100px"
+                          />
+                        </div>
+                      )}
+                    </motion.div>
+
+                    {/* Team name */}
+                    <div className="text-center space-y-1">
+                      <motion.h3
+                        layout
+                        className="text-sm font-black uppercase tracking-tight text-white leading-tight"
+                        style={{ color: newTeam.primaryColor || '#10b981' }}
+                      >
+                        {newTeam.name || 'YOUR TEAM NAME'}
+                      </motion.h3>
+                      <div className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20">
+                        {newTeam.icon || 'TeddyBear'}
+                      </div>
+                    </div>
+
+                    {/* Color swatches */}
+                    <div className="flex gap-2">
+                      <div
+                        className="w-6 h-6 rounded-full border-2 border-white/20 shadow-lg"
+                        style={{ backgroundColor: newTeam.primaryColor || '#10b981' }}
+                        title="Primary"
+                      />
+                      <div
+                        className="w-6 h-6 rounded-full border-2 border-white/20 shadow-lg"
+                        style={{ backgroundColor: newTeam.secondaryColor || '#6366f1' }}
+                        title="Secondary"
+                      />
+                    </div>
+
+                    {/* Mini stat bars */}
+                    <div className="w-full space-y-2 mt-2">
+                      {[
+                        { label: 'OFF', val: newTeam.offenseRating || 75, color: '#f43f5e' },
+                        { label: 'DEF', val: newTeam.defenseRating || 75, color: '#3b82f6' },
+                        { label: 'SPC', val: newTeam.specialTeamsRating || 75, color: '#10b981' },
+                      ].map(s => (
+                        <div key={s.label} className="flex items-center gap-2">
+                          <span className="text-[8px] font-black uppercase text-white/30 w-6">{s.label}</span>
+                          <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                            <motion.div
+                              animate={{ width: `${(s.val / 99) * 100}%` }}
+                              transition={{ duration: 0.4 }}
+                              className="h-full rounded-full"
+                              style={{ backgroundColor: s.color }}
+                            />
+                          </div>
+                          <span className="text-[8px] font-black text-white/30 w-5 text-right">{s.val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Bottom ticker */}
+                  <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border-t border-white/5 relative z-10">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: newTeam.primaryColor || '#10b981' }} />
+                    <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20 truncate">
+                      {newTeam.name || 'Team'} is ready for the stadium
+                    </span>
+                  </div>
+                </motion.div>
+
+                {/* Logo upload */}
                 <Button variant="outline" className="w-full relative overflow-hidden rounded-xl h-11 text-[10px] font-black uppercase tracking-widest border-stone-200/60 shadow-sm">
-                   <span className="flex items-center gap-2"><Upload className="w-3.5 h-3.5" /> Upload Logo</span>
-                   <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleLogoUpload} accept="image/*" />
+                  <span className="flex items-center gap-2"><Upload className="w-3.5 h-3.5" /> Upload Logo</span>
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleLogoUpload} accept="image/*" />
                 </Button>
              </div>
+
           </div>
 
           <Button 

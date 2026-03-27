@@ -40,17 +40,19 @@ export function calculateStandings(teams: Team[], games: Game[]): Standing[] {
   
   const sortedGames = [...games].sort((a, b) => a.week - b.week);
   sortedGames.forEach(game => {
-    if (game.homeScore === undefined || game.awayScore === undefined) return;
+    // A game is counted if it has scores OR if a winner/tie was manually selected
+    const isCompleted = (game.homeScore !== undefined && game.awayScore !== undefined) || !!game.winnerId || game.isTie;
+    if (!isCompleted) return;
     
     const homeStats = stats[game.homeTeamId];
     const awayStats = stats[game.awayTeamId];
     
     if (!homeStats || !awayStats) return;
 
-    homeStats.pointsFor += game.homeScore;
-    homeStats.pointsAgainst += game.awayScore;
-    awayStats.pointsFor += game.awayScore;
-    awayStats.pointsAgainst += game.homeScore;
+    homeStats.pointsFor += (game.homeScore || 0);
+    homeStats.pointsAgainst += (game.awayScore || 0);
+    awayStats.pointsFor += (game.awayScore || 0);
+    awayStats.pointsAgainst += (game.homeScore || 0);
 
     if (game.isTie) {
       [game.homeTeamId, game.awayTeamId].forEach(id => {

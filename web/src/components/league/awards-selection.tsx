@@ -141,6 +141,7 @@ export default function AwardsSelection() {
   );
 }
 
+
 function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, playerId: string, players: Player[], teams: Team[] }) {
   const config = AWARD_CONFIG[type];
   const Icon = config.icon;
@@ -148,6 +149,43 @@ function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, 
   const player = isTeamAward ? null : players.find(p => p.id === playerId);
   const team = isTeamAward ? teams.find(t => t.id === playerId) : teams.find(t => t.id === player?.teamId);
   const renderUrl = team ? STUFFY_RENDER_MAP[team.icon as StuffyIcon] : STUFFY_RENDER_MAP.TeddyBear;
+
+  // Slot machine state
+  const actualName = isTeamAward ? (team?.name || '—') : (player?.name || '—');
+  const candidateNames = isTeamAward
+    ? teams.map(t => t.name)
+    : [...new Set(players.map(p => p.name))];
+  const pool = candidateNames.length > 1
+    ? candidateNames.filter(n => n !== actualName)
+    : [actualName];
+
+  const [displayName, setDisplayName] = useState(pool[0] || actualName);
+  const [isLocked, setIsLocked] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Run slot spin on mount
+  React.useEffect(() => {
+    let spins = 0;
+    const totalSpins = 14;
+    let delay = 60;
+
+    const spin = () => {
+      spins++;
+      if (spins >= totalSpins) {
+        setDisplayName(actualName);
+        setIsLocked(true);
+        setTimeout(() => setShowConfetti(true), 200);
+        return;
+      }
+      setDisplayName(pool[Math.floor(Math.random() * pool.length)]);
+      delay = delay + spins * 8; // decelerate
+      setTimeout(spin, delay);
+    };
+
+    const t = setTimeout(spin, 300);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <motion.div
@@ -170,17 +208,54 @@ function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, 
                  <Image src={renderUrl} fill className="object-contain" alt="" sizes="200px" />
              </div>
 
-             <div className="relative z-10 p-6 bg-white/20 backdrop-blur-2xl rounded-2xl border border-white/30 shadow-sm group-hover:scale-110 transition-transform duration-700">
-                <Icon className="w-12 h-12 text-white" />
+             {/* Icon with confetti burst on lock */}
+             <div className="relative z-10">
+               <motion.div
+                 animate={isLocked ? { scale: [1, 1.3, 1] } : {}}
+                 transition={{ duration: 0.4, ease: 'easeOut' }}
+                 className="p-6 bg-white/20 backdrop-blur-2xl rounded-2xl border border-white/30 shadow-sm group-hover:scale-110 transition-transform duration-700"
+               >
+                 <Icon className="w-12 h-12 text-white" />
+               </motion.div>
+               {/* Mini confetti */}
+               <AnimatePresence>
+                 {showConfetti && ['⭐','✨','🎉','💫','🌟'].map((e, i) => (
+                   <motion.span
+                     key={i}
+                     initial={{ opacity: 1, scale: 0, x: 0, y: 0 }}
+                     animate={{
+                       opacity: 0, scale: 1.5,
+                       x: (i % 2 === 0 ? 1 : -1) * (30 + i * 15),
+                       y: -40 - i * 12
+                     }}
+                     transition={{ duration: 0.8, delay: i * 0.06 }}
+                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-lg pointer-events-none"
+                   >
+                     {e}
+                   </motion.span>
+                 ))}
+               </AnimatePresence>
              </div>
           </div>
 
           <div className="p-10 space-y-8 flex flex-col items-center text-center">
              <div className="space-y-1">
                 <span className="text-[10px] font-black text-stone-300 uppercase tracking-[0.3em]">{config.label}</span>
-                <h4 className="text-2xl font-black text-stone-900 uppercase tracking-tighter leading-tight">
-                    {isTeamAward ? (team?.name || 'Unknown Franchise') : (player?.name || 'Unknown Legend')}
-                </h4>
+                {/* Slot machine name */}
+                <div className="overflow-hidden h-10 flex items-center justify-center">
+                  <motion.h4
+                    key={displayName}
+                    initial={{ y: isLocked ? 0 : -24, opacity: isLocked ? 1 : 0.4 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.1 }}
+                    className={cn(
+                      "text-2xl font-black text-stone-900 uppercase tracking-tighter leading-tight",
+                      !isLocked && "blur-[1px]"
+                    )}
+                  >
+                    {displayName}
+                  </motion.h4>
+                </div>
              </div>
 
              <div className="flex items-center gap-4">
@@ -229,3 +304,4 @@ function AwardRevealCard({ type, playerId, players, teams }: { type: AwardType, 
     </motion.div>
   );
 }
+

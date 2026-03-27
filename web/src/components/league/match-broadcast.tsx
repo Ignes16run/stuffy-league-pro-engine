@@ -13,6 +13,7 @@ import { useLeague } from "@/context/league-context";
 import { simulateGameSteps, SoundEffectType } from "@/lib/league/gameSimulator";
 import { generateBroadcastSequence, BroadcastStep } from "@/lib/league/broadcastEngine";
 import { STUFFY_RENDER_MAP } from "@/lib/league/assetMap";
+import { generateTickerItems } from '@/lib/league/tickerEngine';
 import { StuffyIcon } from "@/lib/league/types";
 import { cn } from "@/lib/utils";
 import { yardLineToFieldPercent, YARD_LINE_LABELS, ENDZONE_PCT, isRedZone } from "@/lib/league/fieldUtils";
@@ -36,36 +37,69 @@ const AMBIENT_TRACK = '/sounds/Crowd Cheering Stomping.mp3';
 
 
 
+// Last Updated: 2026-03-26T15:27:10-04:00
+
 export default function MatchBroadcast() {
-  const { activeBroadcastGameId, setActiveBroadcastGameId, games, teams, players, updateGameResult } = useLeague();
+  const { activeBroadcastGameId, setActiveBroadcastGameId, games, teams, players, updateGameResult, currentWeek } = useLeague();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isTurbo, setIsTurbo] = useState(false);
   const [showHalftime, setShowHalftime] = useState(false);
   const [interactionBoost, setInteractionBoost] = useState({ home: 0, away: 0 });
+  const [shakeKey, setShakeKey] = useState(0);
+  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; emoji: string }>>([]);
+  const [isCardFlipped, setIsCardFlipped] = useState(false);
+  const particleIdRef = useRef(0);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  const tickerItems = useMemo(() => 
+    generateTickerItems(games, teams, players, currentWeek, activeBroadcastGameId),
+    [games, teams, players, currentWeek, activeBroadcastGameId]
+  );
   
   const game = useMemo(() => games.find(g => g.id === activeBroadcastGameId), [games, activeBroadcastGameId]);
   const homeTeam = useMemo(() => teams.find(t => t.id === game?.homeTeamId), [teams, game]);
   const awayTeam = useMemo(() => teams.find(t => t.id === game?.awayTeamId), [teams, game]);
 
-  const [localSteps, setLocalSteps] = useState<BroadcastStep[]>([]);
-  const stepsInitialized = useRef(false);
-
-  // Initial Simulation
+  // Reset states when the broadcast game changes
   useEffect(() => {
-    if (!game || !homeTeam || !awayTeam || stepsInitialized.current) return;
-    const initialSteps = simulateGameSteps(game, homeTeam, awayTeam, interactionBoost);
-    const broadcastSequence = generateBroadcastSequence(initialSteps, homeTeam, awayTeam, players);
-    setLocalSteps(broadcastSequence);
-    stepsInitialized.current = true;
-  }, [game, homeTeam, awayTeam, interactionBoost, players]);
+    if (activeBroadcastGameId) {
+      setCurrentStepIndex(0);
+      setIsPaused(false);
+      setShowHalftime(false);
+      setInteractionBoost({ home: 0, away: 0 });
+    }
+  }, [activeBroadcastGameId]);
 
-  // Boost influence: interaction boosts are applied at simulation init time.
-  // Re-simulation mid-game would cause visual jumps, so boosts affect
-  // the momentum bar and are baked into the next broadcast session.
+  // Generate sequence exactly once per game change
+  const localSteps = useMemo(() => {
+    if (!game || !homeTeam || !awayTeam) return [];
+    
+    const initialSteps = simulateGameSteps(game, homeTeam, awayTeam, { home: 0, away: 0 });
+    return generateBroadcastSequence(initialSteps, homeTeam, awayTeam, players);
+  }, [game?.id, homeTeam?.id, awayTeam?.id, players]);
 
   const currentStep: BroadcastStep | undefined = localSteps[currentStepIndex];
+
+  // Derived Possession & Identity (New)
+  const possessionColor = useMemo(() => {
+    if (!currentStep?.teamInPossessionId) return "#10b981"; // Neutral Emerald
+    if (currentStep.teamInPossessionId === homeTeam?.id) return homeTeam.primaryColor || "#06b6d4";
+    if (currentStep.teamInPossessionId === awayTeam?.id) return awayTeam.primaryColor || "#f43f5e";
+    return "#10b981";
+  }, [currentStep?.teamInPossessionId, homeTeam, awayTeam]);
+
+  const scoringTeam = useMemo(() => {
+    if (!currentStep?.isScoringPlay) return null;
+    return currentStep.teamInPossessionId === homeTeam?.id ? homeTeam : awayTeam;
+  }, [currentStep?.isScoringPlay, currentStep?.teamInPossessionId, homeTeam, awayTeam]);
+
+  const scoringMascot = useMemo(() => {
+    if (!scoringTeam) return STUFFY_RENDER_MAP.TeddyBear;
+    return STUFFY_RENDER_MAP[scoringTeam.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
+  }, [scoringTeam]);
+
   const tickerRef = useRef<HTMLDivElement>(null);
 
   const playSFX = useCallback((type?: SoundEffectType) => {
@@ -119,9 +153,19 @@ export default function MatchBroadcast() {
     };
   }, [isMuted, activeBroadcastGameId]);
 
+  // #2 — Screen Shake: trigger on big plays
+  const BIG_PLAY_TYPES = ['TOUCHDOWN', 'INTERCEPTION', 'FUMBLE'];
+  useEffect(() => {
+    if (currentStep && BIG_PLAY_TYPES.includes(currentStep.type)) {
+      setShakeKey(k => k + 1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep?.type]);
+
   if (!activeBroadcastGameId || !game || !homeTeam || !awayTeam) return null;
 
   const handleFinish = () => {
+    if (localSteps.length === 0) return;
     const lastStep = localSteps[localSteps.length - 1];
     const winnerId = lastStep.homeScore > lastStep.awayScore 
       ? homeTeam.id 
@@ -129,19 +173,34 @@ export default function MatchBroadcast() {
     
     updateGameResult(game.id, lastStep.homeScore, lastStep.awayScore, winnerId);
     setActiveBroadcastGameId(null);
-    setCurrentStepIndex(0);
-    setShowHalftime(false);
-    stepsInitialized.current = false;
   };
 
-  const handleInteraction = (type: 'CHEER' | 'BOO') => {
+  // #3 — Emoji sets per interaction type
+  const CHEER_EMOJIS = ['🧸', '🔥', '👏', '💥', '⚡', '🎉', '✨'];
+  const BOO_EMOJIS   = ['😤', '💢', '👎', '🙄', '😮', '❄️'];
+
+  const handleInteraction = (type: 'CHEER' | 'BOO', e: React.MouseEvent<HTMLButtonElement>) => {
     if (type === 'CHEER') {
       setInteractionBoost(prev => ({ ...prev, home: prev.home + 1 }));
     } else {
-      // Booing the away team helps the home team's relative momentum
       setInteractionBoost(prev => ({ ...prev, home: prev.home + 0.5, away: prev.away - 0.5 }));
     }
     playSFX(type === 'CHEER' ? 'CHEER' : 'OOH');
+
+    // #3 — Spawn emoji burst from button position
+    const emojis = type === 'CHEER' ? CHEER_EMOJIS : BOO_EMOJIS;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const originX = rect.left + rect.width / 2;
+    const originY = rect.top;
+    const newParticles = Array.from({ length: 8 }, () => ({
+      id: particleIdRef.current++,
+      x: originX + (Math.random() - 0.5) * 100,
+      y: originY - Math.random() * 10,
+      emoji: emojis[Math.floor(Math.random() * emojis.length)],
+    }));
+    setParticles(prev => [...prev, ...newParticles]);
+    const ids = new Set(newParticles.map(p => p.id));
+    setTimeout(() => setParticles(prev => prev.filter(p => !ids.has(p.id))), 1500);
   };
 
   const homeRender = STUFFY_RENDER_MAP[homeTeam.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
@@ -150,14 +209,58 @@ export default function MatchBroadcast() {
 
 
   return (
-    <div className="fixed inset-0 z-100 bg-stone-950 flex flex-col items-center overflow-y-auto font-sans selection:bg-emerald-500/10 selection:text-emerald-700 scroll-smooth antialiased elite-broadcast">
-      {/* Background Graphic */}
-      <div className="fixed inset-0 -z-10 opacity-20 pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#10b98120_0%,transparent_70%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-size-[40px_40px]" />
+    <div className="fixed inset-0 z-100 flex flex-col items-center overflow-y-auto font-sans selection:bg-emerald-500/10 selection:text-emerald-700 scroll-smooth antialiased elite-broadcast">
+      {/* Background Graphic — 'The Plush Stadium' (Tactical Toy-Core) — High Visibility Edit */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#1e1f26]">
+        {/* Surface Depth Highlight */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.06)_0%,transparent_70%)]" />
+        
+        {/* Fiber Texture — Fixed Filter ID & Increased Opacity */}
+        <div className="absolute inset-0 opacity-[0.5] mix-blend-soft-light" 
+             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='feltFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='5' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23feltFilter)'/%3E%3C/svg%3E")` }} 
+        />
+
+        {/* High-Contrast Cross-Stitch Grid */}
+        <div className="absolute inset-0 opacity-[0.2] bg-size-[64px_64px]" 
+             style={{ backgroundImage: `radial-gradient(circle at 1px 1px, white 1.2px, transparent 0), linear-gradient(45deg, white 0.8px, transparent 0.8px)` }} />
+        
+        {/* Intense Team Atmosphere Glows */}
+        <motion.div 
+          animate={{ scale: [1, 1.4, 1], opacity: [0.25, 0.4, 0.25] }}
+          transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute -top-[10%] -left-[10%] w-[80%] h-[80%] rounded-full blur-[200px]"
+          style={{ background: `radial-gradient(circle, ${awayTeam.primaryColor || "#f43f5e"}66 0%, transparent 70%)` }}
+        />
+        <motion.div 
+          animate={{ scale: [1.4, 1, 1.4], opacity: [0.25, 0.4, 0.25] }}
+          transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute -bottom-[10%] -right-[10%] w-[80%] h-[80%] rounded-full blur-[200px]"
+          style={{ background: `radial-gradient(circle, ${homeTeam.primaryColor || "#06b6d4"}66 0%, transparent 70%)` }}
+        />
+
+        {/* Brilliant Light Beams Scanning the Material */}
+        <motion.div 
+          animate={{ x: ['-50%', '150%'], opacity: [0, 0.2, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+          className="absolute inset-y-0 w-64 bg-linear-to-r from-transparent via-white/20 to-transparent skew-x-12 blur-2xl"
+        />
+
+        {/* Prominent Stuffy Pro Watermark */}
+        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 opacity-[0.08] select-none pointer-events-none">
+             <h3 className="text-[12rem] font-black italic tracking-[0.2em] whitespace-nowrap text-white uppercase">STUFFY PRO</h3>
+        </div>
+
+        {/* Soft Tonal Vignette (Light Grey/Blue) */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(15,23,42,0.3)_100%)]" />
       </div>
 
-      <div className="w-full max-w-5xl flex flex-col items-center gap-4 relative px-6 pt-4 pb-32">
+      {/* #2 — Screen Shake wrapper: re-mounts on each big-play shakeKey change */}
+      <motion.div
+        key={shakeKey}
+        animate={shakeKey > 0 ? { x: [0, -10, 10, -7, 7, -3, 3, 0], y: [0, -4, 4, -2, 2, 0] } : {}}
+        transition={{ duration: 0.45, ease: 'easeInOut' }}
+        className="w-full max-w-5xl flex flex-col items-center gap-4 relative px-6 pt-4 pb-32"
+      >
         
         {/* Action Bar */}
         <div className="w-full flex justify-end items-center gap-3 mb-4">
@@ -172,46 +275,82 @@ export default function MatchBroadcast() {
             </button>
         </div>
 
-        {/* Elite Score Header */}
-        <div className="w-full bg-linear-to-b from-stone-800 to-stone-900 border-b-2 border-white/10 shadow-2xl p-4 flex flex-col md:flex-row items-center justify-between rounded-2xl gap-4">
-            <div className="flex flex-col items-center flex-1">
-                <span className="text-xs text-white/40 uppercase tracking-[0.3em] font-black mb-1">Away Team</span>
-                <span className="text-xl md:text-2xl text-rose-400 font-black text-center uppercase tracking-tight italic">{awayTeam.name}</span>
-                <motion.span key={currentStep?.awayScore} initial={{ scale: 1.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-6xl md:text-7xl font-black tabular-nums">{currentStep?.awayScore ?? 0}</motion.span>
-                <div className="flex gap-1 mt-2">
+        {/* Elite Score Header - Now Reactive to Possession */}
+        <motion.div 
+          animate={{ 
+            borderColor: `${possessionColor}33`,
+            boxShadow: `0 25px 50px -12px rgba(0,0,0,0.5), 0 0 20px ${possessionColor}10` 
+          }}
+          className="w-full bg-linear-to-b from-stone-800 to-stone-900 border-b-2 shadow-2xl px-6 py-8 flex items-center justify-between rounded-3xl gap-4 relative overflow-hidden"
+        >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_center,rgba(244,63,94,0.05)_0%,transparent_50%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_center,rgba(6,182,212,0.05)_0%,transparent_50%)]" />
+            
+            <div className="flex flex-col items-center flex-1 relative z-10">
+                <span className="text-[10px] text-white/50 uppercase tracking-[0.4em] font-black mb-3">Away Personnel</span>
+                <span className="text-xl md:text-2xl text-rose-400 font-black text-center uppercase tracking-tight italic mb-2 line-clamp-1">{awayTeam.name}</span>
+                <motion.span 
+                  key={currentStep?.awayScore} 
+                  initial={{ scale: 1.15, opacity: 0, filter: "brightness(1.5)" }} 
+                  animate={{ scale: 1, opacity: 1, filter: "brightness(1)" }} 
+                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                  className="text-8xl md:text-9xl font-black tabular-nums tracking-tighter text-white drop-shadow-[0_0_20px_rgba(244,63,94,0.3)]"
+                >
+                  {currentStep?.awayScore ?? 0}
+                </motion.span>
+                <div className="flex gap-1.5 mt-4">
                     {[...Array(3)].map((_, i) => (
-                        <div key={i} className={cn("w-2 h-2 rounded-full", i < (3 + interactionBoost.away) ? "bg-rose-500" : "bg-white/5")} />
+                        <div key={i} className={cn("w-2.5 h-1 rounded-full", i < (3 + interactionBoost.away) ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" : "bg-white/5")} />
                     ))}
                 </div>
             </div>
             
-            <div className="flex flex-col items-center gap-1 px-8 border-x border-white/5">
-                <div className="bg-black/40 px-6 py-2 rounded-lg border border-white/5">
-                    <span className="text-4xl text-emerald-400 tabular-nums font-black">{currentStep?.timeRemaining}</span>
+            {/* Game Control Pod */}
+            <div className="flex flex-col items-center gap-2 px-8 py-4 bg-black/40 rounded-2xl border border-white/10 shadow-inner min-w-[180px] relative z-10 backdrop-blur-md">
+                <div className="text-4xl md:text-5xl text-emerald-400 tabular-nums font-black tracking-tight flex items-center gap-1">
+                    {currentStep?.timeRemaining}
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mt-1" />
                 </div>
-                <div className="text-white/40 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                    {currentStep?.quarter === 5 ? "OVERTIME" : `QUARTER ${currentStep?.quarter ?? 1}`}
-                </div>
-                <div className="text-yellow-400 text-xs font-black tracking-widest mt-2 px-3 py-1 bg-yellow-400/10 rounded-full">
-                    {currentStep?.down ? `${currentStep.down} & ${currentStep.distance}` : "KICKOFF"}
+                <div className="h-px w-12 bg-white/10 my-1" />
+                <div className="flex flex-col items-center">
+                    <span className="text-white/60 text-[9px] font-black uppercase tracking-[0.3em]">
+                        {currentStep?.quarter === 5 ? "OVERTIME" : `QUARTER ${currentStep?.quarter ?? 1}`}
+                    </span>
+                    <div className="mt-2 px-4 py-1.5 bg-yellow-400 text-stone-950 text-[10px] font-black tracking-widest rounded-full shadow-lg shadow-yellow-400/20 uppercase">
+                        {currentStep?.down ? `${currentStep.down} & ${currentStep.distance}` : "KICKOFF"}
+                    </div>
                 </div>
             </div>
  
-            <div className="flex flex-col items-center flex-1 text-right">
-                <span className="text-xs text-white/40 uppercase tracking-[0.3em] font-black mb-1">Home Team</span>
-                <span className="text-xl md:text-2xl text-cyan-400 font-black text-center uppercase tracking-tight italic">{homeTeam.name}</span>
-                <motion.span key={currentStep?.homeScore} initial={{ scale: 1.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-6xl md:text-7xl font-black tabular-nums">{currentStep?.homeScore ?? 0}</motion.span>
-                <div className="flex gap-1 mt-2">
+            <div className="flex flex-col items-center flex-1 relative z-10">
+                <span className="text-[10px] text-white/50 uppercase tracking-[0.4em] font-black mb-3">Home Personnel</span>
+                <span className="text-xl md:text-2xl text-cyan-400 font-black text-center uppercase tracking-tight italic mb-2 line-clamp-1">{homeTeam.name}</span>
+                <motion.span 
+                  key={currentStep?.homeScore} 
+                  initial={{ scale: 1.15, opacity: 0, filter: "brightness(1.5)" }} 
+                  animate={{ scale: 1, opacity: 1, filter: "brightness(1)" }} 
+                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                  className="text-8xl md:text-9xl font-black tabular-nums tracking-tighter text-white drop-shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+                >
+                  {currentStep?.homeScore ?? 0}
+                </motion.span>
+                <div className="flex gap-1.5 mt-4">
                     {[...Array(3)].map((_, i) => (
-                        <div key={i} className={cn("w-2 h-2 rounded-full", i < (3 + interactionBoost.home) ? "bg-cyan-500" : "bg-white/5")} />
+                        <div key={i} className={cn("w-2.5 h-1 rounded-full", i < (3 + interactionBoost.home) ? "bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" : "bg-white/5")} />
                     ))}
                 </div>
             </div>
-        </div>
+        </motion.div>
 
 
-        {/* Football Field — 120-yard model: [Away EZ][100yd play][Home EZ] */}
-        <div className="w-full flex flex-col items-center gap-6 bg-stone-900 border border-white/5 p-6 rounded-4xl shadow-2xl relative overflow-hidden">
+        {/* Football Field - Now Reactive to Possession */}
+        <motion.div 
+          animate={{ 
+            borderColor: `${possessionColor}22`,
+            boxShadow: `0 25px 50px -12px rgba(0,0,0,0.5), 0 0 40px ${possessionColor}05`
+          }}
+          className="w-full flex flex-col items-center gap-6 bg-stone-900 border p-6 rounded-4xl shadow-2xl relative overflow-hidden"
+        >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05)_0%,transparent_70%)] pointer-events-none" />
 
             <div className="w-full h-28 relative overflow-hidden flex items-stretch border-2 border-white/20 shadow-inner rounded-lg">
@@ -221,48 +360,90 @@ export default function MatchBroadcast() {
                   className="relative flex items-center justify-center overflow-hidden"
                   style={{ width: `${ENDZONE_PCT}%`, background: 'linear-gradient(135deg, #881337 0%, #9f1239 100%)' }}
                 >
-                  <span className="rotate-270 text-[9px] font-black text-white/50 uppercase tracking-widest whitespace-nowrap">
-                    {awayTeam.name}
-                  </span>
+                  <div className="relative w-full h-full opacity-20 filter grayscale contrast-125">
+                      {awayTeam.logoUrl ? (
+                          <Image src={awayTeam.logoUrl} fill className="object-cover" alt="" sizes="10vw" />
+                      ) : (
+                          <Image src={awayRender} fill className="object-contain p-2" alt="" sizes="10vw" />
+                      )}
+                  </div>
                   <div className="absolute inset-0 border-r-2 border-white/30" />
                 </div>
 
-                {/* 100 Yards of Play — 10 segments */}
-                <div className="flex-1 relative bg-linear-to-r from-emerald-800 via-emerald-700 to-emerald-800 flex">
+                {/* 100 Yards of Play — Realistic Football Geometry */}
+                <div className="flex-1 relative bg-emerald-700 overflow-hidden">
+                  {/* Subtle Grass Texture / Striping */}
+                  <div className="absolute inset-0 flex">
+                    {[...Array(10)].map((_, i) => (
+                      <div key={i} className={cn("flex-1", i % 2 === 0 ? "bg-emerald-800/20" : "bg-transparent")} />
+                    ))}
+                  </div>
 
-                  {/* 10 equal segments with yard lines between them */}
-                  {[...Array(10)].map((_, i) => {
-                    // Labels at each yard line: 10, 20, 30, 40, 50, 40, 30, 20, 10
-                    // YARD_LINE_LABELS = ['G','10','20','30','40','50','40','30','20','10','G']
-                    // Label at the RIGHT edge of segment i = YARD_LINE_LABELS[i+1]
-                    const label = YARD_LINE_LABELS[i + 1];
+                  {/* 10-Yard Markers & Labels */}
+                  {[10, 20, 30, 40, 50, 60, 70, 80, 90].map((yard) => {
+                    const isMidfield = yard === 50;
+                    const displayLabel = yard <= 50 ? yard : 100 - yard;
                     return (
-                      <div key={i} className="flex-1 relative border-r border-white/25 last:border-r-0">
-                        {/* Bottom yard-line number */}
-                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-black text-white/30 italic select-none">
-                          {label !== 'G' ? label : ''}
-                        </span>
-
-                        {/* Hashmarks — 4 rows of small tick marks */}
-                        <div className="absolute inset-0 flex flex-col justify-between py-2 opacity-15 pointer-events-none">
-                          {[0, 1, 2, 3].map(j => (
-                            <div key={j} className="flex w-full">
-                              {[...Array(5)].map((_, k) => (
-                                <div key={k} className="flex-1 border-r border-white/30 h-1" />
-                              ))}
+                        <div 
+                          key={yard} 
+                          className={cn(
+                            "absolute top-0 bottom-0 border-l border-white/20",
+                            isMidfield && "border-l-2 border-white/60 shadow-[0_0_10px_rgba(255,255,255,0.2)]"
+                          )}
+                          style={{ left: `${yard}%` }}
+                        >
+                            {/* Symmetric Yard Labels */}
+                            <div className="absolute top-1 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                                <span className={cn(
+                                    "text-[9px] font-black italic select-none transition-all",
+                                    isMidfield ? "text-white/80 scale-125" : "text-white/30"
+                                )}>
+                                    {displayLabel}
+                                </span>
                             </div>
-                          ))}
+                            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                                <span className={cn(
+                                    "text-[9px] font-black italic select-none transition-all",
+                                    isMidfield ? "text-white/80 scale-125" : "text-white/30"
+                                )}>
+                                    {displayLabel}
+                                </span>
+                            </div>
                         </div>
-                      </div>
                     );
                   })}
+
+                  {/* 5-Yard Line Ticks */}
+                  {[5, 15, 25, 35, 45, 55, 65, 75, 85, 95].map(yard => (
+                    <div 
+                      key={yard} 
+                      className="absolute top-0 bottom-0 border-l border-white/10"
+                      style={{ left: `${yard}%` }}
+                    />
+                  ))}
+
+                  {/* One-Yard Hashmarks (Top/Middle/Bottom) */}
+                  <div className="absolute inset-0 pointer-events-none opacity-20">
+                    {[...Array(101)].map((_, i) => {
+                      if (i % 5 === 0) return null; // Skip where we have lines
+                      return (
+                        <div key={i} className="absolute h-full flex flex-col justify-between" style={{ left: `${i}%` }}>
+                          <div className="h-1.5 w-px bg-white" />
+                          <div className="flex flex-col gap-8">
+                             <div className="h-1 w-px bg-white" />
+                             <div className="h-1 w-px bg-white" />
+                          </div>
+                          <div className="h-1.5 w-px bg-white" />
+                        </div>
+                      );
+                    })}
+                  </div>
 
                   {/* Red zone shading — opponent's 20 */}
                   {isRedZone(currentStep?.yardLine ?? 0) && (
                     <div
-                      className="absolute top-0 h-full bg-red-500/10 pointer-events-none transition-opacity duration-500"
+                      className="absolute top-0 bottom-0 bg-rose-500/10 pointer-events-none transition-opacity duration-1000 animate-pulse"
                       style={{
-                        // Red zone covers the last 20% of the play area, on the side the offense is attacking
                         ...(currentStep?.sideOfField === 'AWAY'
                           ? { right: 0, width: '20%' }
                           : { left: 0, width: '20%' })
@@ -270,16 +451,15 @@ export default function MatchBroadcast() {
                     />
                   )}
 
-                  {/* 50-yard line highlight */}
-                  <div className="absolute top-0 bottom-0 left-1/2 -translate-x-px w-0.5 bg-white/40 pointer-events-none" />
+                  {/* Midfield Decoration */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white/5 rounded-full border border-white/10 flex items-center justify-center opacity-40">
+                    <span className="text-[14px] font-black text-white/20">50</span>
+                  </div>
 
                   {/* Ball marker — positioned via fieldUtils */}
                   <motion.div
                     animate={{
                       left: `${
-                        // Map simulator coords to % within the PLAY AREA (not full field)
-                        // yardLineToFieldPercent returns % of full 120yd field.
-                        // Subtract left endzone %, then scale to play area only.
                         ((yardLineToFieldPercent(currentStep?.yardLine ?? 25, currentStep?.sideOfField ?? 'AWAY') - ENDZONE_PCT)
                           / (100 - 2 * ENDZONE_PCT)) * 100
                       }%`
@@ -288,7 +468,8 @@ export default function MatchBroadcast() {
                     className="absolute top-1/2 -translate-y-1/2 w-10 h-10 -translate-x-1/2 flex items-center justify-center z-10"
                   >
                     {/* CSS football shape */}
-                    <div className="relative w-8 h-5 bg-[#6b3e23] rounded-[100%] border-2 border-white/50 shadow-lg shadow-black/50">
+                    <div className="relative w-8 h-5 bg-[#6b3e23] rounded-[100%] border-2 border-white/50 shadow-lg shadow-black/50 overflow-hidden">
+                      <div className="absolute inset-0 bg-linear-to-b from-white/10 to-transparent" />
                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col gap-0.5 items-center">
                         <div className="w-5 h-px bg-white/80 rounded-full" />
                         <div className="flex gap-px">
@@ -299,11 +480,15 @@ export default function MatchBroadcast() {
                       </div>
                     </div>
                     {/* Team color indicator below ball */}
-                    <div className="absolute top-full mt-0.5 w-full flex justify-center">
-                      <div className={cn(
-                        "w-1.5 h-2.5 rounded-full blur-[2px]",
-                        currentStep?.teamInPossessionId === homeTeam.id ? "bg-cyan-400" : "bg-rose-400"
-                      )} />
+                    <div className="absolute top-full mt-2 w-full flex justify-center">
+                        <motion.div 
+                          animate={{ opacity: [0.4, 0.8, 0.4] }} 
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className={cn(
+                            "w-2 h-2 rounded-full blur-[2px]",
+                            currentStep?.teamInPossessionId === homeTeam.id ? "bg-cyan-400" : "bg-rose-400"
+                          )} 
+                        />
                     </div>
                   </motion.div>
                 </div>
@@ -313,9 +498,13 @@ export default function MatchBroadcast() {
                   className="relative flex items-center justify-center overflow-hidden"
                   style={{ width: `${ENDZONE_PCT}%`, background: 'linear-gradient(135deg, #0e7490 0%, #155e75 100%)' }}
                 >
-                  <span className="rotate-90 text-[9px] font-black text-white/50 uppercase tracking-widest whitespace-nowrap">
-                    {homeTeam.name}
-                  </span>
+                  <div className="relative w-full h-full opacity-20 filter grayscale contrast-125">
+                      {homeTeam.logoUrl ? (
+                          <Image src={homeTeam.logoUrl} fill className="object-cover" alt="" sizes="10vw" />
+                      ) : (
+                          <Image src={homeRender} fill className="object-contain p-2" alt="" sizes="10vw" />
+                      )}
+                  </div>
                   <div className="absolute inset-0 border-l-2 border-white/30" />
                 </div>
             </div>
@@ -328,25 +517,119 @@ export default function MatchBroadcast() {
                     </div>
                     {/* Away Interactions */}
                     <div className="flex gap-2">
-                         <button onClick={() => handleInteraction('BOO')} className="bg-rose-500 text-white px-6 py-2 rounded-xl text-xs hover:scale-110 active:bg-white active:text-stone-950 transition-all shadow-lg shadow-rose-500/20 font-black">BOO AWAY</button>
+                         <button onClick={(e) => handleInteraction('BOO', e)} className="bg-rose-500 text-white px-6 py-2 rounded-xl text-xs hover:scale-110 active:bg-white active:text-stone-950 transition-all shadow-lg shadow-rose-500/20 font-black">BOO AWAY</button>
                     </div>
                 </div>
 
-                <div className="flex flex-col items-center gap-4 min-h-[160px] justify-center text-center">
+                <div
+                    className="flex flex-col items-center gap-6 min-h-[160px] justify-center text-center relative"
+                    style={{ perspective: '1000px' }}
+                    onMouseDown={() => {
+                      holdTimerRef.current = setTimeout(() => setIsCardFlipped(true), 450);
+                    }}
+                    onMouseUp={() => {
+                      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+                      setIsCardFlipped(false);
+                    }}
+                    onMouseLeave={() => {
+                      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+                      setIsCardFlipped(false);
+                    }}
+                    onTouchStart={() => {
+                      holdTimerRef.current = setTimeout(() => setIsCardFlipped(true), 450);
+                    }}
+                    onTouchEnd={() => {
+                      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+                      setIsCardFlipped(false);
+                    }}
+                >
                     <AnimatePresence mode="wait">
-                        <motion.div 
+                        {/* Big Play Emphasis Overlay */}
+                        {['INTERCEPTION', 'FUMBLE', 'TURNOVER_ON_DOWNS'].includes(currentStep?.type || '') && (
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 1.05 }}
+                                className="absolute -top-12 left-1/2 -translate-x-1/2 z-20"
+                            >
+                                <div className="bg-stone-900 border border-emerald-500/40 text-emerald-400 px-8 py-2.5 rounded-full font-black text-[10px] tracking-[0.4em] uppercase shadow-2xl backdrop-blur-xl whitespace-nowrap">
+                                    {currentStep?.type.replace(/_/g, ' ')}
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* #4 — 3D Flip Card */}
+                        <motion.div
                             key={currentStepIndex}
-                            initial={{ y: 10, opacity: 0 }}
+                            initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: -10, opacity: 0 }}
-                            className="space-y-4"
+                            exit={{ y: -20, opacity: 0 }}
+                            transition={{ duration: 0.4, delay: 0.1 }}
+                            className="relative w-full"
+                            style={{ transformStyle: 'preserve-3d' }}
                         >
-                            <h2 className="text-3xl md:text-4xl text-white font-black leading-tight italic tracking-tight">
-                                {currentStep?.commentary || "GAME ON!"}
-                            </h2>
-                            <p className="text-emerald-400 text-base md:text-lg font-bold tracking-tight max-w-sm mx-auto uppercase">
-                                {currentStep?.description}
-                            </p>
+                            {/* Card 3D container */}
+                            <motion.div
+                                animate={{ rotateY: isCardFlipped ? 180 : 0 }}
+                                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                                style={{ transformStyle: 'preserve-3d', position: 'relative' }}
+                                className="w-full cursor-pointer select-none"
+                            >
+                                {/* — FRONT: Commentary — */}
+                                <div className="space-y-4" style={{ backfaceVisibility: 'hidden' }}>
+                                    <div className="space-y-1">
+                                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.5em] block mb-2">Live Play-by-Play</span>
+                                        <h2 className="text-3xl md:text-4xl text-white font-black leading-tight italic tracking-tight uppercase">
+                                            {currentStep?.commentary || "GAME ON!"}
+                                        </h2>
+                                    </div>
+                                    <div className="h-px w-16 bg-white/10 mx-auto" />
+                                    <p className="text-emerald-400/80 text-sm md:text-base font-bold tracking-tight max-w-sm mx-auto uppercase leading-relaxed">
+                                        {currentStep?.description}
+                                    </p>
+                                    {/* Hold hint */}
+                                    <motion.span
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: isCardFlipped ? 0 : 0.35 }}
+                                        transition={{ delay: 2, duration: 1 }}
+                                        className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 block mt-2"
+                                    >
+                                        Hold card for stats
+                                    </motion.span>
+                                </div>
+
+                                {/* — BACK: Stats Flash — */}
+                                <div
+                                    className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-stone-900/95 border border-white/10 rounded-2xl p-6 backdrop-blur-xl"
+                                    style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                                >
+                                    <span className="text-[9px] font-black uppercase tracking-[0.5em] text-white/40">Stats Flash</span>
+                                    <div className="grid grid-cols-2 gap-x-8 gap-y-3 w-full max-w-xs">
+                                        <div className="text-center">
+                                            <div className="text-2xl font-black text-white tabular-nums">{currentStep?.gain ?? 0}</div>
+                                            <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Yards</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-black text-white tabular-nums">
+                                                {currentStep?.down ? `${currentStep.down} & ${currentStep.distance}` : '—'}
+                                            </div>
+                                            <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Down & Dist</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-black tabular-nums" style={{ color: possessionColor }}>
+                                                Q{currentStep?.quarter ?? 1}
+                                            </div>
+                                            <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Quarter</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-xs font-black uppercase truncate max-w-[100px] mx-auto" style={{ color: possessionColor }}>
+                                                {currentStep?.teamInPossessionId === homeTeam?.id ? homeTeam?.name : awayTeam?.name}
+                                            </div>
+                                            <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Ball</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
                         </motion.div>
                     </AnimatePresence>
                 </div>
@@ -358,42 +641,63 @@ export default function MatchBroadcast() {
                     </div>
                     {/* Home Interactions */}
                     <div className="flex gap-2">
-                         <button onClick={() => handleInteraction('CHEER')} className="bg-cyan-500 text-white px-6 py-2 rounded-xl text-xs hover:scale-110 active:bg-white active:text-stone-950 transition-all shadow-lg shadow-cyan-500/20 font-black">CHEER HOME</button>
-                         <button onClick={() => handleInteraction('BOO')} className="bg-stone-800 text-white px-6 py-2 rounded-xl text-xs hover:scale-110 active:bg-cyan-500 transition-all font-black">BOO HOME</button>
+                         <button onClick={(e) => handleInteraction('CHEER', e)} className="bg-cyan-500 text-white px-6 py-2 rounded-xl text-xs hover:scale-110 active:bg-white active:text-stone-950 transition-all shadow-lg shadow-cyan-500/20 font-black">CHEER HOME</button>
+                         <button onClick={(e) => handleInteraction('BOO', e)} className="bg-stone-800 text-white px-6 py-2 rounded-xl text-xs hover:scale-110 active:bg-cyan-500 transition-all font-black">BOO HOME</button>
                     </div>
                 </div>
             </div>
-        </div>
+        </motion.div>
 
-        {/* Character Pop-up Celebration */}
+        {/* Character Pop-up Celebration - Now Team Specific */}
         <AnimatePresence>
             {currentStep?.isScoringPlay && (
                 <motion.div 
                     initial={{ scale: 0, rotate: -30, x: -500, y: 500 }}
                     animate={{ scale: 1, rotate: 0, x: 0, y: 0 }}
                     exit={{ scale: 3, opacity: 0, x: 500, y: -500 }}
-                    className="fixed inset-0 z-101 flex items-center justify-center pointer-events-none p-10"
+                    onClick={() => currentStepIndex < localSteps.length - 1 && setCurrentStepIndex(currentStepIndex + 1)}
+                    className="fixed inset-0 z-101 flex items-center justify-center pointer-events-auto cursor-pointer p-10 backdrop-blur-sm bg-black/20"
                 >
                     <div className="relative w-full max-w-2xl aspect-square flex items-center justify-center">
-                        <div className="absolute inset-0 bg-emerald-500/20 blur-[100px] animate-pulse" />
-                        <div className="bg-stone-900/90 p-12 border-8 border-white shadow-[0_0_100px_#10b981] -rotate-3 text-center rounded-3xl relative overflow-hidden">
-                             <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-white to-transparent opacity-50" />
+                        <motion.div 
+                          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className="absolute inset-0 blur-[100px] rounded-full"
+                          style={{ backgroundColor: possessionColor }}
+                        />
+                        <div 
+                          className="bg-stone-900/95 p-12 border-8 shadow-2xl -rotate-3 text-center rounded-4xl relative overflow-hidden"
+                          style={{ borderColor: possessionColor, boxShadow: `0 0 100px ${possessionColor}44` }}
+                        >
+                             <div className="absolute top-0 left-0 w-full h-2 opacity-50" 
+                                  style={{ background: `linear-gradient(90deg, transparent, white, transparent)` }} />
                              
-                             {/* Generated Mascot */}
-                             <div className="relative w-64 h-64 mx-auto mb-6">
-                                <Image 
-                                    src="/arcade_mascot.png" 
-                                    fill 
-                                    className="object-contain drop-shadow-[0_0_20px_white]" 
-                                    alt="TOUCHDOWN!" 
-                                />
+                             {/* Generated Team Mascot */}
+                             <div className="relative w-72 h-72 mx-auto mb-8">
+                                <motion.div
+                                  animate={{ y: [0, -20, 0], rotate: [-2, 2, -2] }}
+                                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                  className="w-full h-full relative"
+                                >
+                                    <Image 
+                                        src={scoringMascot} 
+                                        fill 
+                                        className="object-contain drop-shadow-[0_0_30px_white]" 
+                                        alt={scoringTeam?.name || "TOUCHDOWN!"} 
+                                        sizes="288px"
+                                    />
+                                </motion.div>
                              </div>
 
-                             <h1 className="text-6xl md:text-7xl text-white font-black tracking-tighter italic">
-                                 {currentStep.type === 'TOUCHDOWN' ? 'TOUCHDOWN!' : 'IT\'S GOOD!'}
+                             <h1 className="text-6xl md:text-7xl text-white font-black tracking-tighter italic uppercase leading-tight">
+                                 {currentStep?.type === 'TOUCHDOWN' ? 'TOUCHDOWN!' : 'IT\'S GOOD!'}
                              </h1>
-                             <div className="text-emerald-400 text-2xl mt-4 font-black tracking-[0.5em] animate-pulse">
-                                 CHAMPIONSHIP PERFORMANCE!
+                             <div className="text-2xl mt-4 font-black tracking-[0.4em] animate-pulse uppercase" 
+                                  style={{ color: possessionColor }}>
+                                 {scoringTeam?.name || 'CHAMPIONSHIP PERFORMANCE!'}
+                             </div>
+                             <div className="mt-8 px-6 py-2 bg-white/5 rounded-full inline-block border border-white/10">
+                                <span className="text-white/40 text-[10px] font-black tracking-widest uppercase">Click to continue broadcast</span>
                              </div>
                         </div>
                     </div>
@@ -413,7 +717,7 @@ export default function MatchBroadcast() {
                                 <div className="w-24 h-24 rounded-full border-4 border-rose-500/20 mb-4 overflow-hidden bg-rose-500/10 flex items-center justify-center">
                                     <span className="text-5xl font-black text-rose-400">{currentStep?.awayScore}</span>
                                 </div>
-                                <span className="text-xs font-black uppercase tracking-widest text-white/60">{awayTeam.name}</span>
+                                <span className="text-xs font-black uppercase tracking-widest text-white/60">{awayTeam?.name || "AWAY TEAM"}</span>
                             </div>
                              <div className="space-y-6 flex-1 max-w-xs px-4">
                                 <div className="flex justify-between text-[11px] md:text-sm text-white/90 border-b border-white/5 pb-3">
@@ -436,7 +740,7 @@ export default function MatchBroadcast() {
                                 <div className="w-24 h-24 rounded-full border-4 border-cyan-500/20 mb-4 overflow-hidden bg-cyan-500/10 flex items-center justify-center">
                                     <span className="text-5xl font-black text-cyan-400">{currentStep?.homeScore}</span>
                                 </div>
-                                <span className="text-xs font-black uppercase tracking-widest text-white/60">{homeTeam.name}</span>
+                                <span className="text-xs font-black uppercase tracking-widest text-white/60">{homeTeam?.name || "HOME TEAM"}</span>
                             </div>
                         </div>
 
@@ -451,28 +755,78 @@ export default function MatchBroadcast() {
             )}
         </AnimatePresence>
         
-        {/* Bottom Ticker & Log */}
+        {/* Bottom Ticker & Log - Enhanced with Live Data */}
         <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col scale-90 md:scale-100 origin-bottom">
-            <div className="w-full flex items-center bg-stone-900 border-t-2 border-white/10 p-4 gap-6 overflow-hidden backdrop-blur-sm">
-                <div className="bg-emerald-500 text-stone-950 px-6 py-1 flex items-center gap-2 rounded-full">
+            <div className="w-full flex items-center bg-stone-900 border-t-2 border-white/10 h-16 gap-6 overflow-hidden backdrop-blur-md">
+                <div className="bg-emerald-500 text-stone-950 h-full px-6 flex items-center gap-2 shrink-0 border-r-4 border-emerald-600">
                     <Zap className="w-4 h-4 fill-current" />
-                    <span className="text-xs font-black uppercase tracking-widest">PRO BROADCAST</span>
+                    <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap">STUFFY LEAGUE NETWORK</span>
                 </div>
-                <div className="flex-1 overflow-hidden">
-                    <motion.div animate={{ x: ['100%', '-100%'] }} transition={{ duration: 30, repeat: Infinity, ease: 'linear' }} className="flex gap-24 whitespace-nowrap text-white/60 font-black uppercase text-[11px] tracking-[0.2em] italic">
-                        <span>STUFFY LEAGUE ELITE: {homeTeam.name} vs {awayTeam.name}</span>
-                        <span>NEXT GENERATION SPORTS BROADCAST ENGINE v6.0</span>
-                        <span>INTERACTIVE STADIUM MOMENTUM ACTIVE</span>
-                        <span>OFFICIAL COLLEGIATE OVERTIME RULES APPLIED</span>
+                
+                <div className="flex-1 overflow-hidden h-full flex items-center">
+                    <motion.div 
+                        animate={{ x: ['30%', '-100%'] }} 
+                        transition={{ duration: 120, repeat: Infinity, ease: 'linear' }} 
+                        className="flex gap-24 whitespace-nowrap items-center h-full"
+                    >
+                        {tickerItems.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-4">
+                                <span className="bg-stone-800 text-stone-400 px-3 py-1 rounded text-[10px] font-black uppercase tracking-[0.2em] border border-white/5">
+                                    {item.category}
+                                </span>
+                                <span className={cn(
+                                    "text-white/90 font-black uppercase text-[12px] tracking-[0.1em] italic",
+                                    item.color || ""
+                                )}>
+                                    {item.content}
+                                </span>
+                                <div className="h-1 w-1 rounded-full bg-white/20 mx-2" />
+                            </div>
+                        ))}
                     </motion.div>
                 </div>
-                <button onClick={() => setIsPaused(!isPaused)} className="text-[10px] border-2 border-white/5 bg-white/5 px-6 py-2 hover:bg-white hover:text-stone-950 transition-all font-black rounded-full uppercase tracking-widest">
-                    {isPaused ? 'RESUME PLAY' : 'PAUSE SIM'}
-                </button>
+
+                <div className="flex items-center gap-4 px-6 shrink-0 border-l border-white/10 h-full bg-stone-950/40">
+                    <button 
+                      onClick={() => setIsPaused(!isPaused)} 
+                      className={cn(
+                        "text-[10px] border px-6 py-2 transition-all font-black rounded-full uppercase tracking-widest whitespace-nowrap",
+                        isPaused 
+                        ? "bg-emerald-500 text-stone-950 border-emerald-500 hover:bg-white hover:border-white shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
+                        : "bg-white/10 text-white border-white/20 hover:bg-white hover:text-stone-950 hover:border-white"
+                      )}
+                    >
+                        {isPaused ? 'RESUME PLAY' : 'PAUSE SIM'}
+                    </button>
+                    <button 
+                        onClick={() => setActiveBroadcastGameId(null)}
+                        className="text-[10px] text-stone-500 hover:text-white transition-colors"
+                        title="Close Stream"
+                    >
+                        EXIT
+                    </button>
+                </div>
             </div>
         </div>
 
-      </div>
+      </motion.div>
+
+      {/* #3 — Emoji Particle Burst: fixed-position, rendered above everything */}
+      <AnimatePresence>
+        {particles.map(p => (
+          <motion.div
+            key={p.id}
+            initial={{ opacity: 1, scale: 0.6, y: 0 }}
+            animate={{ opacity: 0, scale: 2, y: -170 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.3, ease: 'easeOut' }}
+            className="fixed pointer-events-none z-[9999] text-3xl select-none"
+            style={{ left: p.x, top: p.y, transform: 'translateX(-50%)' }}
+          >
+            {p.emoji}
+          </motion.div>
+        ))}
+      </AnimatePresence>
 
       <style jsx global>{`
         @keyframes blink {

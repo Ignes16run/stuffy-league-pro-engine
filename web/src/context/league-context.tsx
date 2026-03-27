@@ -243,7 +243,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       year: 2026 + history.length,
       championId: champId,
       finalStandings: standings,
-      awardWinners: awardResults as any
+      awardWinners: awardResults
     }, ...prev]);
     
     setPlayoffGames([]);
@@ -278,12 +278,28 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     handlePick: (gameId: string, winnerId: string | 'tie' | null) => { 
         setGames(prev => prev.map(g => {
             if (g.id !== gameId) return g;
+
+            // Generate mock score based on pick
+            let homeScore: number | undefined = undefined;
+            let awayScore: number | undefined = undefined;
+            
+            if (winnerId === 'tie') {
+                homeScore = 14;
+                awayScore = 14;
+            } else if (winnerId === g.homeTeamId) {
+                homeScore = 24;
+                awayScore = 14;
+            } else if (winnerId === g.awayTeamId) {
+                homeScore = 14;
+                awayScore = 24;
+            }
+
             return {
                 ...g,
                 winnerId: winnerId === 'tie' ? undefined : (winnerId || undefined),
                 isTie: winnerId === 'tie',
-                homeScore: undefined,
-                awayScore: undefined
+                homeScore,
+                awayScore
             };
         }));
     },

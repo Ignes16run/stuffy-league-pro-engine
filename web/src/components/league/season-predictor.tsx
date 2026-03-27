@@ -2,24 +2,22 @@
 
 import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  RefreshCw, 
   ChevronRight, 
   ChevronLeft, 
-  Play, 
-  Users, 
+  PlayCircle,
   Settings,
   FastForward,
-  Monitor
+  Monitor,
+  Users
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
-import { STUFFY_RENDER_MAP } from '@/lib/league/assetMap';
 import { calculateStandings } from '@/lib/league/utils';
 import { generateGameStorylines } from '@/lib/league/storylineEngine';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { StuffyIcon } from '@/lib/league/types';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -30,30 +28,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+// Last Updated: 2026-03-26T15:32:10-04:00
+
 export default function SeasonPredictor() {
-  const { 
-    teams, games, simulateSeason, simulateGames, handlePick, 
+  const {
+    teams, games, simulateSeason, simulateGames, handlePick,
     isSimulating, numWeeks, setNumWeeks, history,
-    setActiveBroadcastGameId 
+    setActiveBroadcastGameId
   } = useLeague();
   const [activeWeek, setActiveWeek] = useState(1);
 
-  const maxWeek = useMemo(() => Math.max(...games.map(g => g.week), 0), [games]);
+  const maxWeek = useMemo(() => Math.max(1, ...games.map(g => g.week)), [games]);
   const weekGames = useMemo(() => games.filter(g => g.week === activeWeek), [games, activeWeek]);
 
   const allWeekGamesFinished = useMemo(() => weekGames.every(g => g.winnerId || g.isTie), [weekGames]);
   const allSeasonGamesFinished = useMemo(() => games.every(g => g.winnerId || g.isTie), [games]);
 
-  const teamsOnBye = useMemo(() => {
-    const teamsInGames = new Set(weekGames.flatMap(g => [g.homeTeamId, g.awayTeamId]));
-    return teams.filter(t => !teamsInGames.has(t.id));
-  }, [teams, weekGames]);
-
-  // Live standings for our predictor view
-  const currentStandings = useMemo(() => {
-    return calculateStandings(teams, games);
-  }, [teams, games]);
-
+  const currentStandings = useMemo(() => calculateStandings(teams, games), [teams, games]);
   const teamRecords = useMemo(() => {
     const records: Record<string, string> = {};
     currentStandings.forEach(s => {
@@ -67,45 +58,48 @@ export default function SeasonPredictor() {
       <div className="flex flex-col items-center justify-center p-12 text-center rounded-4xl bg-stone-50 border border-dashed border-stone-200 col-span-full">
         <Users className="w-16 h-16 text-stone-200 mx-auto mb-6" />
         <h3 className="text-2xl font-black text-stone-800 mb-2">The League is Empty</h3>
-        <p className="text-stone-500 max-w-xs mx-auto">Head over to Team Setup to recruit your first stuffy competitors.</p>
+        <p className="text-stone-500 max-w-xs mx-auto text-sm">Head over to Team Setup to recruit your first stuffy competitors.</p>
       </div>
     );
   }
 
+  const teamsOnBye = teams.filter(t => !weekGames.some(g => g.homeTeamId === t.id || g.awayTeamId === t.id));
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/50 backdrop-blur-sm p-4 rounded-2xl shadow-sm border border-stone-100">
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" size="icon" className="h-10 w-10 rounded-xl"
+    <div className="max-w-6xl mx-auto space-y-10">
+      {/* Dynamic Header Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 bg-white/60 backdrop-blur-2xl p-6 rounded-[2.5rem] shadow-sm border border-stone-100/50">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-stone-200 hover:border-emerald-500 hover:bg-emerald-50 transition-all font-black"
             onClick={() => setActiveWeek(w => Math.max(1, w - 1))}
             disabled={activeWeek === 1 || isSimulating}
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-6 h-6" />
           </Button>
-          <div className="text-center min-w-[100px]">
-            <p className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] mb-0.5">Week</p>
-            <h2 className="text-2xl font-black text-stone-900 leading-none">{activeWeek}</h2>
+          <div className="text-center min-w-[120px]">
+            <p className="text-[10px] font-black text-stone-400 uppercase tracking-[0.4em] mb-1">Week</p>
+            <h2 className="text-3xl font-black text-stone-900 leading-none italic tracking-tighter">{activeWeek}</h2>
           </div>
-          <Button 
-            variant="outline" size="icon" className="h-10 w-10 rounded-xl"
+          <Button
+            variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-stone-200 hover:border-emerald-500 hover:bg-emerald-50 transition-all font-black"
             onClick={() => setActiveWeek(w => Math.min(maxWeek, w + 1))}
             disabled={activeWeek === maxWeek || isSimulating}
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-6 h-6" />
           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Dialog>
             <DialogTrigger render={
-              <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl" disabled={isSimulating}>
+              <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-stone-200 hover:border-stone-400 transition-all font-black" disabled={isSimulating}>
                 <Settings className="w-5 h-5 text-stone-400" />
               </Button>
             } />
             <DialogContent className="sm:max-w-[425px] rounded-[2.5rem] p-8">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-black text-stone-900">League Settings</DialogTitle>
+                <DialogTitle className="text-2xl font-black text-stone-900 uppercase italic tracking-tighter">League Settings</DialogTitle>
               </DialogHeader>
               <div className="py-6 space-y-6">
                 <div className="space-y-3">
@@ -129,214 +123,204 @@ export default function SeasonPredictor() {
             </DialogContent>
           </Dialog>
 
-          <div className="flex items-center gap-2 bg-stone-100/30 p-1 rounded-xl border border-stone-100/50">
-            <Button
-              onClick={() => simulateGames(activeWeek)}
-              disabled={isSimulating || allWeekGamesFinished}
-              className="h-10 px-4 rounded-lg font-black uppercase tracking-widest text-[9px] bg-stone-900 text-white shadow-lg shadow-black/10 hover:bg-black transition-all"
-            >
-              <Play className="w-3 h-3 mr-2" />
-              Sim Week {activeWeek}
-            </Button>
+          <div className="h-10 w-px bg-stone-100 mx-2 hidden md:block" />
+          <Button
+            onClick={() => simulateGames(activeWeek)}
+            disabled={isSimulating || allWeekGamesFinished}
+            className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-stone-900 text-white shadow-[0_10px_30px_rgba(0,0,0,0.15)] hover:scale-105 transition-all"
+          >
+            <PlayCircle className="w-4 h-4 mr-2.5 text-emerald-400" />
+            Simulate Week
+          </Button>
 
-            <Button
-              onClick={simulateSeason}
-              disabled={isSimulating || allSeasonGamesFinished}
-              variant="outline"
-              className="h-10 px-4 rounded-lg font-black uppercase tracking-widest text-[9px] border-stone-200 text-stone-600 hover:bg-stone-50 transition-all"
-            >
-              <FastForward className="w-3 h-3 mr-2 text-emerald-500" />
-              Sim Season
-            </Button>
-          </div>
+          <Button
+            onClick={simulateSeason}
+            disabled={isSimulating || allSeasonGamesFinished}
+            variant="outline"
+            className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px] border-stone-200 text-stone-600 hover:bg-stone-50 transition-all"
+          >
+            <FastForward className="w-4 h-4 mr-2.5 text-amber-500" />
+            Finish Season
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      {/* Matchups Grid */}
+      <div className="grid grid-cols-1 gap-6">
         <AnimatePresence mode="popLayout">
-          {weekGames.map(game => {
+          {weekGames.map((game) => {
             const home = teams.find(t => t.id === game.homeTeamId);
             const away = teams.find(t => t.id === game.awayTeamId);
-            
-            if (!home || !away) return null;
-            
-            const homeStanding = currentStandings.findIndex(s => s.teamId === home.id) + 1;
-            const awayStanding = currentStandings.findIndex(s => s.teamId === away.id) + 1;
-            
-            const homeRender = STUFFY_RENDER_MAP[home.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
-            const awayRender = STUFFY_RENDER_MAP[away.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
-
+            const isCompleted = !!(game.winnerId || game.isTie);
             const storylines = generateGameStorylines(game, teams, currentStandings, history);
 
+            if (!home || !away) return null;
+
             return (
-              <motion.div 
+              <motion.div
                 layout
-                key={game.id} 
-                initial={{ opacity: 0, y: 10 }}
+                key={game.id}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-3 shadow-sm border border-stone-100 flex flex-col gap-3 relative overflow-hidden transition-all hover:shadow-md hover:border-stone-200"
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="max-w-4xl mx-auto w-full group"
               >
-                {/* Storyline Badges */}
-                {storylines.length > 0 && (
-                  <div className="flex flex-wrap gap-2 px-1">
-                    {storylines.map((s, i) => (
-                      <span 
-                        key={`${game.id}-${i}`}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-2",
-                          s.color
-                        )}
-                      >
-                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                        {s.label}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <button 
-                    onClick={() => handlePick(game.id, away.id)}
-                    className={cn(
-                      "flex-1 flex items-center justify-between gap-3 p-3 rounded-xl transition-all border-2",
-                      game.winnerId === away.id ? "border-emerald-500 bg-emerald-50/20 shadow-inner" : "border-transparent bg-stone-50/40 hover:bg-stone-50"
-                    )}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div 
-                        className="w-28 h-28 rounded-full flex items-center justify-center border-2 border-stone-100 shadow-md relative overflow-hidden bg-white shrink-0"
-                        style={{ borderColor: !away.logoUrl ? away.primaryColor : 'white' }}
-                      >
-                        {away.logoUrl ? (
-                          <div className="relative w-full h-full">
-                            <Image src={away.logoUrl} fill className="object-cover scale-105" alt={away.id} sizes="112px" />
-                          </div>
-                        ) : (
-                          <div className="relative w-[130%] h-[130%] translate-y-3">
-                             <Image src={awayRender} fill className="object-contain drop-shadow-2xl" alt={away.name} sizes="144px" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-left">
-                        <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest mb-1.5 font-sans">Away</p>
-                        <span className="font-black text-stone-900 text-lg leading-none block uppercase tracking-tighter italic">
-                          {awayStanding <= 8 && <span className="text-stone-300 mr-1.5 not-italic text-[12px]">#{awayStanding}</span>}
-                          {away.name}
-                        </span>
-                        <div className="flex items-center gap-2 mt-2">
-                           <span className="text-[10px] text-stone-400 font-bold tabular-nums uppercase tracking-wider">{teamRecords[away.id]}</span>
-                           <div className="w-1 h-1 bg-stone-200 rounded-full" />
-                           <span className="text-[10px] text-stone-300 font-bold uppercase tracking-wider">Seed {awayStanding}</span>
-                        </div>
-                      </div>
-                    </div>
-                    {game.awayScore !== undefined && (
-                      <span className="text-3xl font-black text-stone-900 tabular-nums italic">{game.awayScore}</span>
-                    )}
-                  </button>
-
-                  <div className="flex flex-col items-center gap-2">
-                    <button
-                      onClick={() => !isSimulating && handlePick(game.id, 'tie')}
+                <Card className={cn(
+                  "border border-stone-100 bg-white/80 backdrop-blur-md overflow-hidden transition-all hover:shadow-xl hover:border-emerald-500/20 rounded-4xl p-6 pr-8",
+                   isCompleted && "bg-stone-50/40"
+                )}>
+                  <div className="flex flex-col md:flex-row items-center gap-8">
+                    {/* Away Team */}
+                    <button 
+                      onClick={() => !isSimulating && handlePick(game.id, away.id)}
                       className={cn(
-                        "px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ring-offset-2 active:ring-2 active:ring-emerald-500",
-                        game.isTie ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30" : "bg-stone-100/50 text-stone-400 border-stone-200 hover:bg-stone-100 hover:text-stone-600"
+                        "flex items-center gap-5 flex-1 p-3 rounded-2xl transition-all text-left",
+                        game.winnerId === away.id ? "bg-rose-500/5 ring-1 ring-rose-500/20 shadow-sm" : "hover:bg-stone-50"
                       )}
                     >
-                      Tie
-                    </button>
-                    <div className="text-[10px] font-black text-stone-300 italic tracking-widest">VS</div>
-                    {game.winnerId === undefined && !game.isTie && (
-                      <button 
-                        onClick={() => setActiveBroadcastGameId(game.id)}
-                        className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all border border-emerald-100 flex items-center justify-center gap-2 group"
-                        title="Watch Live Broadcast"
-                      >
-                        <Monitor className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        <span className="text-[8px] font-black uppercase tracking-tighter">Live</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <button 
-                    onClick={() => handlePick(game.id, home.id)}
-                    className={cn(
-                      "flex-1 flex items-center justify-between gap-3 p-3 rounded-xl transition-all border-2",
-                      game.winnerId === home.id ? "border-emerald-500 bg-emerald-50/20 shadow-inner" : "border-transparent bg-stone-50/40 hover:bg-stone-50"
-                    )}
-                  >
-                    {game.homeScore !== undefined && (
-                      <span className="text-5xl font-black text-stone-900 tabular-nums italic tracking-tighter">{game.homeScore}</span>
-                    )}
-                    <div className="flex items-center gap-4 text-right ml-auto">
-                      <div className="text-right">
-                        <p className="text-[10px] font-black text-stone-200 uppercase tracking-widest mb-1 font-sans">Home</p>
-                        <span className="font-black text-stone-900 text-xl leading-none block text-right uppercase tracking-tighter italic">
-                          {homeStanding <= 8 && <span className="text-stone-300 mr-1.5 not-italic text-[12px]">#{homeStanding}</span>}
-                          {home.name}
-                        </span>
-                        <div className="flex items-center justify-end gap-2 mt-1.5">
-                           <span className="text-[10px] text-stone-300 font-bold uppercase tracking-wider">Seed {homeStanding}</span>
-                           <div className="w-1 h-1 bg-stone-200 rounded-full" />
-                           <span className="text-[10px] text-stone-400 font-bold tabular-nums uppercase tracking-widest">{teamRecords[home.id]}</span>
-                        </div>
-                      </div>
-                      <div 
-                        className="w-28 h-28 rounded-full flex items-center justify-center border-2 border-stone-100 shadow-md relative overflow-hidden bg-white shrink-0"
-                        style={{ borderColor: !home.logoUrl ? home.primaryColor : 'white' }}
-                      >
-                        {home.logoUrl ? (
-                          <div className="relative w-full h-full">
-                            <Image src={home.logoUrl} fill className="object-cover scale-105" alt={home.id} sizes="112px" />
+                      <div className="relative group/logo shrink-0">
+                        <div 
+                          className="w-16 h-16 rounded-2xl flex items-center justify-center border shadow-sm relative z-10 bg-white overflow-hidden"
+                          style={{ borderColor: (away.primaryColor || "#000000") + '20' }}
+                        >
+                          <div className="relative w-12 h-12">
+                            <Image src={away.logoUrl || "/placeholder.png"} fill className="object-contain group-hover/logo:scale-110 transition-transform" alt={away.name} sizes="48px" />
                           </div>
+                        </div>
+                        <div className="absolute inset-0 blur-xl opacity-10 rounded-full" style={{ backgroundColor: away.primaryColor || "#000000" }} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1.5">VISITOR</span>
+                        <span 
+                          className="text-lg font-black text-stone-900 uppercase tracking-tighter italic leading-[0.9] whitespace-normal text-wrap-balance min-w-0"
+                          title={away.name}
+                        >
+                          {away.name}
+                        </span>
+                        <span className="text-[10px] text-stone-400 font-bold tabular-nums mt-1">{teamRecords[away.id]}</span>
+                      </div>
+                      {isCompleted && (
+                        <span className={cn(
+                          "text-3xl font-black tabular-nums tracking-tighter ml-auto italic",
+                          game.winnerId === away.id ? "text-rose-500" : "text-stone-300"
+                        )}>
+                          {game.awayScore}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Minimal Center Component */}
+                    <div className="flex flex-col items-center justify-center min-w-[110px] relative">
+                      <div className="absolute inset-x-0 top-1/2 h-px bg-stone-100 -z-10 w-32 -mx-10" />
+                      <div className="flex flex-col items-center gap-3 bg-white px-5 py-2.5 rounded-3xl border border-stone-100 shadow-sm relative z-10">
+                        {!isCompleted ? (
+                          <>
+                            <span className="text-[9px] font-black text-stone-500 uppercase tracking-[0.4em]">VS</span>
+                            <div className="flex gap-2">
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); setActiveBroadcastGameId(game.id); }}
+                                  className="p-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all border border-emerald-100 shadow-sm"
+                                  title="Broadcast Mode"
+                                >
+                                  <Monitor className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handlePick(game.id, 'tie'); }}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all",
+                                    game.isTie ? "bg-amber-500 border-amber-500 text-white" : "bg-stone-50 border-stone-100 text-stone-400 hover:text-stone-900 font-bold"
+                                  )}
+                                >
+                                  TIE
+                                </button>
+                            </div>
+                          </>
                         ) : (
-                          <div className="relative w-[130%] h-[130%] translate-y-3">
-                             <Image src={homeRender} fill className="object-contain drop-shadow-2xl" alt={home.name} sizes="144px" />
+                          <div className={cn(
+                            "px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-[0.2em]",
+                            game.isTie ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
+                          )}>
+                            {game.isTie ? 'Final / Tie' : 'Final'}
                           </div>
                         )}
                       </div>
+                      
+                      {storylines.length > 0 && (
+                          <div className="absolute -bottom-10 flex items-center gap-1.5 whitespace-nowrap bg-amber-500/5 border border-amber-500/10 px-3 py-1 rounded-full">
+                              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">{storylines[0].label}</span>
+                          </div>
+                      )}
                     </div>
-                  </button>
-                </div>
+
+                    {/* Home Team */}
+                    <button 
+                      onClick={() => !isSimulating && handlePick(game.id, home.id)}
+                      className={cn(
+                        "flex items-center gap-5 flex-1 p-3 rounded-2xl transition-all text-right justify-end",
+                        game.winnerId === home.id ? "bg-cyan-500/5 ring-1 ring-cyan-500/20 shadow-sm" : "hover:bg-stone-50"
+                      )}
+                    >
+                      {isCompleted && (
+                        <span className={cn(
+                          "text-3xl font-black tabular-nums tracking-tighter mr-auto italic",
+                          game.winnerId === home.id ? "text-cyan-500" : "text-stone-300"
+                        )}>
+                          {game.homeScore}
+                        </span>
+                      )}
+                      <div className="flex flex-col min-w-0 items-end">
+                        <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1.5">HOME</span>
+                        <span 
+                          className="text-lg font-black text-stone-900 uppercase tracking-tighter italic leading-[0.9] whitespace-normal text-wrap-balance min-w-0"
+                          title={home.name}
+                        >
+                          {home.name}
+                        </span>
+                        <span className="text-[10px] text-stone-400 font-bold tabular-nums mt-1">{teamRecords[home.id]}</span>
+                      </div>
+                      <div className="relative group/logo shrink-0">
+                        <div 
+                          className="w-16 h-16 rounded-2xl flex items-center justify-center border shadow-sm relative z-10 bg-white overflow-hidden"
+                          style={{ borderColor: (home.primaryColor || "#000000") + '20' }}
+                        >
+                          <div className="relative w-12 h-12">
+                            <Image src={home.logoUrl || "/placeholder.png"} fill className="object-contain group-hover/logo:scale-110 transition-transform" alt={home.name} sizes="48px" />
+                          </div>
+                        </div>
+                        <div className="absolute inset-0 blur-xl opacity-10 rounded-full" style={{ backgroundColor: home.primaryColor || "#000000" }} />
+                      </div>
+                    </button>
+                  </div>
+                </Card>
               </motion.div>
             );
           })}
         </AnimatePresence>
+      </div>
 
-        {teamsOnBye.length > 0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8">
-            <div className="flex items-center gap-4 mb-6 px-4">
-               <div className="h-px flex-1 bg-stone-100" />
-               <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300 whitespace-nowrap">Bye Weeks</h4>
-               <div className="h-px flex-1 bg-stone-100" />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {teamsOnBye.map(team => {
-                  const renderUrl = STUFFY_RENDER_MAP[team.icon as StuffyIcon] || STUFFY_RENDER_MAP.TeddyBear;
-                  return (
-                     <div key={team.id} className="bg-white rounded-xl p-2 border border-stone-100 flex items-center gap-3 group hover:shadow-lg transition-all duration-500">
-                        <div className="w-20 h-20 rounded-full flex items-center justify-center border-2 border-stone-100 shadow-md relative overflow-hidden group-hover:scale-110 transition-transform bg-white shrink-0" style={{ borderColor: team.logoUrl ? 'white' : team.primaryColor }}>
-                          {team.logoUrl ? (
-                            <div className="relative w-full h-full">
-                              <Image src={team.logoUrl} fill className="object-cover scale-105" alt={team.id} sizes="80px" />
-                            </div>
-                         ) : (
-                           <div className="relative w-[130%] h-[130%] translate-y-2">
-                              <Image src={renderUrl} fill className="object-contain drop-shadow-md" alt={team.name} sizes="104px" />
-                           </div>
-                         )}
-                       </div>
-                      <div className="min-w-0">
-                         <span className="font-black text-stone-900 text-xs leading-tight block truncate uppercase tracking-tighter italic">{team.name}</span>
-                         <p className="text-[8px] font-black text-emerald-500/60 uppercase tracking-widest mt-0.5">Resting</p>
+      {/* Bye Weeks Section */}
+      {teamsOnBye.length > 0 && (
+        <div className="pt-8 border-t border-stone-100">
+          <div className="flex items-center gap-4 mb-8 px-4">
+             <div className="h-px flex-1 bg-stone-100" />
+             <h4 className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-300 whitespace-nowrap">Bye Week Protocols</h4>
+             <div className="h-px flex-1 bg-stone-100" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-6">
+              {teamsOnBye.map(team => (
+                 <div key={team.id} className="flex flex-col items-center gap-3">
+                    <div className="w-16 h-16 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center overflow-hidden grayscale opacity-40">
+                      <div className="relative w-10 h-10">
+                        <Image src={team.logoUrl || "/placeholder.png"} fill alt={team.name} className="object-contain" sizes="40px" />
                       </div>
                     </div>
-                  );
-                })}
-            </div>
-          </motion.div>
-        )}
-      </div>
+                    <span className="text-[10px] font-black text-stone-400 uppercase tracking-tighter w-full text-center italic" title={team.name}>{team.name}</span>
+                  </div>
+              ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
