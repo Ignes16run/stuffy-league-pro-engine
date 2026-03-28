@@ -1,8 +1,7 @@
-// Last Updated: 2026-03-23T10:20:00-04:00
-import { Team, Player, Game, SeasonHistory, PlayoffGame, PlayerStats } from './types';
+import { Team, Player, Game, SeasonHistory, PlayoffGame, PlayerStats, NewsStory } from './types';
 import { syncTeamStructures } from './structureEngine';
 
-export const CURRENT_DATA_VERSION = 3;
+export const CURRENT_DATA_VERSION = 4;
 
 export interface PersistedData {
   version?: number;
@@ -17,6 +16,7 @@ export interface PersistedData {
   awardFinalists: Record<string, Player[]>;
   selectedAwards: Record<string, string>;
   awardResults: Record<string, any>;
+  news: NewsStory[];
 }
 
 /**
@@ -62,7 +62,8 @@ export function migrateData(data: any): PersistedData {
   if (!data) return {
     teams: [], players: [], games: [], playoffGames: [],
     currentWeek: 1, numWeeks: 14, history: [],
-    isAwardsPhase: false, awardFinalists: {}, selectedAwards: {}, awardResults: {}
+    isAwardsPhase: false, awardFinalists: {}, selectedAwards: {}, awardResults: {},
+    news: []
   };
 
   const migratedData = { ...data };
@@ -114,6 +115,13 @@ export function migrateData(data: any): PersistedData {
     if (!migratedData.playoffGames) migratedData.playoffGames = [];
     
     migratedData.version = 3;
+  }
+
+  // Migration to Version 4: Narrative Engine (Daily Stuffy)
+  if (version < 4) {
+    console.log(`Migrating data from version ${version} to 4 (The Daily Stuffy News Engine)...`);
+    if (!migratedData.news) migratedData.news = [];
+    migratedData.version = 4;
   }
 
   return migratedData as PersistedData;

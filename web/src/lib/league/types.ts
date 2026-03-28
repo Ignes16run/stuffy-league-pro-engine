@@ -69,14 +69,33 @@ export interface SeasonHistory {
   awardWinners?: Record<string, any>;
 }
 
+export interface NewsStory {
+  id: string;
+  week: number;
+  type: 'GAME_RECAP' | 'PLAYER_DRAMA' | 'LEAGUE_MILESTONE' | 'INTERVIEW';
+  title: string;
+  content: string;
+  imagePrompt?: string;
+  relatedTeamIds?: string[];
+  relatedPlayerIds?: string[];
+  timestamp: string;
+  feedback?: 'UP' | 'DOWN' | null;
+}
+
+// Updated: 2026-03-27T19:48Z
+
 export interface LeagueState {
   teams: Team[];
   players: Player[];
   games: Game[];
   playoffGames: PlayoffGame[];
   currentWeek: number;
+  numWeeks: number;
   history: SeasonHistory[];
-  recentNarrativesUsed: NarrativeMemoryEntry[];
+  news: NewsStory[];
+  isAwardsPhase: boolean;
+  awardFinalists: Record<string, Player[]>;
+  awardResults: Record<string, any>;
 }
 
 export type AwardType = 'MVP' | 'OPOY' | 'DPOY' | 'STPOY' | 'CHAMPION';

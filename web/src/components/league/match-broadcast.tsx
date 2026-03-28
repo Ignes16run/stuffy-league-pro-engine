@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   X, 
   Volume2,
@@ -16,7 +16,7 @@ import { STUFFY_RENDER_MAP } from "@/lib/league/assetMap";
 import { generateTickerItems } from '@/lib/league/tickerEngine';
 import { StuffyIcon } from "@/lib/league/types";
 import { cn } from "@/lib/utils";
-import { yardLineToFieldPercent, YARD_LINE_LABELS, ENDZONE_PCT, isRedZone } from "@/lib/league/fieldUtils";
+import { yardLineToFieldPercent, ENDZONE_PCT, isRedZone } from "@/lib/league/fieldUtils";
 
 // --- Audio Asset Map ---
 // All files live in /public/sounds/. Each SoundEffectType maps to one .mp3.
@@ -53,14 +53,17 @@ export default function MatchBroadcast() {
   const particleIdRef = useRef(0);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  const tickerItems = useMemo(() => 
-    generateTickerItems(games, teams, players, currentWeek, activeBroadcastGameId),
-    [games, teams, players, currentWeek, activeBroadcastGameId]
-  );
-  
   const game = useMemo(() => games.find(g => g.id === activeBroadcastGameId), [games, activeBroadcastGameId]);
   const homeTeam = useMemo(() => teams.find(t => t.id === game?.homeTeamId), [teams, game]);
   const awayTeam = useMemo(() => teams.find(t => t.id === game?.awayTeamId), [teams, game]);
+
+  const tickerItems = useMemo(() => {
+    if (!game || !homeTeam || !awayTeam) return [
+        { category: 'SYSTEM', content: 'INITIALIZING BROADCAST STREAM...', color: 'text-white' },
+        { category: 'DATA', content: 'SYNCING WEATHER & FIELD CONDITIONS', color: 'text-white/60' }
+    ];
+    return generateTickerItems(games, teams, players, currentWeek, activeBroadcastGameId);
+  }, [games, teams, players, currentWeek, activeBroadcastGameId, game, homeTeam, awayTeam]);
 
   // Reset states when the broadcast game changes
   useEffect(() => {
@@ -78,7 +81,9 @@ export default function MatchBroadcast() {
     
     const initialSteps = simulateGameSteps(game, homeTeam, awayTeam, { home: 0, away: 0 });
     return generateBroadcastSequence(initialSteps, homeTeam, awayTeam, players);
-  }, [game?.id, homeTeam?.id, awayTeam?.id, players]);
+  }, [game, homeTeam, awayTeam, players]);
+
+  // Updated: 2026-03-27T19:34Z
 
   const currentStep: BroadcastStep | undefined = localSteps[currentStepIndex];
 
@@ -210,10 +215,10 @@ export default function MatchBroadcast() {
 
   return (
     <div className="fixed inset-0 z-100 flex flex-col items-center overflow-y-auto font-sans selection:bg-emerald-500/10 selection:text-emerald-700 scroll-smooth antialiased elite-broadcast">
-      {/* Background Graphic — 'The Plush Stadium' (Tactical Toy-Core) — High Visibility Edit */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#1e1f26]">
+      {/* Background Graphic — 'The Plush Stadium' (Tactical Toy-Core) — High Fidelity Edit */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-[#16171d]">
         {/* Surface Depth Highlight */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.06)_0%,transparent_70%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08)_0%,transparent_80%)]" />
         
         {/* Fiber Texture — Fixed Filter ID & Increased Opacity */}
         <div className="absolute inset-0 opacity-[0.5] mix-blend-soft-light" 
@@ -544,91 +549,92 @@ export default function MatchBroadcast() {
                     }}
                 >
                     <AnimatePresence mode="wait">
-                        {/* Big Play Emphasis Overlay */}
-                        {['INTERCEPTION', 'FUMBLE', 'TURNOVER_ON_DOWNS'].includes(currentStep?.type || '') && (
-                            <motion.div 
-                                initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 1.05 }}
-                                className="absolute -top-12 left-1/2 -translate-x-1/2 z-20"
-                            >
-                                <div className="bg-stone-900 border border-emerald-500/40 text-emerald-400 px-8 py-2.5 rounded-full font-black text-[10px] tracking-[0.4em] uppercase shadow-2xl backdrop-blur-xl whitespace-nowrap">
-                                    {currentStep?.type.replace(/_/g, ' ')}
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {/* #4 — 3D Flip Card */}
-                        <motion.div
-                            key={currentStepIndex}
-                            initial={{ y: 20, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: -20, opacity: 0 }}
-                            transition={{ duration: 0.4, delay: 0.1 }}
-                            className="relative w-full"
-                            style={{ transformStyle: 'preserve-3d' }}
-                        >
-                            {/* Card 3D container */}
-                            <motion.div
-                                animate={{ rotateY: isCardFlipped ? 180 : 0 }}
-                                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                                style={{ transformStyle: 'preserve-3d', position: 'relative' }}
-                                className="w-full cursor-pointer select-none"
-                            >
-                                {/* — FRONT: Commentary — */}
-                                <div className="space-y-4" style={{ backfaceVisibility: 'hidden' }}>
-                                    <div className="space-y-1">
-                                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.5em] block mb-2">Live Play-by-Play</span>
-                                        <h2 className="text-3xl md:text-4xl text-white font-black leading-tight italic tracking-tight uppercase">
-                                            {currentStep?.commentary || "GAME ON!"}
-                                        </h2>
-                                    </div>
-                                    <div className="h-px w-16 bg-white/10 mx-auto" />
-                                    <p className="text-emerald-400/80 text-sm md:text-base font-bold tracking-tight max-w-sm mx-auto uppercase leading-relaxed">
-                                        {currentStep?.description}
-                                    </p>
-                                    {/* Hold hint */}
-                                    <motion.span
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: isCardFlipped ? 0 : 0.35 }}
-                                        transition={{ delay: 2, duration: 1 }}
-                                        className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 block mt-2"
-                                    >
-                                        Hold card for stats
-                                    </motion.span>
-                                </div>
-
-                                {/* — BACK: Stats Flash — */}
-                                <div
-                                    className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-stone-900/95 border border-white/10 rounded-2xl p-6 backdrop-blur-xl"
-                                    style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                        <motion.div key={currentStepIndex} className="relative w-full">
+                            {/* Big Play Emphasis Overlay */}
+                            {['INTERCEPTION', 'FUMBLE', 'TURNOVER_ON_DOWNS'].includes(currentStep?.type || '') && (
+                                <motion.div 
+                                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 1.05 }}
+                                    className="absolute -top-12 left-1/2 -translate-x-1/2 z-20"
                                 >
-                                    <span className="text-[9px] font-black uppercase tracking-[0.5em] text-white/40">Stats Flash</span>
-                                    <div className="grid grid-cols-2 gap-x-8 gap-y-3 w-full max-w-xs">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-black text-white tabular-nums">{currentStep?.gain ?? 0}</div>
-                                            <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Yards</div>
+                                    <div className="bg-stone-900 border border-emerald-500/40 text-emerald-400 px-8 py-2.5 rounded-full font-black text-[10px] tracking-[0.4em] uppercase shadow-2xl backdrop-blur-xl whitespace-nowrap">
+                                        {currentStep?.type.replace(/_/g, ' ')}
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* #4 — 3D Flip Card */}
+                            <motion.div
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: -20, opacity: 0 }}
+                                transition={{ duration: 0.4, delay: 0.1 }}
+                                className="relative w-full"
+                                style={{ transformStyle: 'preserve-3d' }}
+                            >
+                                {/* Card 3D container */}
+                                <motion.div
+                                    animate={{ rotateY: isCardFlipped ? 180 : 0 }}
+                                    transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                                    style={{ transformStyle: 'preserve-3d', position: 'relative' }}
+                                    className="w-full cursor-pointer select-none"
+                                >
+                                    {/* — FRONT: Commentary — */}
+                                    <div className="space-y-4" style={{ backfaceVisibility: 'hidden' }}>
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.5em] block mb-2">Live Play-by-Play</span>
+                                            <h2 className="text-3xl md:text-4xl text-white font-black leading-tight italic tracking-tight uppercase">
+                                                {currentStep?.commentary || "GAME ON!"}
+                                            </h2>
                                         </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-black text-white tabular-nums">
-                                                {currentStep?.down ? `${currentStep.down} & ${currentStep.distance}` : '—'}
+                                        <div className="h-px w-16 bg-white/10 mx-auto" />
+                                        <p className="text-emerald-400/80 text-sm md:text-base font-bold tracking-tight max-w-sm mx-auto uppercase leading-relaxed">
+                                            {currentStep?.description}
+                                        </p>
+                                        {/* Hold hint */}
+                                        <motion.span
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: isCardFlipped ? 0 : 0.35 }}
+                                            transition={{ delay: 2, duration: 1 }}
+                                            className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 block mt-2"
+                                        >
+                                            Hold card for stats
+                                        </motion.span>
+                                    </div>
+
+                                    {/* — BACK: Stats Flash — */}
+                                    <div
+                                        className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-stone-900/95 border border-white/10 rounded-2xl p-6 backdrop-blur-xl"
+                                        style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                                    >
+                                        <span className="text-[9px] font-black uppercase tracking-[0.5em] text-white/40">Stats Flash</span>
+                                        <div className="grid grid-cols-2 gap-x-8 gap-y-3 w-full max-w-xs">
+                                            <div className="text-center">
+                                                <div className="text-2xl font-black text-white tabular-nums">{currentStep?.gain ?? 0}</div>
+                                                <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Yards</div>
                                             </div>
-                                            <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Down & Dist</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-black tabular-nums" style={{ color: possessionColor }}>
-                                                Q{currentStep?.quarter ?? 1}
+                                            <div className="text-center">
+                                                <div className="text-2xl font-black text-white tabular-nums">
+                                                    {currentStep?.down ? `${currentStep.down} & ${currentStep.distance}` : '—'}
+                                                </div>
+                                                <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Down & Dist</div>
                                             </div>
-                                            <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Quarter</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-xs font-black uppercase truncate max-w-[100px] mx-auto" style={{ color: possessionColor }}>
-                                                {currentStep?.teamInPossessionId === homeTeam?.id ? homeTeam?.name : awayTeam?.name}
+                                            <div className="text-center">
+                                                <div className="text-2xl font-black tabular-nums" style={{ color: possessionColor }}>
+                                                    Q{currentStep?.quarter ?? 1}
+                                                </div>
+                                                <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Quarter</div>
                                             </div>
-                                            <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Ball</div>
+                                            <div className="text-center">
+                                                <div className="text-xs font-black uppercase truncate max-w-[100px] mx-auto" style={{ color: possessionColor }}>
+                                                    {currentStep?.teamInPossessionId === homeTeam?.id ? homeTeam?.name : awayTeam?.name}
+                                                </div>
+                                                <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Ball</div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             </motion.div>
                         </motion.div>
                     </AnimatePresence>
@@ -775,7 +781,7 @@ export default function MatchBroadcast() {
                                     {item.category}
                                 </span>
                                 <span className={cn(
-                                    "text-white/90 font-black uppercase text-[12px] tracking-[0.1em] italic",
+                                    "text-white/90 font-black uppercase text-[12px] tracking-widest italic",
                                     item.color || ""
                                 )}>
                                     {item.content}
@@ -820,7 +826,7 @@ export default function MatchBroadcast() {
             animate={{ opacity: 0, scale: 2, y: -170 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 1.3, ease: 'easeOut' }}
-            className="fixed pointer-events-none z-[9999] text-3xl select-none"
+            className="fixed pointer-events-none z-9999 text-3xl select-none"
             style={{ left: p.x, top: p.y, transform: 'translateX(-50%)' }}
           >
             {p.emoji}

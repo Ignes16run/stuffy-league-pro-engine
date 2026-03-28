@@ -1,5 +1,5 @@
 // Last Updated: 2026-03-24T04:10:00Z
-import { Team, Game, Standing, Player, PlayoffGame, PlayerStats } from './types';
+import { Team, Game, Standing, Player, PlayoffGame, PlayerStats, NewsStory } from './types';
 import { assignStatsToPlayers } from './statsEngine';
 import { DEFAULT_LEAGUE_TEAMS } from './constants';
 
@@ -120,7 +120,13 @@ export function generatePlayoffBracket(standings: Standing[], size: 4 | 8): Play
   return games;
 }
 
-export function generateRealisticFootballScore(home: Team, away: Team, players: Player[]): { homeScore: number, awayScore: number } {
+export function generateRealisticFootballScore(
+  home: Team, 
+  away: Team, 
+  players: Player[],
+  homeModifier: number = 0,
+  awayModifier: number = 0
+): { homeScore: number, awayScore: number } {
   const getTeamOVR = (team: Team) => {
     const roster = players.filter(p => p.teamId === team.id);
     if (roster.length > 0) {
@@ -128,8 +134,8 @@ export function generateRealisticFootballScore(home: Team, away: Team, players: 
     }
     return team.overallRating || 70;
   };
-  const homeOVR = getTeamOVR(home);
-  const awayOVR = getTeamOVR(away);
+  const homeOVR = getTeamOVR(home) + homeModifier;
+  const awayOVR = getTeamOVR(away) + awayModifier;
   const homeIntensity = Math.floor(homeOVR / 4) + (Math.random() * 15) + 3;
   const awayIntensity = Math.floor(awayOVR / 4) + (Math.random() * 15);
   const getScore = (intensity: number) => {
@@ -174,6 +180,27 @@ export function calculatePlayerRankings(players: Player[], stat: string, directi
   const rankings: Record<string, number> = {};
   sorted.forEach((p, index) => { rankings[p.id] = index + 1; });
   return rankings;
+}
+
+/**
+ * Calculates performance modifiers based on news feedback.
+ * Thumbs Up on a story boosts related teams by +2 OVR.
+ * Thumbs Down on a story penalizes related teams by -2 OVR.
+ */
+export function getNewsModifiers(news: NewsStory[], week: number) {
+  const modifiers: Record<string, number> = {};
+  
+  // We only look at feedback from the most recent week of news
+  news.filter(s => s.week === week).forEach(story => {
+    if (!story.feedback || !story.relatedTeamIds) return;
+    
+    const modValue = story.feedback === 'UP' ? 2 : -2;
+    story.relatedTeamIds.forEach((teamId: string) => {
+      modifiers[teamId] = (modifiers[teamId] || 0) + modValue;
+    });
+  });
+  
+  return modifiers;
 }
 
 export const generateUUID = () => {

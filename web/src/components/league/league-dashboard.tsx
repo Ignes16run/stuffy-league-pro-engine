@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  RefreshCw, Trash2, Trophy, History, PlayCircle, Star, LayoutDashboard, LayoutGrid, BarChart3, User as UserIcon
+  RefreshCw, Trash2, Trophy, History, PlayCircle, Star, LayoutDashboard, LayoutGrid, BarChart3, User as UserIcon, Newspaper
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { useAuth } from '@/context/auth-context';
@@ -19,6 +19,7 @@ import LeagueHistory from './league-history';
 import ManagementView from './management-view';
 import StatsView from './stats-view';
 import MatchBroadcast from './match-broadcast';
+import { DailyStuffy } from './daily-stuffy';
 
 export default function LeagueDashboard() {
   const { activeTab, setActiveTab, resetLeague, resetPredictions } = useLeague();
@@ -26,6 +27,7 @@ export default function LeagueDashboard() {
 
   const tabs = [
     { id: 'season', label: 'Season', icon: PlayCircle },
+    { id: 'news', label: 'News', icon: Newspaper },
     { id: 'stats', label: 'Stats', icon: BarChart3 },
     { id: 'playoffs', label: 'Playoffs', icon: Trophy },
     { id: 'management', label: 'Management', icon: LayoutGrid },
@@ -133,6 +135,7 @@ export default function LeagueDashboard() {
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
               {activeTab === 'season' && <SeasonPredictor />}
+              {activeTab === 'news' && <DailyStuffy />}
               {activeTab === 'stats' && <StatsView />}
               {activeTab === 'playoffs' && <PlayoffBracket />}
               {activeTab === 'management' && <ManagementView />}

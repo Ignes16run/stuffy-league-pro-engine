@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Team, Game, PlayoffGame, SeasonHistory, Player, PlayerStats,
-  NarrativeMemoryEntry
+  NarrativeMemoryEntry, NewsStory
 } from '@/lib/league/types';
 import {
   calculateStandings,
@@ -22,6 +22,7 @@ import {
 } from '@/lib/league/constants';
 import { getAwardFinalists } from '@/lib/league/awardsEngine';
 import { assignStatsToPlayers } from '@/lib/league/statsEngine';
+import { generateWeeklyNews } from '@/lib/league/newsEngine';
 import { TEAM_EMBLEM_MAP } from '@/lib/league/assetMap';
 
 // Hooks
@@ -82,6 +83,10 @@ interface LeagueContextType {
   activeBroadcastGameId: string | null;
   setActiveBroadcastGameId: (id: string | null) => void;
   updateGameResult: (gameId: string, homeScore: number, awayScore: number, winnerId: string | 'tie' | null) => void;
+  news: NewsStory[];
+  setNews: React.Dispatch<React.SetStateAction<NewsStory[]>>;
+  generateWeeklyNews: (week: number, games: Game[], teams: Team[], players: Player[]) => NewsStory[];
+  toggleStoryFeedback: (storyId: string, feedback: 'UP' | 'DOWN') => void;
 }
 
 const LeagueContext = createContext<LeagueContextType | undefined>(undefined);
@@ -100,6 +105,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     currentWeek, setCurrentWeek, numWeeks, setNumWeeks, 
     history, setHistory, advanceWeek, updateGameResult: baseUpdateResult 
   } = useLeagueSchedule();
+
+  const [news, setNews] = useState<NewsStory[]>([]);
+  const [activeBroadcastGameId, setActiveBroadcastGameId] = useState<string | null>(null);
 
   // 2. Specialized Utility Hooks
   const recalculateStatsHelper = useCallback((allGames: Game[], allPlayers: Player[]) => {
@@ -122,7 +130,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const { isSimulating, simulateGames, simulateSeason: doSimulateSeason } = useLeagueSimulation(
-    teams, players, games, setGames, setTeams, setPlayers, recalculateStatsHelper
+    teams, players, games, news, setGames, setTeams, setPlayers, recalculateStatsHelper
   );
 
   const [recentNarrativesUsed, setRecentNarrativesUsed] = useState<NarrativeMemoryEntry[]>([]);
@@ -133,7 +141,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   } = useLeagueAwards(players, teams, history, recentNarrativesUsed, setRecentNarrativesUsed);
 
   const calculateAwards = useCallback(() => {
-    const results = baseCalculateAwards();
+    const results = baseCalculateAwards() as Record<string, any>;
     const championshipGame = playoffGames.find(g => g.round === 3);
     if (championshipGame) {
       const winnerId = championshipGame.winnerId || (championshipGame.team1Score !== undefined && championshipGame.team2Score !== undefined ? 
@@ -144,7 +152,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
         results['CHAMPION'] = { 
           winner: { id: champTeam.id, name: champTeam.name, teamId: champTeam.id }, 
           narrative: `The ${champTeam.name} are your Stuffy League Champions! A season for the history books.`
-        } as any;
+        };
       }
     }
     return results;
@@ -152,9 +160,10 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
 
   // 3. UI and Persistence
   const [activeTab, setActiveTab] = useState('season');
-  const [activeBroadcastGameId, setActiveBroadcastGameId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const { loadLocal, saveLocal, saveSupabase, loadSupabase, clearAll } = useLeaguePersistence();
+
+  // Updated: 2026-03-27T19:53Z
 
   // Initialization Effect
   useEffect(() => {
@@ -175,23 +184,24 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
       setCurrentWeek(data.currentWeek || 1);
       setNumWeeks(data.numWeeks || (data.teams?.length > 0 ? data.teams.length - 1 : NUM_WEEKS_DEFAULT));
       setHistory(data.history || []);
+      setNews(data.news || []);
       setIsAwardsPhase(data.isAwardsPhase || false);
       setAwardFinalists(data.awardFinalists || {});
       setAwardResults(data.awardResults || {});
     }
     const timer = setTimeout(() => setIsInitializing(false), 0);
     return () => clearTimeout(timer);
-  }, [loadLocal, setIsAwardsPhase, setAwardFinalists, setAwardResults, setTeams, setPlayers, setGames, setPlayoffGames, setCurrentWeek, setNumWeeks, setHistory]);
+  }, [loadLocal, setIsAwardsPhase, setAwardFinalists, setAwardResults, setTeams, setPlayers, setGames, setPlayoffGames, setCurrentWeek, setNumWeeks, setHistory, setNews]);
 
   // Persistence effect
   useEffect(() => {
     if (!isInitializing) {
       saveLocal({
-        teams, players, games, playoffGames, currentWeek, numWeeks, history,
+        teams, players, games, playoffGames, currentWeek, numWeeks, history, news,
         isAwardsPhase, awardFinalists, selectedAwards, awardResults
       });
     }
-  }, [teams, players, games, playoffGames, currentWeek, numWeeks, history, isInitializing, isAwardsPhase, awardFinalists, selectedAwards, awardResults, saveLocal]);
+  }, [teams, players, games, playoffGames, currentWeek, numWeeks, history, news, isInitializing, isAwardsPhase, awardFinalists, selectedAwards, awardResults, saveLocal]);
 
   // Specialized Local Logic
   const addDefaultTeams = useCallback(async () => {
@@ -252,13 +262,29 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setAwardFinalists({});
     setAwardResults({});
     setGames(generateDivisionSchedule(teams, numWeeks));
-  }, [teams, games, playoffGames, history.length, awardResults, numWeeks, setAwardResults, setPlayoffGames, setCurrentWeek, setIsAwardsPhase, setAwardFinalists, setGames, setHistory]);
+    setNews([]);
+  }, [teams, games, playoffGames, history.length, awardResults, numWeeks, setAwardResults, setPlayoffGames, setCurrentWeek, setIsAwardsPhase, setAwardFinalists, setGames, setHistory, setNews]);
+
+  const advanceWeekWithNews = useCallback(() => {
+    const currentGames = games.filter(g => g.week === currentWeek);
+    const newStories = generateWeeklyNews(currentWeek, currentGames, teams, players);
+    setNews(prev => [...newStories, ...prev]);
+    advanceWeek();
+  }, [currentWeek, games, teams, players, advanceWeek, setNews]);
+
+  const toggleStoryFeedback = useCallback((storyId: string, feedback: 'UP' | 'DOWN') => {
+    setNews(prev => prev.map(s => {
+      if (s.id !== storyId) return s;
+      const newFeedback = s.feedback === feedback ? null : feedback;
+      return { ...s, feedback: newFeedback };
+    }));
+  }, [setNews]);
 
   const value = useMemo(() => ({
     teams, players, games, playoffGames, history, activeTab, setActiveTab,
     currentWeek, numWeeks, setNumWeeks, isSimulating,
     addTeam, updateTeam, deleteTeam, updatePlayer, bulkUpdatePlayers, upgradeStat,
-    addDefaultTeams, createLeague: addDefaultTeams, setCurrentWeek, advanceWeek, simulateGames, 
+    addDefaultTeams, createLeague: addDefaultTeams, setCurrentWeek, simulateGames, 
     resetLeague: async () => {
       setTeams([]); setPlayers([]); setGames([]); setPlayoffGames([]);
       setCurrentWeek(1); setIsAwardsPhase(false); setHistory([]);
@@ -314,16 +340,20 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     },
     finalizeSeason, simulateAwards, calculateAwards, generatePlayoffs,
     activeBroadcastGameId, setActiveBroadcastGameId, 
+    news, setNews,
+    generateWeeklyNews,
+    toggleStoryFeedback,
+    advanceWeek: advanceWeekWithNews,
     updateGameResult: (gid: string, hs: number, as: number, wid: string | 'tie' | null) => 
         baseUpdateResult(gid, hs, as, wid, setGames, setPlayers, setTeams)
   }), [
     teams, players, games, playoffGames, history, activeTab, currentWeek, numWeeks, isSimulating,
     addTeam, updateTeam, deleteTeam, updatePlayer, bulkUpdatePlayers, upgradeStat,
-    addDefaultTeams, advanceWeek, simulateGames, simulateSeason, finalizeSeason, simulateAwards, 
+    addDefaultTeams, advanceWeekWithNews, simulateGames, simulateSeason, finalizeSeason, simulateAwards, 
     calculateAwards, generatePlayoffs, activeBroadcastGameId, baseUpdateResult, isInitializing,
     isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, awardResults,
     setTeams, setPlayers, setGames, setPlayoffGames, setHistory, setCurrentWeek, setNumWeeks,
-    user, clearAll, saveSupabase, loadSupabase
+    user, clearAll, saveSupabase, loadSupabase, news, setNews, toggleStoryFeedback
   ]);
 
   return (

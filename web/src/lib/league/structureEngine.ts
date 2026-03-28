@@ -2,111 +2,61 @@ import { Team, Game, Standing, PlayoffGame } from './types';
 import { calculateStandings, generateUUID } from './utils';
 import { DEFAULT_LEAGUE_TEAMS } from './constants';
 
-/**
- * Generates a schedule that ensures no bye weeks (for even number of teams).
- * Uses a balanced approach for division vs non-division games.
- */
 export function generateDivisionSchedule(teams: Team[], numWeeks: number = 14): Game[] {
+  if (teams.length < 2) return [];
+
   const games: Game[] = [];
   const teamIds = teams.map(t => t.id);
-  const n = teamIds.length;
   
-  if (n % 2 !== 0) {
-    // If odd, we'd need byes, but let's assume even for now as per user request
-    console.warn("Odd number of teams detected. Schedule will contain byes.");
+  // Handle odd number of teams by adding a 'dummy' team (representing a bye)
+  const tempTeams = [...teamIds];
+  if (tempTeams.length % 2 !== 0) {
+    tempTeams.push('DUMMY_BYE');
   }
 
-  // 1. Group by division
-  const teamsByDivision: Record<string, string[]> = {};
-  teams.forEach(t => {
-    const div = t.divisionId || 'Independent';
-    if (!teamsByDivision[div]) teamsByDivision[div] = [];
-    teamsByDivision[div].push(t.id);
-  });
+  const n = tempTeams.length;
+  const numRounds = n - 1;
+  const gamesPerRound = n / 2;
 
-  // 2. Track matchups to avoid duplicates in same week
-  const teamWeeks: Record<string, Set<number>> = {};
-  teamIds.forEach(id => teamWeeks[id] = new Set());
+  // Circle Method for Round Robin
+  // We'll generate as many full round robins as needed to reach numWeeks
+  let currentWeek = 1;
+  let cycle = 0;
 
-  // 3. Round Robin for Division Games
-  // In a 4-team division, teams play each other twice = 6 games.
-  Object.values(teamsByDivision).forEach(divTeams => {
-    for (let round = 1; round <= 2; round++) {
-      for (let i = 0; i < divTeams.length; i++) {
-        for (let j = i + 1; j < divTeams.length; j++) {
+  while (currentWeek <= numWeeks) {
+    for (let round = 0; round < numRounds && currentWeek <= numWeeks; round++) {
+      for (let i = 0; i < gamesPerRound; i++) {
+        const team1 = tempTeams[i];
+        const team2 = tempTeams[n - 1 - i];
+
+        if (team1 !== 'DUMMY_BYE' && team2 !== 'DUMMY_BYE') {
+          // Alternative home/away based on cycle/round to balance
+          const isHome = (round + cycle) % 2 === 0;
           games.push({
             id: generateUUID(),
-            week: 0, // Assigned later
-            homeTeamId: round === 1 ? divTeams[i] : divTeams[j],
-            awayTeamId: round === 1 ? divTeams[j] : divTeams[i]
+            week: currentWeek,
+            homeTeamId: isHome ? team1 : team2,
+            awayTeamId: isHome ? team2 : team1
           });
         }
       }
-    }
-  });
-
-  // 4. Non-Division Games
-  // Each team needs more games to reach numWeeks
-  const teamGameCounts: Record<string, number> = {};
-  teamIds.forEach(id => {
-    teamGameCounts[id] = games.filter(g => g.homeTeamId === id || g.awayTeamId === id).length;
-  });
-
-  teamIds.forEach(tId => {
-    const team = teams.find(t => t.id === tId)!;
-    const divId = team.divisionId || 'Independent';
-    const divTeamIds = teamsByDivision[divId] || [];
-    
-    const possibleOpponents = teamIds.filter(id => id !== tId && !divTeamIds.includes(id));
-    
-    while (teamGameCounts[tId] < numWeeks) {
-      const oppId = possibleOpponents.find(id => 
-        teamGameCounts[id] < numWeeks && 
-        !games.some(g => (g.homeTeamId === tId && g.awayTeamId === id) || (g.homeTeamId === id && g.awayTeamId === tId))
-      );
       
-      if (!oppId) break;
-      
-      games.push({
-        id: generateUUID(),
-        week: 0,
-        homeTeamId: tId,
-        awayTeamId: oppId
-      });
-      teamGameCounts[tId]++;
-      teamGameCounts[oppId]++;
-    }
-  });
-
-  // 5. Assign Weeks (Greedy with conflict checking)
-  // To avoid byes, every team MUST play every week. 
-  // There should be exactly (n/2) games per week.
-  const weekGames: Record<number, Game[]> = {};
-  for (let w = 1; w <= numWeeks; w++) weekGames[w] = [];
-
-  const unassignedGames = [...games].sort(() => Math.random() - 0.5);
-  const finalGames: Game[] = [];
-
-  for (let w = 1; w <= numWeeks; w++) {
-    const busyTeams = new Set<string>();
-    
-    // Attempt to fill this week's quota (n/2 games)
-    for (let i = 0; i < unassignedGames.length; i++) {
-      const g = unassignedGames[i];
-      if (!busyTeams.has(g.homeTeamId) && !busyTeams.has(g.awayTeamId)) {
-        g.week = w;
-        busyTeams.add(g.homeTeamId);
-        busyTeams.add(g.awayTeamId);
-        finalGames.push(g);
-        unassignedGames.splice(i, 1);
-        i--;
-        
-        if (busyTeams.size === n) break; // Week is full
+      // Rotate for the next round within the cycle
+      // Fixed first element, rotate others
+      if (tempTeams.length > 2) {
+        const first = tempTeams.shift()!;
+        tempTeams.push(tempTeams.shift()!);
+        tempTeams.unshift(first);
       }
+
+      currentWeek++;
     }
+    
+    cycle++;
   }
 
-  return finalGames;
+  // Shuffle weeks slightly for variety if desired, but keep it deterministic for now
+  return games.filter(g => g.week <= numWeeks);
 }
 
 /**
