@@ -1,4 +1,4 @@
-import { Game, Team } from './types';
+import { Game, Team, Player, PlayerStats } from './types';
 
 export type GameEventType = 
   | 'KICKOFF'
@@ -55,12 +55,14 @@ export interface GameStep {
     home: TeamStats;
     away: TeamStats;
   };
+  playerStats?: Record<string, Partial<PlayerStats>>; // New: Game-level player stats
 }
 
 export function simulateGameSteps(
   game: Game, 
   homeTeam: Team, 
   awayTeam: Team,
+  players: Player[], // New: Pass players for attribution
   initialBoosts: { home: number; away: number } = { home: 0, away: 0 }
 ): GameStep[] {
   const steps: GameStep[] = [];
@@ -78,16 +80,40 @@ export function simulateGameSteps(
   let distance = 10;
   let otRound = 0;
 
+  // Initialize game-level player stats
+  const playerStats: Record<string, Partial<PlayerStats>> = {};
+  const allPlayers = players.filter(p => p.teamId === homeTeam.id || p.teamId === awayTeam.id);
+  allPlayers.forEach(p => {
+    playerStats[p.id] = {
+      passingYards: 0, passingTds: 0, rushingYards: 0, rushingTds: 0,
+      receivingYards: 0, receivingTds: 0, interceptions: 0, sacks: 0
+    };
+  });
+
+  const getTeamPlaymakers = (teamId: string) => {
+    const teamPlayers = players.filter(p => p.teamId === teamId);
+    return {
+      qb: teamPlayers.find(p => p.position === 'QB') || teamPlayers[0],
+      rb: teamPlayers.find(p => p.position === 'RB') || teamPlayers[0],
+      wrs: teamPlayers.filter(p => p.position === 'WR' || p.position === 'TE')
+    };
+  };
+
+  const homePlaymakers = getTeamPlaymakers(homeTeam.id);
+  const awayPlaymakers = getTeamPlaymakers(awayTeam.id);
+
   const addStep = (type: GameEventType, description: string, options: Partial<GameStep> = {}) => {
     const timeMins = Math.floor(currentTimeSeconds / 60);
     const timeSecs = currentTimeSeconds % 60;
+    
+    const isOvertime = otRound > 0 || type === 'OVERTIME_START';
     
     steps.push({
       type,
       description,
       homeScore,
       awayScore,
-      timeRemaining: currentQuarter > 4 ? "OT" : `${timeMins.toString().padStart(2, '0')}:${timeSecs.toString().padStart(2, '0')}`,
+      timeRemaining: isOvertime ? "OT" : (currentQuarter > 4 ? "00:00" : `${timeMins.toString().padStart(2, '0')}:${timeSecs.toString().padStart(2, '0')}`),
       quarter: currentQuarter,
       teamInPossessionId: possessionId,
       down,
@@ -98,6 +124,7 @@ export function simulateGameSteps(
         home: { ...homeStats },
         away: { ...awayStats }
       },
+      playerStats: JSON.parse(JSON.stringify(playerStats)), // Snapshot of current stats
       ...options
     });
   };
@@ -183,12 +210,39 @@ export function simulateGameSteps(
         gain = Math.floor(Math.random() * 14) + 1;
         if (Math.random() > 0.90) gain += Math.floor(Math.random() * 30);
         description = `${isHome ? homeTeam.name : awayTeam.name} rips off ${gain} yards!`;
+        const playmakers = isHome ? homePlaymakers : awayPlaymakers;
+        const isPass = Math.random() > 0.4;
+        
+        if (isPass) {
+          const wr = playmakers.wrs[Math.floor(Math.random() * playmakers.wrs.length)] || playmakers.qb;
+          const qbStats = playerStats[playmakers.qb.id];
+          const wrStats = playerStats[wr.id];
+          if (qbStats) { qbStats.passingYards = (qbStats.passingYards || 0) + gain; }
+          if (wrStats) { wrStats.receivingYards = (wrStats.receivingYards || 0) + gain; }
+        } else {
+          const rbStats = playerStats[playmakers.rb.id];
+          if (rbStats) { rbStats.rushingYards = (rbStats.rushingYards || 0) + gain; }
+        }
+
         actingStats.totalYards += gain;
         yardLine += gain;
+
         if (yardLine >= 100) {
           playType = 'TOUCHDOWN';
           description = `UNBELIEVABLE! TOUCHDOWN ${isHome ? homeTeam.name : awayTeam.name}!`;
           if (isHome) homeScore += 7; else awayScore += 7;
+          
+          if (isPass) {
+            const qbStats = playerStats[playmakers.qb.id];
+            const wr = playmakers.wrs[Math.floor(Math.random() * playmakers.wrs.length)] || playmakers.qb;
+            const wrStats = playerStats[wr.id];
+            if (qbStats) qbStats.passingTds = (qbStats.passingTds || 0) + 1;
+            if (wrStats) wrStats.receivingTds = (wrStats.receivingTds || 0) + 1;
+          } else {
+            const rbStats = playerStats[playmakers.rb.id];
+            if (rbStats) rbStats.rushingTds = (rbStats.rushingTds || 0) + 1;
+          }
+
           soundEffect = 'TOUCHDOWN';
           possessionId = isHome ? awayTeam.id : homeTeam.id;
           yardLine = 25;

@@ -17,9 +17,77 @@ export default function PlayoffBracket() {
   // Updated: 2026-03-23T10:16:00-04:00
   const { 
     teams, playoffGames, setPlayoffGames, syncPlayoffGames, 
-    completeSeason, handlePick, setActiveTab, generatePlayoffs 
+    completeSeason, setActiveTab, generatePlayoffs 
   } = useLeague();
   const [isSimulating, setIsSimulating] = useState(false);
+
+  const handleManualPick = async (gameId: string, winnerId: string) => {
+    if (isSimulating) return;
+    
+    const nextGames = [...playoffGames];
+    const game = nextGames.find(g => g.id === gameId);
+    if (!game || !game.team1Id || !game.team2Id) return;
+
+    // Set mock scores based on pick
+    if (winnerId === game.team1Id) {
+       game.team1Score = 24;
+       game.team2Score = 14;
+    } else {
+       game.team1Score = 14;
+       game.team2Score = 24;
+    }
+    game.winnerId = winnerId;
+
+    // Advance to next round
+    const nextRound = game.round + 1;
+    const nextMatchIdx = Math.floor(game.matchupIndex / 2);
+    const isSlot1 = game.matchupIndex % 2 === 0;
+
+    const targetGame = nextGames.find(g => g.round === nextRound && g.matchupIndex === nextMatchIdx);
+    if (targetGame) {
+       const oldWinnerId = isSlot1 ? targetGame.team1Id : targetGame.team2Id;
+       
+       if (isSlot1) {
+          targetGame.team1Id = game.winnerId;
+          targetGame.seed1 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
+       } else {
+          targetGame.team2Id = game.winnerId;
+          targetGame.seed2 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
+       }
+
+       // Clear downstream recursively if winner changed
+       if (oldWinnerId && oldWinnerId !== game.winnerId) {
+          clearDownstream(nextGames, nextRound, nextMatchIdx);
+       }
+    }
+
+    setPlayoffGames(nextGames);
+    await syncPlayoffGames(nextGames);
+  };
+
+  const clearDownstream = (games: PlayoffGame[], round: number, matchupIdx: number) => {
+    const game = games.find(g => g.round === round && g.matchupIndex === matchupIdx);
+    if (!game) return;
+
+    game.winnerId = undefined;
+    game.team1Score = undefined;
+    game.team2Score = undefined;
+
+    const nextRound = round + 1;
+    const nextMatchIdx = Math.floor(matchupIdx / 2);
+    const target = games.find(g => g.round === nextRound && g.matchupIndex === nextMatchIdx);
+    
+    if (target) {
+       if (matchupIdx % 2 === 0) {
+          target.team1Id = undefined;
+          target.seed1 = undefined;
+       } else {
+          target.team2Id = undefined;
+          target.seed2 = undefined;
+       }
+       clearDownstream(games, nextRound, nextMatchIdx);
+    }
+  };
 
   const resetPlayoffs = async () => {
     await generatePlayoffs();
@@ -159,36 +227,55 @@ export default function PlayoffBracket() {
       </div>
 
       {/* Bracket View */}
-      <div className="relative">
-         <div className="flex justify-between gap-4 items-stretch min-h-[500px] overflow-x-auto pb-8 custom-scrollbar px-2">
+       <div className="relative overflow-hidden rounded-[3rem] border border-stone-100 bg-white shadow-2xl">
+         <div className="flex justify-start gap-8 md:gap-16 items-start overflow-x-auto scroll-smooth snap-x snap-mandatory pt-12 pb-20 px-12 custom-scrollbar">
             {/* Round 1 */}
             <RoundColumn 
               round={1} 
-              title="Quarter" 
+              title="Quarter Finals" 
               games={playoffGames.filter(g => g.round === 1)} 
               teams={teams}
-              onPick={handlePick}
+              onPick={handleManualPick}
             />
             
             {/* Round 2 */}
             <RoundColumn 
               round={2} 
-              title="Semi" 
+              title="Semi Finals" 
               games={playoffGames.filter(g => g.round === 2)} 
               teams={teams}
-              onPick={handlePick}
+              onPick={handleManualPick}
             />
  
             {/* Finals */}
             <RoundColumn 
               round={3} 
-              title="Final" 
+              title="THE STUFFY BOWL" 
               games={playoffGames.filter(g => g.round === 3)} 
               teams={teams}
-              onPick={handlePick}
+              onPick={handleManualPick}
             />
          </div>
+         
+         <div className="absolute inset-y-0 left-0 w-32 bg-linear-to-r from-white to-transparent pointer-events-none z-10" />
+         <div className="absolute inset-y-0 right-0 w-32 bg-linear-to-l from-white to-transparent pointer-events-none z-10" />
       </div>
+
+      <style jsx global>{`
+         .custom-scrollbar::-webkit-scrollbar {
+           height: 8px;
+         }
+         .custom-scrollbar::-webkit-scrollbar-track {
+           background: transparent;
+         }
+         .custom-scrollbar::-webkit-scrollbar-thumb {
+           background: #e5e7eb;
+           border-radius: 10px;
+         }
+         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+           background: #d1d5db;
+         }
+      `}</style>
     </div>
   );
 }
@@ -197,7 +284,7 @@ import { Team, PlayoffGame } from '@/lib/league/types';
 
 function RoundColumn({ round, title, games, teams, onPick }: { round: number, title: string, games: PlayoffGame[], teams: Team[], onPick: (gameId: string, winnerId: string) => void }) {
   return (
-    <div className="flex-1 min-w-[280px] space-y-6">
+    <div className="flex-1 min-w-[320px] max-w-[400px] space-y-12 snap-center">
       <div className="text-center space-y-1 relative">
          <div className="absolute top-1/2 left-0 w-full h-px bg-stone-100 -z-10" />
          <div className="bg-[#fafaf9] inline-block px-4">
@@ -233,9 +320,9 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
       initial={{ opacity: 0, scale: 0.98, x: -10 }}
       animate={{ opacity: 1, scale: 1, x: 0 }}
       transition={{ delay, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-      className="relative group scale-95 origin-center"
+      className="relative group scale-100 origin-center"
     >
-      <div className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden group-hover:border-emerald-500/30 transition-all duration-500">
+      <div className="bg-white rounded-[2rem] border-2 border-stone-100 shadow-xl overflow-hidden group-hover:border-emerald-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-500/5">
          {/* Team 1 */}
          <div 
            className={cn(

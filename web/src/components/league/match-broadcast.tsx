@@ -14,7 +14,7 @@ import { simulateGameSteps, SoundEffectType } from "@/lib/league/gameSimulator";
 import { generateBroadcastSequence, BroadcastStep } from "@/lib/league/broadcastEngine";
 import { STUFFY_RENDER_MAP } from "@/lib/league/assetMap";
 import { generateTickerItems } from '@/lib/league/tickerEngine';
-import { StuffyIcon } from "@/lib/league/types";
+import { StuffyIcon, Team, Player } from "@/lib/league/types";
 import { cn } from "@/lib/utils";
 import { yardLineToFieldPercent, ENDZONE_PCT, isRedZone } from "@/lib/league/fieldUtils";
 
@@ -46,6 +46,7 @@ export default function MatchBroadcast() {
   const [isMuted, setIsMuted] = useState(false);
   const [isTurbo, setIsTurbo] = useState(false);
   const [showHalftime, setShowHalftime] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const [interactionBoost, setInteractionBoost] = useState({ home: 0, away: 0 });
   const [shakeKey, setShakeKey] = useState(0);
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; emoji: string }>>([]);
@@ -71,6 +72,7 @@ export default function MatchBroadcast() {
       setCurrentStepIndex(0);
       setIsPaused(false);
       setShowHalftime(false);
+      setShowSummary(false);
       setInteractionBoost({ home: 0, away: 0 });
     }
   }, [activeBroadcastGameId]);
@@ -79,7 +81,7 @@ export default function MatchBroadcast() {
   const localSteps = useMemo(() => {
     if (!game || !homeTeam || !awayTeam) return [];
     
-    const initialSteps = simulateGameSteps(game, homeTeam, awayTeam, { home: 0, away: 0 });
+    const initialSteps = simulateGameSteps(game, homeTeam, awayTeam, players, { home: 0, away: 0 });
     return generateBroadcastSequence(initialSteps, homeTeam, awayTeam, players);
   }, [game, homeTeam, awayTeam, players]);
 
@@ -130,6 +132,11 @@ export default function MatchBroadcast() {
       
       if (nextStep?.type === 'HALF_TIME') {
         setShowHalftime(true);
+      }
+      
+      if (nextIndex === localSteps.length - 1) {
+        // End of game, show summary after a short delay
+        setTimeout(() => setShowSummary(true), 2500);
       }
       
       setCurrentStepIndex(nextIndex);
@@ -319,7 +326,7 @@ export default function MatchBroadcast() {
                 <div className="h-px w-12 bg-white/10 my-1" />
                 <div className="flex flex-col items-center">
                     <span className="text-white/60 text-[9px] font-black uppercase tracking-[0.3em]">
-                        {currentStep?.quarter === 5 ? "OVERTIME" : `QUARTER ${currentStep?.quarter ?? 1}`}
+                        {currentStep?.type === 'GAME_END' ? "FINAL" : (currentStep?.quarter === 5 ? "OVERTIME" : `QUARTER ${currentStep?.quarter ?? 1}`)}
                     </span>
                     <div className="mt-2 px-4 py-1.5 bg-yellow-400 text-stone-950 text-[10px] font-black tracking-widest rounded-full shadow-lg shadow-yellow-400/20 uppercase">
                         {currentStep?.down ? `${currentStep.down} & ${currentStep.distance}` : "KICKOFF"}
@@ -622,7 +629,7 @@ export default function MatchBroadcast() {
                                             </div>
                                             <div className="text-center">
                                                 <div className="text-2xl font-black tabular-nums" style={{ color: possessionColor }}>
-                                                    Q{currentStep?.quarter ?? 1}
+                                                    {currentStep?.type === 'GAME_END' ? "FIN" : (currentStep?.quarter === 5 ? "OT" : `Q${currentStep?.quarter ?? 1}`)}
                                                 </div>
                                                 <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Quarter</div>
                                             </div>
@@ -815,6 +822,18 @@ export default function MatchBroadcast() {
             </div>
         </div>
 
+        <AnimatePresence>
+          {showSummary && (
+            <PostGameSummary 
+              homeTeam={homeTeam} 
+              awayTeam={awayTeam} 
+              lastStep={localSteps[localSteps.length - 1]} 
+              players={players}
+              onClose={handleFinish}
+            />
+          )}
+        </AnimatePresence>
+
       </motion.div>
 
       {/* #3 — Emoji Particle Burst: fixed-position, rendered above everything */}
@@ -847,6 +866,146 @@ export default function MatchBroadcast() {
             -webkit-font-smoothing: antialiased;
         }
       `}</style>
+    </div>
+  );
+}
+
+function PostGameSummary({ 
+  homeTeam, 
+  awayTeam, 
+  lastStep, 
+  onClose,
+  players 
+}: { 
+  homeTeam: Team, 
+  awayTeam: Team, 
+  lastStep: BroadcastStep, 
+  onClose: () => void,
+  players: Player[]
+}) {
+  const playerStats = lastStep.playerStats || {};
+  const gamePlayers = players.filter(p => p.teamId === homeTeam.id || p.teamId === awayTeam.id);
+  
+  const sortedPlayers = [...gamePlayers].sort((a, b) => {
+    const sA = playerStats[a.id] || {};
+    const sB = playerStats[b.id] || {};
+    const scoreA = (sA.passingYards || 0) + (sA.rushingYards || 0) + (sA.receivingYards || 0) + ((sA.passingTds || 0) * 50);
+    const scoreB = (sB.passingYards || 0) + (sB.rushingYards || 0) + (sB.receivingYards || 0) + ((sB.passingTds || 0) * 50);
+    return scoreB - scoreA;
+  });
+
+  const mvp = sortedPlayers[0];
+  const mvpStats = playerStats[mvp?.id] || {};
+  const mvpTeam = mvp?.teamId === homeTeam.id ? homeTeam : awayTeam;
+
+  if (!lastStep.stats) return null; // Safety guard
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      className="fixed inset-0 z-200 bg-stone-950/95 backdrop-blur-xl flex items-center justify-center p-4 md:p-8 overflow-y-auto"
+    >
+      <div className="w-full max-w-5xl bg-stone-900 border border-white/10 p-6 md:p-10 shadow-2xl rounded-[3rem] relative">
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-rose-500 via-emerald-500 to-cyan-500 rounded-t-full" />
+        
+        <div className="flex flex-col md:flex-row items-center justify-between mb-12 gap-8">
+            <div className="flex items-center gap-6">
+                 <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 p-4">
+                    <Image src={awayTeam.logoUrl || "/placeholder.png"} width={80} height={80} className="object-contain" alt="" />
+                 </div>
+                 <div className="flex flex-col">
+                    <span className="text-4xl md:text-6xl font-black text-white italic tracking-tighter">{lastStep.awayScore}</span>
+                    <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest">{awayTeam.name}</span>
+                 </div>
+            </div>
+
+            <div className="text-center">
+                <span className="bg-stone-800 text-stone-400 px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.4em] border border-white/5 mb-4 block">Final Score Report</span>
+                <span className="text-white/20 text-4xl font-black italic">VS</span>
+            </div>
+
+            <div className="flex items-center gap-6 text-right">
+                 <div className="flex flex-col items-end">
+                    <span className="text-4xl md:text-6xl font-black text-white italic tracking-tighter">{lastStep.homeScore}</span>
+                    <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">{homeTeam.name}</span>
+                 </div>
+                 <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 p-4">
+                    <Image src={homeTeam.logoUrl || "/placeholder.png"} width={80} height={80} className="object-contain" alt="" />
+                 </div>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+            {/* MVP Card */}
+            <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden flex flex-col items-center">
+                <div className="absolute top-0 right-0 p-4">
+                    <Zap className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                </div>
+                <div className="w-32 h-32 rounded-full border-4 border-emerald-500/20 mb-6 overflow-hidden bg-stone-800 relative">
+                     <Image src={STUFFY_RENDER_MAP[mvpTeam.icon] || STUFFY_RENDER_MAP.TeddyBear} fill className="object-contain p-4 drop-shadow-2xl" alt="" />
+                </div>
+                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-2">Player of the Game</span>
+                <h3 className="text-2xl font-black text-white uppercase italic tracking-tight text-center truncate w-full">{mvp?.name}</h3>
+                <p className="text-white/40 text-[11px] font-bold uppercase mt-1">{mvp?.position} • {mvp?.teamId === homeTeam.id ? homeTeam.name : awayTeam.name}</p>
+                
+                <div className="grid grid-cols-2 gap-4 w-full mt-8 pt-8 border-t border-white/5">
+                    <div className="text-center">
+                        <div className="text-xl font-black text-white">{(mvpStats.passingYards || 0) + (mvpStats.rushingYards || 0) + (mvpStats.receivingYards || 0)}</div>
+                        <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Total Yds</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-xl font-black text-emerald-400">{(mvpStats.passingTds || 0) + (mvpStats.rushingTds || 0) + (mvpStats.receivingTds || 0)}</div>
+                        <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Total TDs</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Team Stats */}
+            <div className="lg:col-span-2 bg-stone-950/40 border border-white/10 p-8 rounded-[2.5rem]">
+                <h4 className="text-[11px] font-black text-white/40 uppercase tracking-[0.4em] mb-8">Team Comparison</h4>
+                <div className="space-y-6">
+                    <StatRow label="Total Yards" home={lastStep.stats.home.totalYards} away={lastStep.stats.away.totalYards} />
+                    <StatRow label="Passing Yards" home={lastStep.stats.home.passingYards} away={lastStep.stats.away.passingYards} />
+                    <StatRow label="Rushing Yards" home={lastStep.stats.home.rushingYards} away={lastStep.stats.away.rushingYards} />
+                    <StatRow label="First Downs" home={lastStep.stats.home.firstDowns} away={lastStep.stats.away.firstDowns} />
+                    <StatRow label="Turnovers" home={lastStep.stats.home.turnovers} away={lastStep.stats.away.turnovers} inverse />
+                </div>
+            </div>
+        </div>
+
+        <div className="flex justify-center">
+            <button 
+                onClick={onClose} 
+                className="bg-emerald-500 text-stone-950 px-16 py-4 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-white transition-all transform hover:scale-105 active:scale-95 shadow-xl shadow-emerald-500/20"
+            >
+                Return to League
+            </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function StatRow({ label, home, away, inverse = false }: { label: string, home: number, away: number, inverse?: boolean }) {
+  const homeBetter = inverse ? home < away : home > away;
+  const awayBetter = inverse ? away < home : away > home;
+  
+  return (
+    <div className="flex items-center gap-6">
+        <span className={cn("text-xl font-black tabular-nums min-w-12", awayBetter ? `text-white` : "text-white/20")}>{away}</span>
+        <div className="flex-1 flex flex-col gap-1.5">
+            <div className="flex justify-between text-[8px] font-black text-white/30 uppercase tracking-widest mb-1">
+                <span>Visitor</span>
+                <span>{label}</span>
+                <span>Home</span>
+            </div>
+            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden flex">
+                <div className={cn("h-full transition-all duration-1000", awayBetter ? `bg-rose-500` : "bg-white/10")} style={{ width: `${(away / (home + away || 1)) * 100}%` }} />
+                <div className={cn("h-full transition-all duration-1000", homeBetter ? `bg-cyan-500` : "bg-white/10")} style={{ width: `${(home / (home + away || 1)) * 100}%` }} />
+            </div>
+        </div>
+        <span className={cn("text-xl font-black tabular-nums min-w-12 text-right", homeBetter ? `text-white` : "text-white/20")}>{home}</span>
     </div>
   );
 }

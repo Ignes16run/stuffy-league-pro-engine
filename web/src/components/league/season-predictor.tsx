@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { generateDivisionSchedule } from '@/lib/league/structureEngine';
 
-// Last Updated: 2026-03-27T20:11Z
+// Last Updated: 2026-03-29T05:39Z
 
 export default function SeasonPredictor() {
   const {
@@ -220,7 +220,7 @@ export default function SeasonPredictor() {
       </div>
 
       {/* Matchups Grid */}
-      <div className="grid grid-cols-1 gap-12">
+      <div className="grid grid-cols-1 gap-6">
         <AnimatePresence mode="popLayout">
           {sortedWeekGames.map(({ game, storylines }, index) => {
             const home = teams.find(t => t.id === game.homeTeamId);
@@ -238,7 +238,7 @@ export default function SeasonPredictor() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 className={cn(
-                    "max-w-4xl mx-auto w-full group relative",
+                    "max-w-5xl mx-auto w-full group relative",
                     isGotw && "z-10"
                 )}
               >
@@ -279,34 +279,34 @@ export default function SeasonPredictor() {
                     <button 
                       onClick={() => !isSimulating && handlePick(game.id, away.id)}
                       className={cn(
-                        "flex items-center gap-5 flex-1 p-3 rounded-2xl transition-all text-left",
+                        "flex items-center gap-6 flex-1 p-4 rounded-2xl transition-all text-left",
                         game.winnerId === away.id ? "bg-rose-500/5 ring-1 ring-rose-500/20 shadow-sm" : "hover:bg-stone-50"
                       )}
                     >
                       <div className="relative group/logo shrink-0">
                         <div 
-                          className="w-16 h-16 rounded-2xl flex items-center justify-center border shadow-sm relative z-10 bg-white overflow-hidden"
+                          className="w-36 h-36 rounded-[2rem] flex items-center justify-center border shadow-sm relative z-10 bg-white overflow-hidden"
                           style={{ borderColor: (away.primaryColor || "#000000") + '20' }}
                         >
-                          <div className="relative w-12 h-12">
-                            <Image src={away.logoUrl || "/placeholder.png"} fill className="object-contain group-hover/logo:scale-110 transition-transform" alt={away.name} sizes="48px" />
+                          <div className="relative w-[108px] h-[108px]">
+                            <Image src={away.logoUrl || "/placeholder.png"} fill className="object-contain group-hover/logo:scale-110 transition-transform" alt={away.name} sizes="108px" />
                           </div>
                         </div>
                         <div className="absolute inset-0 blur-xl opacity-10 rounded-full" style={{ backgroundColor: away.primaryColor || "#000000" }} />
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1.5">VISITOR</span>
+                        <span className="text-[11px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1.5">VISITOR</span>
                         <span 
-                          className="text-lg font-black text-stone-900 uppercase tracking-tighter italic leading-[0.9] whitespace-normal text-wrap-balance min-w-0"
+                          className="text-2xl font-black text-stone-900 uppercase tracking-tighter italic leading-[0.9] whitespace-normal text-wrap-balance min-w-0"
                           title={away.name}
                         >
                           {away.name}
                         </span>
-                        <span className="text-[10px] text-stone-400 font-bold tabular-nums mt-1">{teamRecords[away.id]}</span>
+                        <span className="text-[11px] text-stone-400 font-bold tabular-nums mt-1.5">{teamRecords[away.id]}</span>
                       </div>
                       {isCompleted && (
                         <span className={cn(
-                          "text-3xl font-black tabular-nums tracking-tighter ml-auto italic",
+                          "text-4xl font-black tabular-nums tracking-tighter ml-auto italic",
                           game.winnerId === away.id ? "text-rose-500" : "text-stone-300"
                         )}>
                           {game.awayScore}
@@ -315,10 +315,10 @@ export default function SeasonPredictor() {
                      </button>
 
                     {/* Minimal Center Component */}
-                    <div className="flex flex-col items-center justify-center min-w-[120px] gap-4 relative">
+                    <div className="flex flex-col items-center justify-center min-w-[160px] gap-4 relative">
                       {storylines.length > 0 && (
                         <div className={cn(
-                          "px-3 py-1 rounded-full border shadow-sm flex items-center gap-1.5 whitespace-nowrap transition-all group-hover:scale-105",
+                          "px-4 py-1.5 rounded-full border shadow-sm flex items-center gap-1.5 whitespace-nowrap transition-all group-hover:scale-105",
                           storylines[0].type === 'Rivalry' && "bg-rose-50 border-rose-200 text-rose-600 ring-4 ring-rose-500/5",
                           storylines[0].type === 'UpsetWatch' && "bg-amber-50 border-amber-200 text-amber-600 ring-4 ring-amber-500/5",
                           storylines[0].type === 'PlayoffRematch' && "bg-indigo-50 border-indigo-200 text-indigo-600 ring-4 ring-indigo-500/5",
@@ -333,26 +333,26 @@ export default function SeasonPredictor() {
                             storylines[0].type === 'Streak' && "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
                             !['Rivalry', 'UpsetWatch', 'PlayoffRematch', 'Streak'].includes(storylines[0].type) && "bg-stone-400"
                           )} />
-                          <span className="text-[8px] font-black uppercase tracking-widest">{storylines[0].label}</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">{storylines[0].label}</span>
                         </div>
                       )}
 
-                      <div className="flex flex-col items-center gap-3 bg-white px-5 py-2.5 rounded-3xl border border-stone-100 shadow-sm relative z-10 w-full">
+                      <div className="flex flex-col items-center gap-4 bg-white px-6 py-4 rounded-3xl border border-stone-100 shadow-sm relative z-10 w-full">
                         {!isCompleted ? (
                           <>
-                            <span className="text-[9px] font-black text-stone-500 uppercase tracking-[0.4em]">VS</span>
-                            <div className="flex gap-2">
+                            <span className="text-[10px] font-black text-stone-500 uppercase tracking-[0.4em]">VS</span>
+                            <div className="flex gap-2.5">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); setActiveBroadcastGameId(game.id); }}
-                                  className="p-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all border border-emerald-100 shadow-sm"
+                                  className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all border border-emerald-100 shadow-sm"
                                   title="Broadcast Mode"
                                 >
-                                  <Monitor className="w-4 h-4" />
+                                  <Monitor className="w-4.5 h-4.5" />
                                 </button>
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); handlePick(game.id, 'tie'); }}
                                   className={cn(
-                                    "px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all",
+                                    "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
                                     game.isTie ? "bg-amber-500 border-amber-500 text-white" : "bg-stone-50 border-stone-100 text-stone-400 hover:text-stone-900 font-bold"
                                   )}
                                 >
@@ -362,10 +362,10 @@ export default function SeasonPredictor() {
                           </>
                         ) : (
                           <div className={cn(
-                            "px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-[0.2em]",
+                            "px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em]",
                             game.isTie ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
                           )}>
-                            {game.isTie ? 'Final / Tie' : 'Final'}
+                             {game.isTie ? 'Final / Tie' : 'Final'}
                           </div>
                         )}
                       </div>
@@ -375,35 +375,35 @@ export default function SeasonPredictor() {
                     <button 
                       onClick={() => !isSimulating && handlePick(game.id, home.id)}
                       className={cn(
-                        "flex items-center gap-5 flex-1 p-3 rounded-2xl transition-all text-right justify-end",
+                        "flex items-center gap-6 flex-1 p-4 rounded-2xl transition-all text-right justify-end",
                         game.winnerId === home.id ? "bg-cyan-500/5 ring-1 ring-cyan-500/20 shadow-sm" : "hover:bg-stone-50"
                       )}
                     >
                       {isCompleted && (
                         <span className={cn(
-                          "text-3xl font-black tabular-nums tracking-tighter mr-auto italic",
+                          "text-4xl font-black tabular-nums tracking-tighter mr-auto italic",
                           game.winnerId === home.id ? "text-cyan-500" : "text-stone-300"
                         )}>
                           {game.homeScore}
                         </span>
                       )}
                       <div className="flex flex-col min-w-0 items-end">
-                        <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1.5">HOME</span>
+                        <span className="text-[11px] font-black text-stone-300 uppercase tracking-widest leading-none mb-1.5">HOME</span>
                         <span 
-                          className="text-lg font-black text-stone-900 uppercase tracking-tighter italic leading-[0.9] whitespace-normal text-wrap-balance min-w-0"
+                          className="text-2xl font-black text-stone-900 uppercase tracking-tighter italic leading-[0.9] whitespace-normal text-wrap-balance min-w-0"
                           title={home.name}
                         >
                           {home.name}
                         </span>
-                        <span className="text-[10px] text-stone-400 font-bold tabular-nums mt-1">{teamRecords[home.id]}</span>
+                        <span className="text-[11px] text-stone-400 font-bold tabular-nums mt-1.5">{teamRecords[home.id]}</span>
                       </div>
                       <div className="relative group/logo shrink-0">
                         <div 
-                          className="w-16 h-16 rounded-2xl flex items-center justify-center border shadow-sm relative z-10 bg-white overflow-hidden"
+                          className="w-36 h-36 rounded-[2rem] flex items-center justify-center border shadow-sm relative z-10 bg-white overflow-hidden"
                           style={{ borderColor: (home.primaryColor || "#000000") + '20' }}
                         >
-                          <div className="relative w-12 h-12">
-                            <Image src={home.logoUrl || "/placeholder.png"} fill className="object-contain group-hover/logo:scale-110 transition-transform" alt={home.name} sizes="48px" />
+                          <div className="relative w-[108px] h-[108px]">
+                            <Image src={home.logoUrl || "/placeholder.png"} fill className="object-contain group-hover/logo:scale-110 transition-transform" alt={home.name} sizes="108px" />
                           </div>
                         </div>
                         <div className="absolute inset-0 blur-xl opacity-10 rounded-full" style={{ backgroundColor: home.primaryColor || "#000000" }} />
@@ -445,9 +445,9 @@ export default function SeasonPredictor() {
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-6">
               {teamsOnBye.map(team => (
                  <div key={team.id} className="flex flex-col items-center gap-3">
-                    <div className="w-16 h-16 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center overflow-hidden grayscale opacity-40">
-                      <div className="relative w-10 h-10">
-                        <Image src={team.logoUrl || "/placeholder.png"} fill alt={team.name} className="object-contain" sizes="40px" />
+                    <div className="w-24 h-24 rounded-[1.5rem] bg-stone-50 border border-stone-100 flex items-center justify-center overflow-hidden grayscale opacity-40">
+                      <div className="relative w-[60px] h-[60px]">
+                        <Image src={team.logoUrl || "/placeholder.png"} fill alt={team.name} className="object-contain" sizes="60px" />
                       </div>
                     </div>
                     <span className="text-[10px] font-black text-stone-400 uppercase tracking-tighter w-full text-center italic" title={team.name}>{team.name}</span>
