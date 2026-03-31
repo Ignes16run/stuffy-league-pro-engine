@@ -1,93 +1,26 @@
 "use client";
-// Last Updated: 2026-03-23T04:20:00-04:00
 
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Trophy, RotateCcw, Play, CheckCircle2, Star, RefreshCw
+  Trophy, RotateCcw, Play, CheckCircle2, Star, RefreshCw 
 } from 'lucide-react';
 import { useLeague } from '@/context/league-context';
 import { STUFFY_RENDER_MAP, STADIUM_BG } from '@/lib/league/assetMap';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { StuffyIcon } from '@/lib/league/types';
+import { StuffyIcon, Team, PlayoffGame } from '@/lib/league/types';
+
+// Updated: 2026-03-29T10:00:00-04:00
 
 export default function PlayoffBracket() {
-  // Updated: 2026-03-23T10:16:00-04:00
   const { 
-    teams, playoffGames, setPlayoffGames, syncPlayoffGames, 
-    completeSeason, setActiveTab, generatePlayoffs 
+    teams, playoffGames, 
+    completeSeason, setActiveTab, generatePlayoffs, updatePlayoffGameResult
   } = useLeague();
   const [isSimulating, setIsSimulating] = useState(false);
 
-  const handleManualPick = async (gameId: string, winnerId: string) => {
-    if (isSimulating) return;
-    
-    const nextGames = [...playoffGames];
-    const game = nextGames.find(g => g.id === gameId);
-    if (!game || !game.team1Id || !game.team2Id) return;
-
-    // Set mock scores based on pick
-    if (winnerId === game.team1Id) {
-       game.team1Score = 24;
-       game.team2Score = 14;
-    } else {
-       game.team1Score = 14;
-       game.team2Score = 24;
-    }
-    game.winnerId = winnerId;
-
-    // Advance to next round
-    const nextRound = game.round + 1;
-    const nextMatchIdx = Math.floor(game.matchupIndex / 2);
-    const isSlot1 = game.matchupIndex % 2 === 0;
-
-    const targetGame = nextGames.find(g => g.round === nextRound && g.matchupIndex === nextMatchIdx);
-    if (targetGame) {
-       const oldWinnerId = isSlot1 ? targetGame.team1Id : targetGame.team2Id;
-       
-       if (isSlot1) {
-          targetGame.team1Id = game.winnerId;
-          targetGame.seed1 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
-       } else {
-          targetGame.team2Id = game.winnerId;
-          targetGame.seed2 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
-       }
-
-       // Clear downstream recursively if winner changed
-       if (oldWinnerId && oldWinnerId !== game.winnerId) {
-          clearDownstream(nextGames, nextRound, nextMatchIdx);
-       }
-    }
-
-    setPlayoffGames(nextGames);
-    await syncPlayoffGames(nextGames);
-  };
-
-  const clearDownstream = (games: PlayoffGame[], round: number, matchupIdx: number) => {
-    const game = games.find(g => g.round === round && g.matchupIndex === matchupIdx);
-    if (!game) return;
-
-    game.winnerId = undefined;
-    game.team1Score = undefined;
-    game.team2Score = undefined;
-
-    const nextRound = round + 1;
-    const nextMatchIdx = Math.floor(matchupIdx / 2);
-    const target = games.find(g => g.round === nextRound && g.matchupIndex === nextMatchIdx);
-    
-    if (target) {
-       if (matchupIdx % 2 === 0) {
-          target.team1Id = undefined;
-          target.seed1 = undefined;
-       } else {
-          target.team2Id = undefined;
-          target.seed2 = undefined;
-       }
-       clearDownstream(games, nextRound, nextMatchIdx);
-    }
-  };
 
   const resetPlayoffs = async () => {
     await generatePlayoffs();
@@ -121,38 +54,16 @@ export default function PlayoffBracket() {
           const t1P = (t1.offenseRating || 72) + (t1.defenseRating || 72);
           const t2P = (t2.offenseRating || 72) + (t2.defenseRating || 72);
           
-          // Scores - Ensure no ties in playoffs
           let s1 = Math.floor(Math.random() * 20) + 10 + (t1P / 10);
           const s2 = Math.floor(Math.random() * 20) + 10 + (t2P / 10);
           
           if (Math.floor(s1) === Math.floor(s2)) {
-             s1 += 1; // Basic no-tie rule for playoffs
+             s1 += 1;
           }
           
-          game.team1Score = Math.floor(s1);
-          game.team2Score = Math.floor(s2);
-          game.winnerId = s1 > s2 ? t1.id : t2.id;
-
-          // Propagate to next round
-          const nextRound = currentRound + 1;
-          const nextMatchIdx = Math.floor(game.matchupIndex / 2);
-          const isSlot1 = game.matchupIndex % 2 === 0;
-          
-          const targetGame = nextGames.find(g => g.round === nextRound && g.matchupIndex === nextMatchIdx);
-          if (targetGame) {
-             if (isSlot1) {
-                targetGame.team1Id = game.winnerId;
-                targetGame.seed1 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
-             } else {
-                targetGame.team2Id = game.winnerId;
-                targetGame.seed2 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
-             }
-          }
+          updatePlayoffGameResult(game.id, Math.floor(s1), Math.floor(s2), s1 > s2 ? t1.id : t2.id);
        }
     }
-
-    setPlayoffGames(nextGames);
-    await syncPlayoffGames(nextGames);
     setIsSimulating(false);
   };
 
@@ -160,8 +71,7 @@ export default function PlayoffBracket() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-12 pb-20">
-      {/* Tournament Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 p-8 rounded-3xl border border-stone-100 shadow-sm relative overflow-hidden bg-white/80 backdrop-blur-xl group">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 p-8 rounded-4xl border border-stone-100 shadow-sm relative overflow-hidden bg-white/80 backdrop-blur-xl group">
         <div className="absolute inset-0 z-0 overflow-hidden opacity-10">
            <Image src={STADIUM_BG} fill className="object-cover scale-105 group-hover:scale-100 transition-transform duration-1000 saturate-0" alt="Stadium" sizes="100vw" />
            <div className="absolute inset-0 bg-linear-to-t from-white via-stone-50/20 to-transparent" />
@@ -226,34 +136,27 @@ export default function PlayoffBracket() {
         )}
       </div>
 
-      {/* Bracket View */}
        <div className="relative overflow-hidden rounded-[3rem] border border-stone-100 bg-white shadow-2xl">
          <div className="flex justify-start gap-8 md:gap-16 items-start overflow-x-auto scroll-smooth snap-x snap-mandatory pt-12 pb-20 px-12 custom-scrollbar">
-            {/* Round 1 */}
             <RoundColumn 
               round={1} 
               title="Quarter Finals" 
               games={playoffGames.filter(g => g.round === 1)} 
               teams={teams}
-              onPick={handleManualPick}
             />
             
-            {/* Round 2 */}
             <RoundColumn 
               round={2} 
               title="Semi Finals" 
               games={playoffGames.filter(g => g.round === 2)} 
               teams={teams}
-              onPick={handleManualPick}
             />
  
-            {/* Finals */}
             <RoundColumn 
               round={3} 
               title="THE STUFFY BOWL" 
               games={playoffGames.filter(g => g.round === 3)} 
               teams={teams}
-              onPick={handleManualPick}
             />
          </div>
          
@@ -280,9 +183,7 @@ export default function PlayoffBracket() {
   );
 }
 
-import { Team, PlayoffGame } from '@/lib/league/types';
-
-function RoundColumn({ round, title, games, teams, onPick }: { round: number, title: string, games: PlayoffGame[], teams: Team[], onPick: (gameId: string, winnerId: string) => void }) {
+function RoundColumn({ round, title, games, teams }: { round: number, title: string, games: PlayoffGame[], teams: Team[] }) {
   return (
     <div className="flex-1 min-w-[320px] max-w-[400px] space-y-12 snap-center">
       <div className="text-center space-y-1 relative">
@@ -295,7 +196,7 @@ function RoundColumn({ round, title, games, teams, onPick }: { round: number, ti
       
       <div className={cn("flex flex-col justify-around gap-8 min-h-full py-6")}>
         {games.map((game, idx) => (
-          <MatchupCard key={game.id} game={game} teams={teams} delay={idx * 0.05} onPick={onPick} />
+          <MatchupCard key={game.id} game={game} teams={teams} delay={idx * 0.05} />
         ))}
         {games.length === 0 && (
           <div className="flex flex-col items-center justify-center p-12 border border-dashed border-stone-100 rounded-2xl text-stone-300 space-y-4 bg-white/30">
@@ -308,7 +209,8 @@ function RoundColumn({ round, title, games, teams, onPick }: { round: number, ti
   );
 }
 
-function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams: Team[], delay: number, onPick: (gameId: string, winnerId: string) => void }) {
+function MatchupCard({ game, teams, delay }: { game: PlayoffGame, teams: Team[], delay: number }) {
+  const { updatePlayoffGameResult, setActiveBroadcastGameId } = useLeague();
   const team1 = teams.find(t => t.id === game.team1Id);
   const team2 = teams.find(t => t.id === game.team2Id);
   
@@ -322,14 +224,14 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
       transition={{ delay, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
       className="relative group scale-100 origin-center"
     >
-      <div className="bg-white rounded-[2rem] border-2 border-stone-100 shadow-xl overflow-hidden group-hover:border-emerald-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-500/5">
+      <div className="bg-white rounded-4xl border-2 border-stone-100 shadow-xl overflow-hidden group-hover:border-emerald-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-500/5">
          {/* Team 1 */}
          <div 
            className={cn(
             "p-3 flex items-center justify-between transition-all duration-500 relative",
             game.winnerId === team1?.id && !!team1?.id ? "bg-emerald-50/50" : "hover:bg-stone-50/50 cursor-pointer"
            )}
-           onClick={() => team1 && onPick(game.id, team1.id)}
+           onClick={() => team1 && updatePlayoffGameResult(game.id, 24, 14, team1.id)}
          >
             <div className="flex items-center gap-3">
                <div 
@@ -361,7 +263,6 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
             )}
          </div>
 
-         {/* Visual Divider */}
          <div className="h-px w-full bg-stone-100" />
 
          {/* Team 2 */}
@@ -370,7 +271,7 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
             "p-3 flex items-center justify-between transition-all duration-500 relative",
             game.winnerId === team2?.id && !!team2?.id ? "bg-emerald-50/50" : "hover:bg-stone-50/50 cursor-pointer"
            )}
-           onClick={() => team2 && onPick(game.id, team2.id)}
+           onClick={() => team2 && updatePlayoffGameResult(game.id, 14, 24, team2.id)}
          >
             <div className="flex items-center gap-3">
                <div 
@@ -402,8 +303,7 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
             )}
          </div>
 
-         {/* Winner Badge - Center Overlay */}
-         <AnimatePresence>
+          <AnimatePresence>
             {game.winnerId && (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
@@ -413,10 +313,27 @@ function MatchupCard({ game, teams, delay, onPick }: { game: PlayoffGame, teams:
                  <span className="text-[8px] font-black uppercase tracking-tighter">Winner</span>
               </motion.div>
             )}
-         </AnimatePresence>
-      </div>
+          </AnimatePresence>
+
+          {/* Match Actions */}
+          <div className="bg-stone-50 border-t border-stone-100 p-2 flex items-center justify-between">
+             <button 
+               onClick={(e) => {
+                 e.stopPropagation();
+                 if (team1 && team2) setActiveBroadcastGameId(game.id);
+               }}
+               disabled={!team1 || !team2}
+               className={cn(
+                 "flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                 (!team1 || !team2) ? "text-stone-300 pointer-events-none" : "hover:bg-stone-900 hover:text-white group-hover:bg-stone-900 group-hover:text-white"
+               )}
+             >
+               <Play className="w-3 h-3 fill-current" />
+               Launch Broadcast
+             </button>
+          </div>
+       </div>
       
-      {/* Branch Connectors */}
       <div className="absolute top-1/2 -right-12 w-12 h-px bg-stone-200 group-hover:bg-emerald-400/30 transition-colors duration-500" />
     </motion.div>
   );

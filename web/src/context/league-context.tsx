@@ -83,6 +83,7 @@ interface LeagueContextType {
   activeBroadcastGameId: string | null;
   setActiveBroadcastGameId: (id: string | null) => void;
   updateGameResult: (gameId: string, homeScore: number, awayScore: number, winnerId: string | 'tie' | null) => void;
+  updatePlayoffGameResult: (gameId: string, score1: number, score2: number, winnerId: string) => void;
   news: NewsStory[];
   setNews: React.Dispatch<React.SetStateAction<NewsStory[]>>;
   generateWeeklyNews: (week: number, games: Game[], teams: Team[], players: Player[]) => NewsStory[];
@@ -103,7 +104,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   const { 
     games, setGames, playoffGames, setPlayoffGames, 
     currentWeek, setCurrentWeek, numWeeks, setNumWeeks, 
-    history, setHistory, advanceWeek, updateGameResult: baseUpdateResult 
+    history, setHistory, advanceWeek, updateGameResult: baseUpdateResult, updatePlayoffResult: baseUpdatePlayoffResult 
   } = useLeagueSchedule();
 
   const [news, setNews] = useState<NewsStory[]>([]);
@@ -141,7 +142,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
   } = useLeagueAwards(players, teams, history, recentNarrativesUsed, setRecentNarrativesUsed);
 
   const calculateAwards = useCallback(() => {
-    const results = baseCalculateAwards() as Record<string, any>;
+    const results = baseCalculateAwards() as Record<string, { winner: { id: string, name: string, teamId: string }, narrative: string }>;
     const championshipGame = playoffGames.find(g => g.round === 3);
     if (championshipGame) {
       const winnerId = championshipGame.winnerId || (championshipGame.team1Score !== undefined && championshipGame.team2Score !== undefined ? 
@@ -345,7 +346,9 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     toggleStoryFeedback,
     advanceWeek: advanceWeekWithNews,
     updateGameResult: (gid: string, hs: number, as: number, wid: string | 'tie' | null) => 
-        baseUpdateResult(gid, hs, as, wid, setGames, setPlayers, setTeams)
+        baseUpdateResult(gid, hs, as, wid, setGames, setPlayers, setTeams),
+    updatePlayoffGameResult: (gid: string, s1: number, s2: number, wid: string) =>
+        baseUpdatePlayoffResult(gid, s1, s2, wid, setPlayoffGames)
   }), [
     teams, players, games, playoffGames, history, activeTab, currentWeek, numWeeks, isSimulating,
     addTeam, updateTeam, deleteTeam, updatePlayer, bulkUpdatePlayers, upgradeStat,
@@ -353,7 +356,7 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     calculateAwards, generatePlayoffs, activeBroadcastGameId, baseUpdateResult, isInitializing,
     isAwardsPhase, setIsAwardsPhase, awardFinalists, setAwardWinner, selectedAwards, awardResults,
     setTeams, setPlayers, setGames, setPlayoffGames, setHistory, setCurrentWeek, setNumWeeks,
-    user, clearAll, saveSupabase, loadSupabase, news, setNews, toggleStoryFeedback
+    user, clearAll, saveSupabase, loadSupabase, news, setNews, toggleStoryFeedback, baseUpdatePlayoffResult
   ]);
 
   return (

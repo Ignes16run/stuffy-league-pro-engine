@@ -40,7 +40,10 @@ const AMBIENT_TRACK = '/sounds/Crowd Cheering Stomping.mp3';
 // Last Updated: 2026-03-26T15:27:10-04:00
 
 export default function MatchBroadcast() {
-  const { activeBroadcastGameId, setActiveBroadcastGameId, games, teams, players, updateGameResult, currentWeek } = useLeague();
+  const { 
+    activeBroadcastGameId, setActiveBroadcastGameId, games, playoffGames, 
+    teams, players, updateGameResult, updatePlayoffGameResult, currentWeek 
+  } = useLeague();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -54,7 +57,26 @@ export default function MatchBroadcast() {
   const particleIdRef = useRef(0);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  const game = useMemo(() => games.find(g => g.id === activeBroadcastGameId), [games, activeBroadcastGameId]);
+  const game = useMemo(() => {
+    const regularGame = games.find(g => g.id === activeBroadcastGameId);
+    if (regularGame) return regularGame;
+    
+    const playoffGame = playoffGames.find(g => g.id === activeBroadcastGameId);
+    if (playoffGame) {
+      // Normalize PlayoffGame to Game interface for the broadcast engine
+      return {
+        id: playoffGame.id,
+        week: 100, // Dummy week for playoffs
+        homeTeamId: playoffGame.team1Id!,
+        awayTeamId: playoffGame.team2Id!,
+        homeScore: playoffGame.team1Score,
+        awayScore: playoffGame.team2Score,
+        winnerId: playoffGame.winnerId
+      };
+    }
+    return undefined;
+  }, [games, playoffGames, activeBroadcastGameId]);
+
   const homeTeam = useMemo(() => teams.find(t => t.id === game?.homeTeamId), [teams, game]);
   const awayTeam = useMemo(() => teams.find(t => t.id === game?.awayTeamId), [teams, game]);
 
@@ -177,13 +199,21 @@ export default function MatchBroadcast() {
   if (!activeBroadcastGameId || !game || !homeTeam || !awayTeam) return null;
 
   const handleFinish = () => {
-    if (localSteps.length === 0) return;
+    if (localSteps.length === 0 || !activeBroadcastGameId) return;
     const lastStep = localSteps[localSteps.length - 1];
     const winnerId = lastStep.homeScore > lastStep.awayScore 
-      ? homeTeam.id 
-      : (lastStep.homeScore < lastStep.awayScore ? awayTeam.id : 'tie');
+      ? homeTeam!.id 
+      : (lastStep.homeScore < lastStep.awayScore ? awayTeam!.id : 'tie');
     
-    updateGameResult(game.id, lastStep.homeScore, lastStep.awayScore, winnerId);
+    const isPlayoff = playoffGames.some(g => g.id === activeBroadcastGameId);
+    
+    if (isPlayoff) {
+      // Ties aren't allowed in playoffs in this simulation, engine handles it
+      updatePlayoffGameResult(activeBroadcastGameId, lastStep.homeScore, lastStep.awayScore, winnerId === 'tie' ? homeTeam!.id : winnerId);
+    } else {
+      updateGameResult(activeBroadcastGameId, lastStep.homeScore, lastStep.awayScore, winnerId);
+    }
+    
     setActiveBroadcastGameId(null);
   };
 

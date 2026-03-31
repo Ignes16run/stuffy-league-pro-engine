@@ -53,6 +53,61 @@ export function useLeagueSchedule() {
     });
   }, []);
 
+  const updatePlayoffResult = useCallback((
+    gameId: string, 
+    team1Score: number, 
+    team2Score: number, 
+    winnerId: string,
+    setPlayoffGames: React.Dispatch<React.SetStateAction<PlayoffGame[]>>
+  ) => {
+    setPlayoffGames(prev => {
+      const nextGames = prev.map(g => ({ ...g })); // Deepish copy
+      const game = nextGames.find(g => g.id === gameId);
+      if (!game) return prev;
+
+      game.team1Score = team1Score;
+      game.team2Score = team2Score;
+      game.winnerId = winnerId;
+
+      const nextRound = game.round + 1;
+      const nextMatchIdx = Math.floor(game.matchupIndex / 2);
+      const isSlot1 = game.matchupIndex % 2 === 0;
+
+      const targetGame = nextGames.find(g => g.round === nextRound && g.matchupIndex === nextMatchIdx);
+      if (targetGame) {
+        const oldWinnerId = isSlot1 ? targetGame.team1Id : targetGame.team2Id;
+        
+        if (isSlot1) {
+          targetGame.team1Id = game.winnerId;
+          targetGame.seed1 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
+        } else {
+          targetGame.team2Id = game.winnerId;
+          targetGame.seed2 = game.winnerId === game.team1Id ? game.seed1 : game.seed2;
+        }
+
+        if (oldWinnerId && oldWinnerId !== game.winnerId) {
+          const clear = (gs: PlayoffGame[], r: number, m: number) => {
+            const target = gs.find(g => g.round === r && g.matchupIndex === m);
+            if (!target) return;
+            target.winnerId = undefined;
+            target.team1Score = undefined;
+            target.team2Score = undefined;
+            const nR = r + 1;
+            const nM = Math.floor(m / 2);
+            const t = gs.find(g => g.round === nR && g.matchupIndex === nM);
+            if (t) {
+              if (m % 2 === 0) { t.team1Id = undefined; t.seed1 = undefined; }
+              else { t.team2Id = undefined; t.seed2 = undefined; }
+              clear(gs, nR, nM);
+            }
+          };
+          clear(nextGames, nextRound, nextMatchIdx);
+        }
+      }
+      return nextGames;
+    });
+  }, []);
+
   return {
     games,
     setGames,
@@ -65,6 +120,7 @@ export function useLeagueSchedule() {
     history,
     setHistory,
     advanceWeek,
-    updateGameResult
+    updateGameResult,
+    updatePlayoffResult
   };
 }
