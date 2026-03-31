@@ -1,7 +1,8 @@
+// Updated: 2026-03-31T16:34:00-04:00
 import { Team, Player, Game, SeasonHistory, PlayoffGame, PlayerStats, NewsStory } from './types';
 import { syncTeamStructures } from './structureEngine';
 
-export const CURRENT_DATA_VERSION = 4;
+export const CURRENT_DATA_VERSION = 5;
 
 export interface PersistedData {
   version?: number;
@@ -15,7 +16,8 @@ export interface PersistedData {
   isAwardsPhase: boolean;
   awardFinalists: Record<string, Player[]>;
   selectedAwards: Record<string, string>;
-  awardResults: Record<string, any>;
+// Updated: 2026-03-31T16:35:00-04:00
+  awardResults: Record<string, unknown>;
   news: NewsStory[];
 }
 
@@ -58,7 +60,8 @@ function migratePlayerStats(stats: Partial<PlayerStats>): PlayerStats {
  * Main migration function.
  * Incremental migrations should be added here as the DATA_VERSION increases.
  */
-export function migrateData(data: any): PersistedData {
+// Updated: 2026-03-31T16:37:00-04:00
+export function migrateData(data: unknown): PersistedData {
   if (!data) return {
     teams: [], players: [], games: [], playoffGames: [],
     currentWeek: 1, numWeeks: 14, history: [],
@@ -66,7 +69,8 @@ export function migrateData(data: any): PersistedData {
     news: []
   };
 
-  const migratedData = { ...data };
+// Updated: 2026-03-31T16:38:00-04:00
+  const migratedData = { ...(data as Partial<PersistedData>) };
   const version = migratedData.version || 0;
 
   console.log(`Checking data migration. Current version: ${version}, Target version: ${CURRENT_DATA_VERSION}`);
@@ -122,6 +126,27 @@ export function migrateData(data: any): PersistedData {
     console.log(`Migrating data from version ${version} to 4 (The Daily Stuffy News Engine)...`);
     if (!migratedData.news) migratedData.news = [];
     migratedData.version = 4;
+  }
+
+// Updated: 2026-03-31T16:40:00-04:00
+  // Migration to Version 5: News GameId Backfill
+  if (version < 5) {
+    console.log(`Migrating data from version ${version} to 5 (News GameId Backfill)...`);
+    const allGames = migratedData.games;
+    if (migratedData.news && Array.isArray(migratedData.news) && allGames) {
+      migratedData.news = migratedData.news.map((story: NewsStory) => {
+        if (story.type === 'GAME_RECAP' && !story.gameId && story.relatedTeamIds) {
+          const matchingGame = allGames.find((g: Game) => 
+            g.week === story.week && 
+            story.relatedTeamIds?.includes(g.homeTeamId) && 
+            story.relatedTeamIds?.includes(g.awayTeamId)
+          );
+          if (matchingGame) return { ...story, gameId: matchingGame.id };
+        }
+        return story;
+      });
+    }
+    migratedData.version = 5;
   }
 
   return migratedData as PersistedData;

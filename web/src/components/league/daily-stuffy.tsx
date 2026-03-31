@@ -1,17 +1,21 @@
+// Updated: 2026-03-31T16:10:00-04:00
 "use client";
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLeague } from '@/context/league-context';
 import { Newspaper, Trophy, Ghost, MessageSquare, Flame, TrendingUp, Calendar, ThumbsUp, ThumbsDown, Zap, ShieldAlert } from 'lucide-react';
 import { NewsStory } from '@/lib/league/types';
-// Updated: 2026-03-27T19:55Z
 
 /**
  * The Daily Stuffy - A dynamic narrative news feed for the league.
  * Displays contextual recaps, drama, and interviews.
  */
+// Updated: 2026-03-31T16:18:00-04:00
 export function DailyStuffy() {
-  const { news, currentWeek, games, teams, players, setNews, generateWeeklyNews, toggleStoryFeedback } = useLeague();
+  const { 
+    news, currentWeek, games, teams, players, setNews, 
+    generateWeeklyNews, toggleStoryFeedback, setActiveTab, setActiveBroadcastGameId 
+  } = useLeague();
 
   const handleManualGenerate = () => {
     const currentGames = games.filter(g => g.week === currentWeek);
@@ -44,6 +48,7 @@ export function DailyStuffy() {
     );
   }
 
+  // Updated: 2026-03-31T16:11:00-04:00
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <header className="mb-12 text-center relative">
@@ -75,8 +80,17 @@ export function DailyStuffy() {
 
       <div className="grid gap-8">
         <AnimatePresence mode="popLayout">
-          {news.filter(s => s.week === currentWeek).map((story, index) => (
-            <NewsCard key={story.id} story={story} index={index} onFeedback={toggleStoryFeedback} />
+          {news.filter(s => s.week <= currentWeek).map((story, index) => (
+            <NewsCard 
+              key={story.id} 
+              story={story} 
+              index={index} 
+              onFeedback={toggleStoryFeedback}
+              onViewReport={(gid) => {
+                setActiveBroadcastGameId(gid);
+                setActiveTab('broadcast');
+              }}
+            />
           ))}
         </AnimatePresence>
       </div>
@@ -86,7 +100,14 @@ export function DailyStuffy() {
 
 // Updated: 2026-03-27T19:56Z
 
-function NewsCard({ story, index, onFeedback }: { story: NewsStory; index: number; onFeedback: (id: string, type: 'UP' | 'DOWN') => void }) {
+function NewsCard({ 
+  story, index, onFeedback, onViewReport 
+}: { 
+  story: NewsStory; 
+  index: number; 
+  onFeedback: (id: string, type: 'UP' | 'DOWN') => void;
+  onViewReport: (gameId: string) => void;
+}) {
   const getIcon = (type: NewsStory['type']) => {
     switch (type) {
       case 'GAME_RECAP': return <Trophy className="w-4 h-4" />;
@@ -181,7 +202,11 @@ function NewsCard({ story, index, onFeedback }: { story: NewsStory; index: numbe
                  SP
                </div>
             </div>
-            <button className="text-sm font-semibold text-slate-400 hover:text-white flex items-center gap-2 transition-colors">
+            <button 
+              onClick={() => story.gameId && onViewReport(story.gameId)}
+              className="text-sm font-semibold text-slate-400 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              disabled={!story.gameId}
+            >
               Full Match Report <TrendingUp className="w-4 h-4" />
             </button>
           </div>

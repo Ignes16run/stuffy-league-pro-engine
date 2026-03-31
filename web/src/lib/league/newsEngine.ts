@@ -62,7 +62,8 @@ export function generateWeeklyNews(week: number, currentGames: Game[], teams: Te
       const isHighScoring = totalPoints >= 45;
       const isNailBiter = diff <= 3;
       
-      let template = RECAP_TEMPLATES[Math.floor(Math.random() * 2)]; // Defaults
+// Updated: 2026-03-31T16:15:00-04:00
+      let template = RECAP_TEMPLATES[Math.floor(Math.random() * RECAP_TEMPLATES.length)]; // Use all templates
       if (isBlowout) template = RECAP_TEMPLATES[0];
       else if (isNailBiter) template = RECAP_TEMPLATES[1];
       else if (isHighScoring) template = RECAP_TEMPLATES[2];
@@ -74,6 +75,7 @@ export function generateWeeklyNews(week: number, currentGames: Game[], teams: Te
         .replace("{total}", totalPoints.toString());
     }
 
+// Updated: 2026-03-31T16:17:00-04:00
     stories.push({
       id: generateUUID(),
       week,
@@ -81,6 +83,7 @@ export function generateWeeklyNews(week: number, currentGames: Game[], teams: Te
       title,
       content,
       relatedTeamIds: [game.homeTeamId, game.awayTeamId],
+      gameId: game.id,
       timestamp: now
     });
   });
@@ -90,7 +93,7 @@ export function generateWeeklyNews(week: number, currentGames: Game[], teams: Te
   for (let i = 0; i < dramaCount; i++) {
     const randomPlayer = players[Math.floor(Math.random() * players.length)];
     const playerTeam = teams.find(t => t.id === randomPlayer.teamId);
-    const rival = teams.find(t => t.id !== randomPlayer.teamId);
+    const rival = teams.filter(t => t.id !== randomPlayer.teamId)[Math.floor(Math.random() * (teams.length - 1))];
     if (!randomPlayer || !playerTeam) continue;
 
     const template = DRAMA_TEMPLATES[Math.floor(Math.random() * DRAMA_TEMPLATES.length)];
@@ -114,17 +117,21 @@ export function generateWeeklyNews(week: number, currentGames: Game[], teams: Te
   // 3. Add an Interview
   const interviewPlayer = players[Math.floor(Math.random() * players.length)];
   const interviewTeam = teams.find(t => t.id === interviewPlayer.teamId);
+  const rival = teams.find(t => t.id !== interviewPlayer?.teamId);
   const quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+  const template = INTERVIEW_TEMPLATES[Math.floor(Math.random() * INTERVIEW_TEMPLATES.length)];
   
   stories.push({
     id: generateUUID(),
     week,
     type: 'INTERVIEW',
     title: `Exclusive: Behind the Fluff`,
-    content: INTERVIEW_TEMPLATES[0]
+    content: template
       .replace("{quote}", quote)
       .replace("{player}", interviewPlayer.name)
-      .replace("{team}", interviewTeam?.name || "Team"),
+      .replace("{team}", interviewTeam?.name || "Team")
+      .replace("{team_name}", interviewTeam?.name || "Team")
+      .replace("{rival}", rival?.name || "the opponent"),
     relatedPlayerIds: [interviewPlayer.id],
     timestamp: now
   });

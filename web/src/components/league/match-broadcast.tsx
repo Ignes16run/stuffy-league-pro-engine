@@ -88,17 +88,7 @@ export default function MatchBroadcast() {
     return generateTickerItems(games, teams, players, currentWeek, activeBroadcastGameId);
   }, [games, teams, players, currentWeek, activeBroadcastGameId, game, homeTeam, awayTeam]);
 
-  // Reset states when the broadcast game changes
-  useEffect(() => {
-    if (activeBroadcastGameId) {
-      setCurrentStepIndex(0);
-      setIsPaused(false);
-      setShowHalftime(false);
-      setShowSummary(false);
-      setInteractionBoost({ home: 0, away: 0 });
-    }
-  }, [activeBroadcastGameId]);
-
+// Updated: 2026-03-31T16:44:00-04:00
   // Generate sequence exactly once per game change
   const localSteps = useMemo(() => {
     if (!game || !homeTeam || !awayTeam) return [];
@@ -106,6 +96,23 @@ export default function MatchBroadcast() {
     const initialSteps = simulateGameSteps(game, homeTeam, awayTeam, players, { home: 0, away: 0 });
     return generateBroadcastSequence(initialSteps, homeTeam, awayTeam, players);
   }, [game, homeTeam, awayTeam, players]);
+
+  // Reset states when the broadcast game changes
+  useEffect(() => {
+    if (activeBroadcastGameId && game && localSteps.length > 0) {
+      const isFinished = !!game.winnerId;
+      if (isFinished) {
+        setCurrentStepIndex(localSteps.length - 1);
+        setShowSummary(true);
+      } else {
+        setCurrentStepIndex(0);
+        setShowSummary(false);
+      }
+      setIsPaused(false);
+      setShowHalftime(false);
+      setInteractionBoost({ home: 0, away: 0 });
+    }
+  }, [activeBroadcastGameId, game, localSteps.length]);
 
   // Updated: 2026-03-27T19:34Z
 
@@ -198,8 +205,16 @@ export default function MatchBroadcast() {
 
   if (!activeBroadcastGameId || !game || !homeTeam || !awayTeam) return null;
 
+// Updated: 2026-03-31T16:46:00-04:00
   const handleFinish = () => {
-    if (localSteps.length === 0 || !activeBroadcastGameId) return;
+    if (localSteps.length === 0 || !activeBroadcastGameId || !game) return;
+    
+    // If game is already finished, just close the broadcast without updating results
+    if (game.winnerId) {
+      setActiveBroadcastGameId(null);
+      return;
+    }
+
     const lastStep = localSteps[localSteps.length - 1];
     const winnerId = lastStep.homeScore > lastStep.awayScore 
       ? homeTeam!.id 
@@ -208,7 +223,6 @@ export default function MatchBroadcast() {
     const isPlayoff = playoffGames.some(g => g.id === activeBroadcastGameId);
     
     if (isPlayoff) {
-      // Ties aren't allowed in playoffs in this simulation, engine handles it
       updatePlayoffGameResult(activeBroadcastGameId, lastStep.homeScore, lastStep.awayScore, winnerId === 'tie' ? homeTeam!.id : winnerId);
     } else {
       updateGameResult(activeBroadcastGameId, lastStep.homeScore, lastStep.awayScore, winnerId);
@@ -860,6 +874,10 @@ export default function MatchBroadcast() {
               lastStep={localSteps[localSteps.length - 1]} 
               players={players}
               onClose={handleFinish}
+              onReplay={() => {
+                setCurrentStepIndex(0);
+                setShowSummary(false);
+              }}
             />
           )}
         </AnimatePresence>
@@ -905,12 +923,14 @@ function PostGameSummary({
   awayTeam, 
   lastStep, 
   onClose,
+  onReplay,
   players 
 }: { 
   homeTeam: Team, 
   awayTeam: Team, 
   lastStep: BroadcastStep, 
   onClose: () => void,
+  onReplay: () => void,
   players: Player[]
 }) {
   const playerStats = lastStep.playerStats || {};
@@ -1004,7 +1024,13 @@ function PostGameSummary({
             </div>
         </div>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-4">
+            <button 
+                onClick={onReplay} 
+                className="bg-white/5 text-white/50 border border-white/10 px-8 py-4 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-white/10 transition-all transform hover:scale-105 active:scale-95"
+            >
+                Watch Replay
+            </button>
             <button 
                 onClick={onClose} 
                 className="bg-emerald-500 text-stone-950 px-16 py-4 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-white transition-all transform hover:scale-105 active:scale-95 shadow-xl shadow-emerald-500/20"

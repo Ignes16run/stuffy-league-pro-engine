@@ -66,9 +66,11 @@ export interface SeasonHistory {
   year: number;
   championId: string;
   finalStandings: Standing[];
-  awardWinners?: Record<string, any>;
+// Updated: 2026-03-31T16:20:00-04:00
+  awardWinners?: Record<string, unknown>;
 }
 
+// Updated: 2026-03-31T16:16:00-04:00
 export interface NewsStory {
   id: string;
   week: number;
@@ -78,6 +80,7 @@ export interface NewsStory {
   imagePrompt?: string;
   relatedTeamIds?: string[];
   relatedPlayerIds?: string[];
+  gameId?: string;
   timestamp: string;
   feedback?: 'UP' | 'DOWN' | null;
 }
@@ -95,7 +98,7 @@ export interface LeagueState {
   news: NewsStory[];
   isAwardsPhase: boolean;
   awardFinalists: Record<string, Player[]>;
-  awardResults: Record<string, any>;
+  awardResults: Record<string, unknown>;
 }
 
 export type AwardType = 'MVP' | 'OPOY' | 'DPOY' | 'STPOY' | 'CHAMPION';

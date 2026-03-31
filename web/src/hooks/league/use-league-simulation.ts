@@ -43,9 +43,9 @@ export function useLeagueSimulation(
           pointsMap.set(game.homeTeamId, (pointsMap.get(game.homeTeamId) || 0) + 25);
           pointsMap.set(game.awayTeamId, (pointsMap.get(game.awayTeamId) || 0) + 25);
         } else {
-          pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 10);
+          pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 50);
           const loserId = winnerId === game.homeTeamId ? game.awayTeamId : game.homeTeamId;
-          pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 50);
+          pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 10);
         }
       }
     });
@@ -89,9 +89,9 @@ export function useLeagueSimulation(
             pointsMap.set(game.homeTeamId, (pointsMap.get(game.homeTeamId) || 0) + 25);
             pointsMap.set(game.awayTeamId, (pointsMap.get(game.awayTeamId) || 0) + 25);
           } else {
-            pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 10);
+            pointsMap.set(winnerId!, (pointsMap.get(winnerId!) || 0) + 50);
             const loserId = winnerId === game.homeTeamId ? game.awayTeamId : game.homeTeamId;
-            pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 50);
+            pointsMap.set(loserId, (pointsMap.get(loserId) || 0) + 10);
           }
         }
       });

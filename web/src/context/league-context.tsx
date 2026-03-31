@@ -229,17 +229,26 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     setIsAwardsPhase(true);
   }, [teams, games, players, setAwardFinalists, setIsAwardsPhase, setPlayoffGames]);
 
+// Updated: 2026-03-31T16:12:00-04:00
   const simulateSeason = useCallback(async () => {
     const { currentGames, currentPlayers } = await doSimulateSeason(numWeeks);
     const allGamesFinished = currentGames.length > 0 && currentGames.every(g => g.homeScore !== undefined);
     if (allGamesFinished) {
+      // Generate news for all simulated weeks
+      const seasonalNews: NewsStory[] = [];
+      for (let w = 1; w <= numWeeks; w++) {
+        const weekGames = currentGames.filter(g => g.week === w);
+        seasonalNews.push(...generateWeeklyNews(w, weekGames, teams, currentPlayers));
+      }
+      setNews(prev => [...seasonalNews, ...prev]);
+
       const newPlayoffGames = generateConferencePlayoffs(teams, currentGames);
       setPlayoffGames(newPlayoffGames);
       const finalists = getAwardFinalists(currentPlayers);
       setAwardFinalists(finalists as Record<string, Player[]>);
       setIsAwardsPhase(true);
     }
-  }, [doSimulateSeason, numWeeks, teams, setPlayoffGames, setAwardFinalists, setIsAwardsPhase]);
+  }, [doSimulateSeason, numWeeks, teams, setPlayoffGames, setAwardFinalists, setIsAwardsPhase, setNews]);
 
   const finalizeSeason = useCallback(() => {
     const championshipGame = playoffGames.find(g => g.round === 3);
